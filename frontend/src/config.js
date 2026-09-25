@@ -392,6 +392,31 @@ export const COMPUTED = {
       total: (rows) => fmtMoney(rows.reduce((s, v) => s + Math.max(0, num(v.disbursedAmount) - num(v.totalRecovered)), 0)),
     },
   ],
+  retirement: [
+  {
+    name: 'age',
+    label: 'Age as on Date',
+    compute: (row) => {
+      if (!row.dateOfBirth) return '—';
+
+      const dob = new Date(row.dateOfBirth);
+      const today = new Date();
+
+      let age = today.getFullYear() - dob.getFullYear();
+
+      const monthDiff = today.getMonth() - dob.getMonth();
+
+      if (
+        monthDiff < 0 ||
+        (monthDiff === 0 && today.getDate() < dob.getDate())
+      ) {
+        age--;
+      }
+
+      return age >= 0 ? `${age} Years` : '—';
+    }
+  }
+],
   electricity: [
     {
       name: 'consumption',

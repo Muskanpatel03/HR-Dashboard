@@ -142,8 +142,12 @@ const MODULES = {
       { js: 'monthlyBill', db: 'monthly_bill', type: 'number' },
       { js: 'employeeRecovery', db: 'employee_recovery', type: 'number' },
     ],
+<<<<<<< HEAD
   },
  healthcheck: {
+=======
+  },healthcheck: {
+>>>>>>> e03434c (Add nodemailer for OTP email)
   table: 'healthcheck',
   columns: [
     { js: 'period', db: 'period', type: 'text' },

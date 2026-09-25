@@ -452,7 +452,30 @@ function ModuleChart({
     </div>
   );
 }
+function formatDate(value) {
+  if (!value) return '—';
 
+<<<<<<< HEAD
+=======
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return String(value);
+
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const year = date.getUTCFullYear();
+
+  return `${day}-${month}-${year}`;
+}
+export default function ModuleView({ config, editable }) {
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [formValues, setFormValues] = useState({});
+  const [search, setSearch] = useState("");
+>>>>>>> e03434c (Add nodemailer for OTP email)
 
 // ------------------------------------------------------------
 // Main ModuleView
