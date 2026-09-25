@@ -185,14 +185,46 @@ export const MODULES = [
     { name: 'monthlyBill', label: 'Monthly Bill', type: 'number' },
     { name: 'employeeRecovery', label: 'Employee Recovery', type: 'number' },
   ]},
-  { key: 'healthcheck', label: 'Health Check', icon: HeartPulse, showTotals: true, wrapHeaders: true, fields: [
-    { name: 'employeeName', label: 'Employee', type: 'text' },
-    { name: 'department', label: 'Department', type: 'select', options: DEPARTMENTS },
-    { name: 'couponIssued', label: 'Coupon Issued', type: 'select', options: ['Yes', 'No'] },
-    { name: 'couponUsed', label: 'Coupon Used', type: 'select', options: ['Yes', 'No'] },
-    { name: 'checkupDate', label: 'Check-up Date', type: 'date' },
-    { name: 'status', label: 'Status', type: 'select', options: ['Pending', 'Completed', 'Expired'] },
-  ]},
+  {
+  key: 'healthcheck',
+  label: 'Health Check',
+  icon: HeartPulse,
+  showTotals: true,
+  wrapHeaders: true,
+
+  fields: [
+    {
+      name: 'period',
+      label: 'Month / Period',
+      type: 'text'
+    },
+    {
+      name: 'asOfDate',
+      label: 'As of Date',
+      type: 'date'
+    },
+    {
+      name: 'totalCouponsPurchased',
+      label: 'Total No. Coupons Purchased',
+      type: 'number'
+    },
+    {
+      name: 'totalCouponsAvailable',
+      label: 'Total No. of Coupons Available',
+      type: 'number'
+    },
+    {
+      name: 'couponsAvailableHO',
+      label: 'No. of Coupons Available (HO)',
+      type: 'number'
+    },
+    {
+      name: 'couponsAvailableIndustries',
+      label: 'No. of Coupons Available (Industries)',
+      type: 'number'
+    }
+  ]
+},
   { key: 'engagement', label: 'Engagement', icon: PartyPopper, showTotals: true, wrapHeaders: true, fields: [
     { name: 'activityName', label: 'Activity', type: 'text' },
     { name: 'date', label: 'Date', type: 'date' },
