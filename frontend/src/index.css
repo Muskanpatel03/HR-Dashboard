@@ -1,0 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+}
+
+/* Table standard: every data table wraps its content instead of scrolling
+   horizontally — headers and cells break onto multiple lines as needed. */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+table th,
+table td {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+button {
+  transition: filter 150ms ease, transform 100ms ease, box-shadow 150ms ease;
+}
+button:not(:disabled):hover {
+  filter: brightness(0.96);
+}
+button:not(:disabled):active {
+  transform: scale(0.98);
+}
