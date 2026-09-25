@@ -19,10 +19,35 @@ function normalizeValue(val, type) {
   }
   return val;
 }
-
 function toJsRow(dbRow, columns) {
   const out = { id: dbRow.id };
-  columns.forEach((c) => { out[c.js] = dbRow[c.db]; });
+
+  columns.forEach((c) => {
+    out[c.js] = dbRow[c.db];
+  });
+
+  if (dbRow.date_of_birth) {
+    const dob = new Date(dbRow.date_of_birth);
+    const today = new Date();
+
+    let age = today.getFullYear() - dob.getFullYear();
+
+    const monthDiff = today.getMonth() - dob.getMonth();
+
+    if (
+      monthDiff < 0 ||
+      (monthDiff === 0 && today.getDate() < dob.getDate())
+    ) {
+      age--;
+    }
+
+    out.age = age;
+    out.ageAsOnDate = today.toISOString().split('T')[0];
+  } else {
+    out.age = null;
+    out.ageAsOnDate = null;
+  }
+
   return out;
 }
 
