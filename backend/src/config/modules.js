@@ -114,17 +114,17 @@ const MODULES = {
       { js: 'employeeRecovery', db: 'employee_recovery', type: 'number' },
     ],
   },
-  healthcheck: {
-    table: 'healthcheck',
-    columns: [
-      { js: 'employeeName', db: 'employee_name', type: 'text' },
-      { js: 'department', db: 'department', type: 'text' },
-      { js: 'couponIssued', db: 'coupon_issued', type: 'text' },
-      { js: 'couponUsed', db: 'coupon_used', type: 'text' },
-      { js: 'checkupDate', db: 'checkup_date', type: 'date' },
-      { js: 'status', db: 'status', type: 'text' },
-    ],
-  },
+ healthcheck: {
+  table: 'healthcheck',
+  columns: [
+    { js: 'period', db: 'period', type: 'text' },
+    { js: 'asOfDate', db: 'as_of_date', type: 'date' },
+    { js: 'totalCouponsPurchased', db: 'total_coupons_purchased', type: 'number' },
+    { js: 'totalCouponsAvailable', db: 'total_coupons_available', type: 'number' },
+    { js: 'couponsAvailableHO', db: 'coupons_available_ho', type: 'number' },
+    { js: 'couponsAvailableIndustries', db: 'coupons_available_industries', type: 'number' },
+  ],
+},
   engagement: {
     table: 'engagement',
     columns: [
