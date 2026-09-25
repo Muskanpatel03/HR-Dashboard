@@ -1,4 +1,10 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+} from "react";
+
 import {
   Search,
   Plus,
@@ -36,9 +42,9 @@ import {
 } from "../config";
 
 
-// ------------------------------------------------------------
-// Chart colors
-// ------------------------------------------------------------
+// ============================================================
+// CHART COLORS
+// ============================================================
 
 const PIE_COLORS = [
   C.steel,
@@ -50,9 +56,9 @@ const PIE_COLORS = [
 ];
 
 
-// ------------------------------------------------------------
-// Chart aggregation
-// ------------------------------------------------------------
+// ============================================================
+// CHART AGGREGATION
+// ============================================================
 
 function aggregate(records, chartConf) {
   const map = {};
@@ -61,7 +67,9 @@ function aggregate(records, chartConf) {
     const key = r[chartConf.groupBy] || "—";
 
     if (!map[key]) {
-      map[key] = { name: key };
+      map[key] = {
+        name: key,
+      };
 
       if (chartConf.series) {
         chartConf.series.forEach((s) => {
@@ -73,23 +81,29 @@ function aggregate(records, chartConf) {
     if (chartConf.series) {
       chartConf.series.forEach((s) => {
         map[key][s.key] += s.fields.reduce(
-          (sum, f) => sum + (Number(r[f]) || 0),
+          (sum, field) =>
+            sum + (Number(r[field]) || 0),
           0
         );
       });
     } else {
-      let val = 1;
+      let value = 1;
 
       if (chartConf.aggregate === "sum") {
-        val = Array.isArray(chartConf.valueField)
-          ? chartConf.valueField.reduce(
-              (sum, f) => sum + (Number(r[f]) || 0),
-              0
-            )
-          : Number(r[chartConf.valueField]) || 0;
+        if (Array.isArray(chartConf.valueField)) {
+          value = chartConf.valueField.reduce(
+            (sum, field) =>
+              sum + (Number(r[field]) || 0),
+            0
+          );
+        } else {
+          value =
+            Number(r[chartConf.valueField]) || 0;
+        }
       }
 
-      map[key].value = (map[key].value || 0) + val;
+      map[key].value =
+        (map[key].value || 0) + value;
     }
   });
 
@@ -97,30 +111,28 @@ function aggregate(records, chartConf) {
 }
 
 
-// ------------------------------------------------------------
-// CSV helper
-// ------------------------------------------------------------
+// ============================================================
+// CSV ESCAPE
+// ============================================================
 
-function csvEscape(v) {
-  const s = String(v ?? "");
+function csvEscape(value) {
+  const stringValue = String(value ?? "");
 
-  return /[",\n]/.test(s)
-    ? '"' + s.replace(/"/g, '""') + '"'
-    : s;
+  return /[",\n]/.test(stringValue)
+    ? `"${stringValue.replace(/"/g, '""')}"`
+    : stringValue;
 }
 
 
-// ------------------------------------------------------------
-// Date formatting
+// ============================================================
+// DATE FORMATTER
 //
-// PostgreSQL date values can arrive like:
-//
+// Converts:
 // 1968-07-01T00:00:00.000Z
 //
-// We display:
-//
+// Into:
 // 01-07-1968
-// ------------------------------------------------------------
+// ============================================================
 
 function formatDate(value) {
   if (
@@ -137,21 +149,23 @@ function formatDate(value) {
     return String(value);
   }
 
-  const day = String(date.getUTCDate()).padStart(2, "0");
-  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(
+    date.getUTCDate()
+  ).padStart(2, "0");
+
+  const month = String(
+    date.getUTCMonth() + 1
+  ).padStart(2, "0");
+
   const year = date.getUTCFullYear();
 
   return `${day}-${month}-${year}`;
 }
 
 
-// ------------------------------------------------------------
-// Format table values
-//
-// IMPORTANT:
-// This is what fixes the 00:00:00.000Z issue.
-// Date fields are passed through formatDate().
-// ------------------------------------------------------------
+// ============================================================
+// TABLE VALUE FORMATTER
+// ============================================================
 
 function formatCellValue(value, type) {
   if (
@@ -167,16 +181,18 @@ function formatCellValue(value, type) {
   }
 
   if (type === "number") {
-    return Number(value).toLocaleString("en-IN");
+    return Number(value).toLocaleString(
+      "en-IN"
+    );
   }
 
   return String(value);
 }
 
 
-// ------------------------------------------------------------
-// CSV download
-// ------------------------------------------------------------
+// ============================================================
+// CSV DOWNLOAD
+// ============================================================
 
 function downloadCSV(
   moduleKey,
@@ -185,31 +201,35 @@ function downloadCSV(
   rows
 ) {
   const headers = [
-    ...visibleFields.map((f) => f.label),
-    ...computedFields.map((c) => c.label),
+    ...visibleFields.map(
+      (field) => field.label
+    ),
+    ...computedFields.map(
+      (field) => field.label
+    ),
   ];
 
   const lines = [
     headers.map(csvEscape).join(","),
   ];
 
-  rows.forEach((r) => {
-    const vals = [
-      ...visibleFields.map((f) => {
+  rows.forEach((record) => {
+    const values = [
+      ...visibleFields.map((field) => {
         const value =
-          f.type === "date"
-            ? formatDate(r[f.name])
-            : r[f.name];
+          field.type === "date"
+            ? formatDate(record[field.name])
+            : record[field.name];
 
         return csvEscape(value);
       }),
 
-      ...computedFields.map((c) =>
-        csvEscape(c.compute(r))
+      ...computedFields.map((field) =>
+        csvEscape(field.compute(record))
       ),
     ];
 
-    lines.push(vals.join(","));
+    lines.push(values.join(","));
   });
 
   const blob = new Blob(
@@ -219,38 +239,47 @@ function downloadCSV(
     }
   );
 
-  const url = URL.createObjectURL(blob);
+  const url =
+    URL.createObjectURL(blob);
 
-  const a = document.createElement("a");
+  const link =
+    document.createElement("a");
 
-  a.href = url;
-  a.download =
+  link.href = url;
+
+  link.download =
     `${moduleKey}-export-${new Date()
       .toISOString()
       .slice(0, 10)}.csv`;
 
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+  document.body.appendChild(link);
+
+  link.click();
+
+  link.remove();
 
   URL.revokeObjectURL(url);
 }
 
 
-// ------------------------------------------------------------
-// Module chart
-// ------------------------------------------------------------
+// ============================================================
+// MODULE CHART
+// ============================================================
 
 function ModuleChart({
   config,
   records,
 }) {
-  const chartConf = CHARTS[config.key];
+  const chartConf =
+    CHARTS[config.key];
 
   const data = useMemo(
     () =>
       chartConf
-        ? aggregate(records, chartConf)
+        ? aggregate(
+            records,
+            chartConf
+          )
         : [],
     [chartConf, records]
   );
@@ -263,7 +292,8 @@ function ModuleChart({
   }
 
   const total = data.reduce(
-    (sum, d) => sum + (d.value || 0),
+    (sum, item) =>
+      sum + (item.value || 0),
     0
   );
 
@@ -314,24 +344,28 @@ function ModuleChart({
                 outerRadius={68}
                 paddingAngle={2}
                 label={({ percent }) =>
-                  `${(percent * 100).toFixed(0)}%`
+                  `${(
+                    percent * 100
+                  ).toFixed(0)}%`
                 }
                 labelLine={{
                   stroke: C.ink2,
                   strokeWidth: 1,
                 }}
               >
-                {data.map((_, i) => (
-                  <Cell
-                    key={i}
-                    fill={
-                      PIE_COLORS[
-                        i %
-                          PIE_COLORS.length
-                      ]
-                    }
-                  />
-                ))}
+                {data.map(
+                  (_, index) => (
+                    <Cell
+                      key={index}
+                      fill={
+                        PIE_COLORS[
+                          index %
+                            PIE_COLORS.length
+                        ]
+                      }
+                    />
+                  )
+                )}
               </Pie>
 
               <Tooltip />
@@ -379,14 +413,14 @@ function ModuleChart({
                   />
 
                   {chartConf.series.map(
-                    (s, i) => (
+                    (series, index) => (
                       <Bar
-                        key={s.key}
-                        dataKey={s.key}
-                        name={s.label}
+                        key={series.key}
+                        dataKey={series.key}
+                        name={series.label}
                         fill={
                           PIE_COLORS[
-                            i %
+                            index %
                               PIE_COLORS.length
                           ]
                         }
@@ -452,34 +486,11 @@ function ModuleChart({
     </div>
   );
 }
-function formatDate(value) {
-  if (!value) return '—';
 
-<<<<<<< HEAD
-=======
-  const date = new Date(value);
 
-  if (Number.isNaN(date.getTime())) return String(value);
-
-  const day = String(date.getUTCDate()).padStart(2, '0');
-  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-  const year = date.getUTCFullYear();
-
-  return `${day}-${month}-${year}`;
-}
-export default function ModuleView({ config, editable }) {
-  const [records, setRecords] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [formValues, setFormValues] = useState({});
-  const [search, setSearch] = useState("");
->>>>>>> e03434c (Add nodemailer for OTP email)
-
-// ------------------------------------------------------------
-// Main ModuleView
-// ------------------------------------------------------------
+// ============================================================
+// MAIN MODULE VIEW
+// ============================================================
 
 export default function ModuleView({
   config,
@@ -507,9 +518,9 @@ export default function ModuleView({
     useState("");
 
 
-  // ----------------------------------------------------------
-  // Load records
-  // ----------------------------------------------------------
+  // ==========================================================
+  // LOAD RECORDS
+  // ==========================================================
 
   const load = useCallback(
     async () => {
@@ -523,7 +534,9 @@ export default function ModuleView({
           );
 
         setRecords(
-          data.records || []
+          Array.isArray(data.records)
+            ? data.records
+            : []
         );
       } catch (err) {
         setError(
@@ -543,9 +556,9 @@ export default function ModuleView({
   }, [load]);
 
 
-  // ----------------------------------------------------------
-  // New record
-  // ----------------------------------------------------------
+  // ==========================================================
+  // NEW RECORD
+  // ==========================================================
 
   const openNew = () => {
     setFormValues({});
@@ -554,20 +567,23 @@ export default function ModuleView({
   };
 
 
-  // ----------------------------------------------------------
-  // Edit record
-  // ----------------------------------------------------------
+  // ==========================================================
+  // EDIT RECORD
+  // ==========================================================
 
   const openEdit = (record) => {
-    setFormValues(record);
+    setFormValues({
+      ...record,
+    });
+
     setEditingId(record.id);
     setShowForm(true);
   };
 
 
-  // ----------------------------------------------------------
-  // Close form
-  // ----------------------------------------------------------
+  // ==========================================================
+  // CLOSE FORM
+  // ==========================================================
 
   const closeForm = () => {
     setShowForm(false);
@@ -576,9 +592,9 @@ export default function ModuleView({
   };
 
 
-  // ----------------------------------------------------------
-  // Save record
-  // ----------------------------------------------------------
+  // ==========================================================
+  // SAVE RECORD
+  // ==========================================================
 
   const submit = async () => {
     try {
@@ -606,16 +622,17 @@ export default function ModuleView({
   };
 
 
-  // ----------------------------------------------------------
-  // Delete record
-  // ----------------------------------------------------------
+  // ==========================================================
+  // DELETE RECORD
+  // ==========================================================
 
   const remove = async (id) => {
-    if (
-      !window.confirm(
+    const confirmed =
+      window.confirm(
         "Delete this record? This cannot be undone."
-      )
-    ) {
+      );
+
+    if (!confirmed) {
       return;
     }
 
@@ -634,81 +651,125 @@ export default function ModuleView({
   };
 
 
-  // ----------------------------------------------------------
-  // Search
-  // ----------------------------------------------------------
+  // ==========================================================
+  // SEARCH
+  // ==========================================================
 
-  const filtered = records.filter(
-    (r) => {
-      if (!search.trim()) {
-        return true;
-      }
+  const filtered = useMemo(() => {
+    const query =
+      search.trim().toLowerCase();
 
-      const q =
-        search.toLowerCase();
-
-      return config.fields.some(
-        (f) => {
-          const rawValue =
-            r[f.name];
-
-          const value =
-            f.type === "date"
-              ? formatDate(rawValue)
-              : String(
-                  rawValue ?? ""
-                );
-
-          return value
-            .toLowerCase()
-            .includes(q);
-        }
-      );
+    if (!query) {
+      return records;
     }
-  );
+
+    return records.filter(
+      (record) =>
+        config.fields.some(
+          (field) => {
+            const rawValue =
+              record[field.name];
+
+            const value =
+              field.type === "date"
+                ? formatDate(rawValue)
+                : String(
+                    rawValue ?? ""
+                  );
+
+            return value
+              .toLowerCase()
+              .includes(query);
+          }
+        )
+    );
+  }, [
+    records,
+    search,
+    config.fields,
+  ]);
 
 
-  // ----------------------------------------------------------
-  // Fields
-  // ----------------------------------------------------------
+  // ==========================================================
+  // FIELDS
+  // ==========================================================
 
   const visibleFields =
     config.fields.filter(
-      (f) =>
-        f.type !== "password"
+      (field) =>
+        field.type !== "password"
     );
 
   const computedFields =
     COMPUTED[config.key] || [];
 
-  const colSpan =
-    visibleFields.length +
-    computedFields.length +
-    (editable ? 1 : 0);
+
+  // ==========================================================
+  // COLUMN GROUPS
+  // ==========================================================
+
+  const groups = useMemo(() => {
+    if (!config.columnGroups) {
+      return [
+        {
+          title: null,
+          fields: visibleFields,
+        },
+      ];
+    }
+
+    return config.columnGroups.map(
+      (group) => ({
+        title: group.title,
+
+        fields: group.fields
+          .map((fieldName) =>
+            visibleFields.find(
+              (field) =>
+                field.name ===
+                fieldName
+            )
+          )
+          .filter(Boolean),
+      })
+    );
+  }, [
+    config.columnGroups,
+    visibleFields,
+  ]);
 
 
-  // ----------------------------------------------------------
-  // Render
-  // ----------------------------------------------------------
+  // ==========================================================
+  // RENDER
+  // ==========================================================
 
   return (
     <div className="space-y-4">
 
-      {/* Chart */}
+      {/* ====================================================
+          CHART
+      ==================================================== */}
+
       <ModuleChart
         config={config}
         records={records}
       />
 
 
-      {/* Period summary */}
+      {/* ====================================================
+          PERIOD SUMMARY
+      ==================================================== */}
+
       <PeriodSummary
         config={config}
         records={records}
       />
 
 
-      {/* Search + actions */}
+      {/* ====================================================
+          SEARCH + ACTIONS
+      ==================================================== */}
+
       <div className="flex items-center justify-between gap-3 flex-wrap">
 
         <div className="relative">
@@ -723,9 +784,9 @@ export default function ModuleView({
 
           <input
             value={search}
-            onChange={(e) =>
+            onChange={(event) =>
               setSearch(
-                e.target.value
+                event.target.value
               )
             }
             placeholder="Search records…"
@@ -755,6 +816,8 @@ export default function ModuleView({
           </span>
 
 
+          {/* Export CSV */}
+
           <button
             onClick={() =>
               downloadCSV(
@@ -771,24 +834,26 @@ export default function ModuleView({
             style={{
               border: `1px solid ${C.line}`,
               color:
-                filtered.length ===
-                0
+                filtered.length === 0
                   ? C.ink2
                   : C.ink,
               opacity:
-                filtered.length ===
-                0
+                filtered.length === 0
                   ? 0.5
                   : 1,
+              cursor:
+                filtered.length === 0
+                  ? "not-allowed"
+                  : "pointer",
             }}
           >
-            <Download
-              size={14}
-            />
+            <Download size={14} />
 
             Export CSV
           </button>
 
+
+          {/* Add record */}
 
           {editable && (
             <button
@@ -809,7 +874,10 @@ export default function ModuleView({
       </div>
 
 
-      {/* View-only notice */}
+      {/* ====================================================
+          VIEW ONLY NOTICE
+      ==================================================== */}
+
       {!editable && (
         <div
           className="flex items-center gap-1.5 px-3 py-2 rounded text-xs"
@@ -818,9 +886,7 @@ export default function ModuleView({
             color: C.ink2,
           }}
         >
-          <AlertCircle
-            size={13}
-          />
+          <AlertCircle size={13} />
 
           Your role has view-only
           access to this module.
@@ -828,7 +894,10 @@ export default function ModuleView({
       )}
 
 
-      {/* Error */}
+      {/* ====================================================
+          ERROR
+      ==================================================== */}
+
       {error && (
         <div
           style={{
@@ -841,7 +910,10 @@ export default function ModuleView({
       )}
 
 
-      {/* Form */}
+      {/* ====================================================
+          RECORD FORM
+      ==================================================== */}
+
       {showForm && (
         <RecordForm
           config={config}
@@ -854,358 +926,258 @@ export default function ModuleView({
       )}
 
 
-      {/* Tables */}
-      {(() => {
-        const groups =
-          config.columnGroups
-            ? config.columnGroups.map(
-                (g) => ({
-                  title: g.title,
+      {/* ====================================================
+          TABLES
+      ==================================================== */}
 
-                  fields: g.fields
-                    .map((n) =>
-                      visibleFields.find(
-                        (f) =>
-                          f.name === n
-                      )
-                    )
-                    .filter(Boolean),
-                })
-              )
-            : [
-                {
-                  title: null,
-                  fields:
-                    visibleFields,
-                },
-              ];
+      <div className="space-y-4">
 
-        return (
-          <div className="space-y-4">
+        {groups.map(
+          (group, groupIndex) => {
+            const isLast =
+              groupIndex ===
+              groups.length - 1;
 
-            {groups.map(
-              (group, gi) => {
-                const isLast =
-                  gi ===
-                  groups.length - 1;
+            const groupColSpan =
+              group.fields.length +
+              (isLast
+                ? computedFields.length
+                : 0) +
+              (editable ? 1 : 0);
 
-                const groupColSpan =
-                  group.fields.length +
-                  (isLast
-                    ? computedFields.length
-                    : 0) +
-                  (editable
-                    ? 1
-                    : 0);
+            return (
+              <div
+                key={groupIndex}
+                style={{
+                  background: C.card,
+                  border: `1px solid ${C.line}`,
+                }}
+                className={`rounded ${
+                  config.wrapHeaders
+                    ? ""
+                    : "overflow-x-auto"
+                }`}
+              >
 
-                return (
+                {/* Group heading */}
+
+                {group.title && (
                   <div
-                    key={gi}
                     style={{
-                      background:
-                        C.card,
-                      border: `1px solid ${C.line}`,
+                      fontFamily:
+                        FONT_HEAD,
+                      fontSize: 13.5,
+                      color: C.ink,
+                      borderBottom: `1px solid ${C.line}`,
                     }}
-                    className={`rounded ${
-                      config.wrapHeaders
-                        ? ""
-                        : "overflow-x-auto"
-                    }`}
+                    className="px-3 py-2"
                   >
+                    {group.title}
+                  </div>
+                )}
 
-                    {/* Group heading */}
-                    {group.title && (
-                      <div
-                        style={{
-                          fontFamily:
-                            FONT_HEAD,
-                          fontSize:
-                            13.5,
-                          color:
-                            C.ink,
-                          borderBottom: `1px solid ${C.line}`,
-                        }}
-                        className="px-3 py-2"
-                      >
-                        {group.title}
-                      </div>
+
+                <table
+                  className="w-full text-sm"
+                  style={
+                    config.wrapHeaders
+                      ? {
+                          tableLayout:
+                            "fixed",
+                        }
+                      : undefined
+                  }
+                >
+
+                  {/* ==================================================
+                      TABLE HEADER
+                  ================================================== */}
+
+                  <thead>
+                    <tr
+                      style={{
+                        background:
+                          C.paper,
+                        borderBottom: `1px solid ${C.line}`,
+                      }}
+                    >
+
+                      {group.fields.map(
+                        (field) => (
+                          <th
+                            key={
+                              field.name
+                            }
+                            style={{
+                              color:
+                                C.ink2,
+                              fontSize:
+                                11.5,
+                            }}
+                            className={`text-left px-3 py-2 font-medium ${
+                              config.wrapHeaders
+                                ? "whitespace-normal break-words leading-tight align-bottom"
+                                : "whitespace-nowrap"
+                            }`}
+                          >
+                            {field.label}
+                          </th>
+                        )
+                      )}
+
+
+                      {/* Computed headers */}
+
+                      {isLast &&
+                        computedFields.map(
+                          (computed) => (
+                            <th
+                              key={
+                                computed.name
+                              }
+                              style={{
+                                color:
+                                  C.steel,
+                                fontSize:
+                                  11.5,
+                              }}
+                              className={`text-left px-3 py-2 font-medium ${
+                                config.wrapHeaders
+                                  ? "whitespace-normal break-words leading-tight align-bottom"
+                                  : "whitespace-nowrap"
+                              }`}
+                            >
+                              {
+                                computed.label
+                              }
+                            </th>
+                          )
+                        )}
+
+
+                      {/* Actions header */}
+
+                      {editable && (
+                        <th
+                          className="px-3 py-2"
+                          style={{
+                            width: 90,
+                          }}
+                        />
+                      )}
+
+                    </tr>
+                  </thead>
+
+
+                  {/* ==================================================
+                      TABLE BODY
+                  ================================================== */}
+
+                  <tbody>
+
+                    {/* Loading */}
+
+                    {loading && (
+                      <tr>
+                        <td
+                          colSpan={
+                            groupColSpan
+                          }
+                          className="px-3 py-8 text-center"
+                          style={{
+                            color:
+                              C.ink2,
+                            fontSize:
+                              13,
+                          }}
+                        >
+                          Loading…
+                        </td>
+                      </tr>
                     )}
 
 
-                    <table
-                      className="w-full text-sm"
-                      style={
-                        config.wrapHeaders
-                          ? {
-                              tableLayout:
-                                "fixed",
+                    {/* Empty */}
+
+                    {!loading &&
+                      filtered.length ===
+                        0 && (
+                        <tr>
+                          <td
+                            colSpan={
+                              groupColSpan
                             }
-                          : undefined
-                      }
-                    >
-
-                      {/* Header */}
-                      <thead>
-                        <tr
-                          style={{
-                            background:
-                              C.paper,
-                            borderBottom: `1px solid ${C.line}`,
-                          }}
-                        >
-
-                          {group.fields.map(
-                            (f) => (
-                              <th
-                                key={
-                                  f.name
-                                }
-                                style={{
-                                  color:
-                                    C.ink2,
-                                  fontSize:
-                                    11.5,
-                                }}
-                                className={`text-left px-3 py-2 font-medium ${
-                                  config.wrapHeaders
-                                    ? "whitespace-normal break-words leading-tight align-bottom"
-                                    : "whitespace-nowrap"
-                                }`}
-                              >
-                                {f.label}
-                              </th>
-                            )
-                          )}
+                            className="px-3 py-8 text-center"
+                            style={{
+                              color:
+                                C.ink2,
+                              fontSize:
+                                13,
+                            }}
+                          >
+                            No records yet.
+                          </td>
+                        </tr>
+                      )}
 
 
-                          {isLast &&
-                            computedFields.map(
-                              (c) => (
-                                <th
+                    {/* Records */}
+
+                    {!loading &&
+                      filtered.map(
+                        (record) => (
+                          <tr
+                            key={
+                              record.id
+                            }
+                            style={{
+                              borderBottom: `1px solid ${C.line}`,
+                            }}
+                          >
+
+                            {/* Normal fields */}
+
+                            {group.fields.map(
+                              (field) => (
+                                <td
                                   key={
-                                    c.name
+                                    field.name
                                   }
-                                  style={{
-                                    color:
-                                      C.steel,
-                                    fontSize:
-                                      11.5,
-                                  }}
-                                  className={`text-left px-3 py-2 font-medium ${
+                                  className={`px-3 py-2 ${
                                     config.wrapHeaders
-                                      ? "whitespace-normal break-words leading-tight align-bottom"
+                                      ? "whitespace-normal break-words"
                                       : "whitespace-nowrap"
                                   }`}
+                                  style={{
+                                    fontFamily:
+                                      field.type ===
+                                      "number"
+                                        ? FONT_MONO
+                                        : FONT_BODY,
+                                  }}
                                 >
-                                  {c.label}
-                                </th>
+                                  {formatCellValue(
+                                    record[
+                                      field.name
+                                    ],
+                                    field.type
+                                  )}
+                                </td>
                               )
                             )}
 
 
-                          {editable && (
-                            <th
-                              className="px-3 py-2"
-                              style={{
-                                width: 90,
-                              }}
-                            />
-                          )}
+                            {/* Computed fields */}
 
-                        </tr>
-                      </thead>
-
-
-                      {/* Body */}
-                      <tbody>
-
-                        {/* Loading */}
-                        {loading && (
-                          <tr>
-                            <td
-                              colSpan={
-                                groupColSpan
-                              }
-                              className="px-3 py-8 text-center"
-                              style={{
-                                color:
-                                  C.ink2,
-                                fontSize:
-                                  13,
-                              }}
-                            >
-                              Loading…
-                            </td>
-                          </tr>
-                        )}
-
-
-                        {/* Empty */}
-                        {!loading &&
-                          filtered.length ===
-                            0 && (
-                            <tr>
-                              <td
-                                colSpan={
-                                  groupColSpan
-                                }
-                                className="px-3 py-8 text-center"
-                                style={{
-                                  color:
-                                    C.ink2,
-                                  fontSize:
-                                    13,
-                                }}
-                              >
-                                No records
-                                yet.
-                              </td>
-                            </tr>
-                          )}
-
-
-                        {/* Records */}
-                        {!loading &&
-                          filtered.map(
-                            (r) => (
-                              <tr
-                                key={
-                                  r.id
-                                }
-                                style={{
-                                  borderBottom: `1px solid ${C.line}`,
-                                }}
-                              >
-
-                                {group.fields.map(
-                                  (f) => (
-                                    <td
-                                      key={
-                                        f.name
-                                      }
-                                      className={`px-3 py-2 ${
-                                        config.wrapHeaders
-                                          ? "whitespace-normal break-words"
-                                          : "whitespace-nowrap"
-                                      }`}
-                                      style={{
-                                        fontFamily:
-                                          f.type ===
-                                          "number"
-                                            ? FONT_MONO
-                                            : FONT_BODY,
-                                      }}
-                                    >
-                                      {formatCellValue(
-                                        r[
-                                          f.name
-                                        ],
-                                        f.type
-                                      )}
-                                    </td>
-                                  )
-                                )}
-
-
-                                {/* Computed fields */}
-                                {isLast &&
-                                  computedFields.map(
-                                    (c) => (
-                                      <td
-                                        key={
-                                          c.name
-                                        }
-                                        className={`px-3 py-2 ${
-                                          config.wrapHeaders
-                                            ? "whitespace-normal break-words"
-                                            : "whitespace-nowrap"
-                                        }`}
-                                        style={{
-                                          fontFamily:
-                                            FONT_MONO,
-                                          color:
-                                            C.steel,
-                                        }}
-                                      >
-                                        {c.compute(
-                                          r
-                                        )}
-                                      </td>
-                                    )
-                                  )}
-
-
-                                {/* Actions */}
-                                {editable && (
-                                  <td className="px-3 py-2">
-                                    <div className="flex gap-2">
-
-                                      <button
-                                        onClick={() =>
-                                          openEdit(
-                                            r
-                                          )
-                                        }
-                                        style={{
-                                          color:
-                                            C.steel,
-                                        }}
-                                        title="Edit"
-                                      >
-                                        <Pencil
-                                          size={
-                                            14
-                                          }
-                                        />
-                                      </button>
-
-
-                                      <button
-                                        onClick={() =>
-                                          remove(
-                                            r.id
-                                          )
-                                        }
-                                        style={{
-                                          color:
-                                            C.rust,
-                                        }}
-                                        title="Delete"
-                                      >
-                                        <Trash2
-                                          size={
-                                            14
-                                          }
-                                        />
-                                      </button>
-
-                                    </div>
-                                  </td>
-                                )}
-
-                              </tr>
-                            )
-                          )}
-
-
-                        {/* Totals */}
-                        {config.showTotals &&
-                          filtered.length >
-                            0 && (
-                            <tr
-                              style={{
-                                background:
-                                  C.paper,
-                                fontWeight:
-                                  600,
-                              }}
-                            >
-
-                              {group.fields.map(
-                                (f, i) => (
+                            {isLast &&
+                              computedFields.map(
+                                (
+                                  computed
+                                ) => (
                                   <td
                                     key={
-                                      f.name
+                                      computed.name
                                     }
                                     className={`px-3 py-2 ${
                                       config.wrapHeaders
@@ -1214,91 +1186,194 @@ export default function ModuleView({
                                     }`}
                                     style={{
                                       fontFamily:
-                                        f.type ===
-                                        "number"
-                                          ? FONT_MONO
-                                          : FONT_BODY,
+                                        FONT_MONO,
                                       color:
-                                        C.ink,
+                                        C.steel,
                                     }}
                                   >
-
-                                    {i === 0
-                                      ? "Total"
-                                      : f.type ===
-                                        "number"
-                                      ? filtered
-                                          .reduce(
-                                            (
-                                              sum,
-                                              r
-                                            ) =>
-                                              sum +
-                                              (Number(
-                                                r[
-                                                  f.name
-                                                ]
-                                              ) ||
-                                                0),
-                                            0
-                                          )
-                                          .toLocaleString(
-                                            "en-IN"
-                                          )
-                                      : ""}
-
+                                    {computed.compute(
+                                      record
+                                    )}
                                   </td>
                                 )
                               )}
 
 
-                              {isLast &&
-                                computedFields.map(
-                                  (c) => (
-                                    <td
-                                      key={
-                                        c.name
+                            {/* Actions */}
+
+                            {editable && (
+                              <td className="px-3 py-2">
+                                <div className="flex gap-2">
+
+                                  {/* Edit */}
+
+                                  <button
+                                    onClick={() =>
+                                      openEdit(
+                                        record
+                                      )
+                                    }
+                                    style={{
+                                      color:
+                                        C.steel,
+                                    }}
+                                    title="Edit"
+                                  >
+                                    <Pencil
+                                      size={
+                                        14
                                       }
-                                      className={`px-3 py-2 ${
-                                        config.wrapHeaders
-                                          ? "whitespace-normal break-words"
-                                          : "whitespace-nowrap"
-                                      }`}
-                                      style={{
-                                        fontFamily:
-                                          FONT_MONO,
-                                        color:
-                                          C.steel,
-                                      }}
-                                    >
-                                      {c.total
-                                        ? c.total(
-                                            filtered
-                                          )
-                                        : ""}
-                                    </td>
-                                  )
-                                )}
+                                    />
+                                  </button>
 
 
-                              {editable && (
-                                <td className="px-3 py-2" />
-                              )}
+                                  {/* Delete */}
 
-                            </tr>
+                                  <button
+                                    onClick={() =>
+                                      remove(
+                                        record.id
+                                      )
+                                    }
+                                    style={{
+                                      color:
+                                        C.rust,
+                                    }}
+                                    title="Delete"
+                                  >
+                                    <Trash2
+                                      size={
+                                        14
+                                      }
+                                    />
+                                  </button>
+
+                                </div>
+                              </td>
+                            )}
+
+                          </tr>
+                        )
+                      )}
+
+
+                    {/* ==================================================
+                        TOTALS
+                    ================================================== */}
+
+                    {config.showTotals &&
+                      filtered.length >
+                        0 && (
+                        <tr
+                          style={{
+                            background:
+                              C.paper,
+                            fontWeight: 600,
+                          }}
+                        >
+
+                          {group.fields.map(
+                            (
+                              field,
+                              fieldIndex
+                            ) => (
+                              <td
+                                key={
+                                  field.name
+                                }
+                                className={`px-3 py-2 ${
+                                  config.wrapHeaders
+                                    ? "whitespace-normal break-words"
+                                    : "whitespace-nowrap"
+                                }`}
+                                style={{
+                                  fontFamily:
+                                    field.type ===
+                                    "number"
+                                      ? FONT_MONO
+                                      : FONT_BODY,
+                                  color:
+                                    C.ink,
+                                }}
+                              >
+                                {fieldIndex ===
+                                0
+                                  ? "Total"
+                                  : field.type ===
+                                    "number"
+                                  ? filtered
+                                      .reduce(
+                                        (
+                                          sum,
+                                          record
+                                        ) =>
+                                          sum +
+                                          (Number(
+                                            record[
+                                              field.name
+                                            ]
+                                          ) ||
+                                            0),
+                                        0
+                                      )
+                                      .toLocaleString(
+                                        "en-IN"
+                                      )
+                                  : ""}
+                              </td>
+                            )
                           )}
 
-                      </tbody>
-                    </table>
 
-                  </div>
-                );
-              }
-            )}
+                          {/* Computed totals */}
 
-          </div>
-        );
-      })()}
+                          {isLast &&
+                            computedFields.map(
+                              (computed) => (
+                                <td
+                                  key={
+                                    computed.name
+                                  }
+                                  className={`px-3 py-2 ${
+                                    config.wrapHeaders
+                                      ? "whitespace-normal break-words"
+                                      : "whitespace-nowrap"
+                                  }`}
+                                  style={{
+                                    fontFamily:
+                                      FONT_MONO,
+                                    color:
+                                      C.steel,
+                                  }}
+                                >
+                                  {computed.total
+                                    ? computed.total(
+                                        filtered
+                                      )
+                                    : ""}
+                                </td>
+                              )
+                            )}
+
+
+                          {/* Action column */}
+
+                          {editable && (
+                            <td className="px-3 py-2" />
+                          )}
+
+                        </tr>
+                      )}
+
+                  </tbody>
+                </table>
+
+              </div>
+            );
+          }
+        )}
+
+      </div>
 
     </div>
   );
