@@ -20,6 +20,23 @@ const DEFAULT_ROLES = {
   // to make it impossible to lock every admin out of the system.
   Administrator: { modules: 'all', edit: 'all' },
 
+  DataEntry: {
+  modules: [
+    'dashboard',
+    'recruitment',
+    'hiring',
+    'separation',
+    'training',
+    'attendance'
+  ],
+  edit: [
+    'recruitment',
+    'hiring',
+    'separation',
+    'training',
+    'attendance'
+  ],
+},
   'HR Manager': {
     modules: ['dashboard', 'manpower', 'recruitment', 'hiring', 'separation', 'loans', 'retirement', 'healthcheck', 'engagement', 'attendance', 'usersmgmt'],
     edit: ['manpower', 'recruitment', 'hiring', 'separation', 'loans', 'retirement', 'healthcheck', 'engagement', 'attendance'],
