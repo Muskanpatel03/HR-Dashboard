@@ -6,7 +6,7 @@ const { pool } = require('../src/db');
 
 async function main() {
   const name = process.env.ADMIN_NAME || 'Avni Sharma';
-  const email = (process.env.ADMIN_EMAIL || 'avvnisharma@gmail.com').toLowerCase();
+  const email = (process.env.ADMIN_EMAIL || 'a52249955@gmail.com@gmail.com').toLowerCase();
   const password = process.env.ADMIN_PASSWORD || 'Admin@123';
 
   const hash = await bcrypt.hash(password, 10);
