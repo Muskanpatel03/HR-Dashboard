@@ -162,13 +162,38 @@ export const MODULES = [
     { name: 'takenFY2425', label: 'Loan Taken FY24-25 (₹ Lac)', type: 'number' },
     { name: 'outstandingTillJul26', label: 'Total Outstanding Till Jul-26 (₹ Lac)', type: 'number' },
   ]},
-  { key: 'retirement', label: 'Retirement', icon: CalendarClock, showTotals: true, wrapHeaders: true, fields: [
-    { name: 'employeeName', label: 'Employee', type: 'text' },
-    { name: 'employeeId', label: 'Employee ID', type: 'text' },
-    { name: 'department', label: 'Department', type: 'select', options: DEPARTMENTS },
-    { name: 'location', label: 'Location', type: 'text' },
-    { name: 'retirementDate', label: 'Retirement Date', type: 'date' },
-  ]},
+  {
+  key: 'retirement',
+  label: 'Retirement',
+  icon: CalendarClock,
+  fields: [
+    {
+      name: 'employeeName',
+      label: 'Employee',
+      type: 'text'
+    },
+    {
+      name: 'employeeId',
+      label: 'Employee ID',
+      type: 'text'
+    },
+    {
+      name: 'department',
+      label: 'Department',
+      type: 'text'
+    },
+    {
+      name: 'location',
+      label: 'Location',
+      type: 'text'
+    },
+    {
+      name: 'dateOfBirth',
+      label: 'Date of Birth',
+      type: 'date'
+    }
+  ]
+},
   { key: 'electricity', label: 'Electricity', icon: Zap, showTotals: true, wrapHeaders: true, fields: [
     { name: 'location', label: 'Location / Plant', type: 'text' },
     { name: 'month', label: 'Month', type: 'month' },
@@ -334,6 +359,31 @@ export const COMPUTED = {
       total: (rows) => fmtMoney(rows.reduce((s, v) => s + (num(v.directCount) + num(v.indirectCount)) * num(v.actualCostPerPerson), 0)),
     },
   ],
+  retirement: [
+  {
+    name: 'age',
+    label: 'Age as on Date',
+    compute: (row) => {
+      if (!row.dateOfBirth) return '—';
+
+      const dob = new Date(row.dateOfBirth);
+      const today = new Date();
+
+      let age = today.getFullYear() - dob.getFullYear();
+
+      const monthDiff = today.getMonth() - dob.getMonth();
+
+      if (
+        monthDiff < 0 ||
+        (monthDiff === 0 && today.getDate() < dob.getDate())
+      ) {
+        age--;
+      }
+
+      return age >= 0 ? `${age} Years` : '—';
+    }
+  }
+],
   loans: [
     {
       name: 'outstanding',
