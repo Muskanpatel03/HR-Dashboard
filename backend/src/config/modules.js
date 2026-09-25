@@ -83,15 +83,44 @@ const MODULES = {
     ],
   },
   retirement: {
-    table: 'retirement',
-    columns: [
-      { js: 'employeeName', db: 'employee_name', type: 'text' },
-      { js: 'employeeId', db: 'employee_id', type: 'text' },
-      { js: 'department', db: 'department', type: 'text' },
-      { js: 'location', db: 'location', type: 'text' },
-      { js: 'retirementDate', db: 'retirement_date', type: 'date' },
-    ],
-  },
+  table: 'retirement',
+
+  columns: [
+    { js: 'employeeName', db: 'employee_name', type: 'text' },
+    { js: 'employeeId', db: 'employee_id', type: 'text' },
+    { js: 'department', db: 'department', type: 'text' },
+    { js: 'location', db: 'location', type: 'text' },
+    { js: 'dateOfBirth', db: 'date_of_birth', type: 'date' },
+  ],
+
+  fields: [
+    {
+      name: 'employeeName',
+      label: 'Employee',
+      type: 'text',
+    },
+    {
+      name: 'employeeId',
+      label: 'Employee ID',
+      type: 'text',
+    },
+    {
+      name: 'department',
+      label: 'Department',
+      type: 'text',
+    },
+    {
+      name: 'location',
+      label: 'Location',
+      type: 'text',
+    },
+    {
+      name: 'dateOfBirth',
+      label: 'Date of Birth',
+      type: 'date',
+    },
+  ],
+},
   electricity: {
     table: 'electricity',
     columns: [
