@@ -320,8 +320,8 @@ export default function App() {
 
       <aside
         style={{
-          background: C.panel,
-          borderRight: `1px solid ${C.line}`,
+          background: C.steelTint,
+          borderRight: '1px solid #D5E0E6',
           height: '100vh',
         }}
         className="shrink-0 flex flex-col w-16 md:w-56"
@@ -332,7 +332,7 @@ export default function App() {
         <div
           className="flex items-center gap-2 px-3 py-4 border-b"
           style={{
-            borderColor: C.line,
+            borderColor: '#D5E0E6',
           }}
         >
           <img
@@ -385,10 +385,10 @@ export default function App() {
                 onClick={() =>
                   handleNavigation(item.key)
                 }
-                className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-[#EAF0F4]"
+                className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-[#DCE7ED]"
                 style={{
                   background: isActive
-                    ? C.steelTint
+                    ? '#D4E2EB'
                     : undefined,
 
                   borderLeft: isActive
@@ -418,7 +418,7 @@ export default function App() {
         <div
           className="px-3 py-3 border-t hidden md:block"
           style={{
-            borderColor: C.line,
+            borderColor: '#D5E0E6',
           }}
         >
           <div

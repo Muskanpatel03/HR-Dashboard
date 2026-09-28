@@ -113,7 +113,7 @@ export const MODULES = [
     { name: 'plannedCostPerPerson', label: 'Planned Cost / Person (₹)', type: 'number' },
     { name: 'actualCostPerPerson', label: 'Actual Cost / Person (₹)', type: 'number' },
   ]},
-  { key: 'recruitment', label: 'Open Position', icon: Briefcase, showTotals: true, wrapHeaders: true, fields: [
+  { key: 'recruitment', label: 'Recruitment', icon: Briefcase, showTotals: true, wrapHeaders: true, fields: [
     { name: 'openingPosition', label: 'Opening Position', type: 'text' },
     { name: 'month', label: 'Month', type: 'month' },
     { name: 'department', label: 'Department', type: 'select', options: DEPARTMENTS },

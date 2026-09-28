@@ -518,49 +518,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {d.permissions.manpower && (
-        <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="p-4 rounded overflow-x-auto">
-          <div style={{ fontFamily: FONT_HEAD, fontSize: 15, color: C.ink }} className="mb-3">Daily Manpower by Department</div>
-          {(d.dailyManpowerRecords || []).length === 0 ? (
-            <div className="py-6 text-center" style={{ color: C.ink2, fontSize: 13 }}>No daily shift records for this period.</div>
-          ) : (
-            <table className="w-full text-sm" style={{ minWidth: 900 }}>
-              <thead>
-                <tr style={{ borderBottom: `1px solid ${C.line}`, color: C.ink2, fontSize: 11.5 }}>
-                  {['S.No.', 'Date', 'Department', 'Production', 'Fixed Manpower', 'Day Shift', 'Night Shift', 'Total', 'Absent', 'Double Shift'].map((label) => (
-                    <th key={label} className="text-left px-2 py-2 nowrap-cell">{label}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {d.dailyManpowerRecords.map((row, index) => (
-                  <tr key={`${row.date}-${row.department}-${index}`} style={{ borderBottom: `1px solid ${C.line}` }}>
-                    <td className="px-2 py-2">{index + 1}</td>
-                    <td className="px-2 py-2 nowrap-cell">{row.date}</td>
-                    <td className="px-2 py-2">{row.department}</td>
-                    <td className="px-2 py-2">{row.production}</td>
-                    <td className="px-2 py-2">{row.fixedManpower}</td>
-                    <td className="px-2 py-2">{row.dayShift}</td>
-                    <td className="px-2 py-2">{row.nightShift}</td>
-                    <td className="px-2 py-2 font-semibold">{row.total}</td>
-                    <td className="px-2 py-2">{row.absent}</td>
-                    <td className="px-2 py-2">{row.doubleShift}</td>
-                  </tr>
-                ))}
-                <tr style={{ background: C.paper, fontWeight: 600 }}>
-                  <td className="px-2 py-2" />
-                  <td className="px-2 py-2" />
-                  <td className="px-2 py-2">Total</td>
-                  {['production', 'fixedManpower', 'dayShift', 'nightShift', 'total', 'absent', 'doubleShift'].map((field) => (
-                    <td key={field} className="px-2 py-2">{d.dailyManpowerRecords.reduce((sum, row) => sum + (Number(row[field]) || 0), 0).toLocaleString('en-IN')}</td>
-                  ))}
-                </tr>
-              </tbody>
-            </table>
-          )}
-        </div>
-      )}
-
       <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
         {d.permissions.manpower && <PieCard title="Manpower split" data={d.pies.manpowerSplit} />}
         
