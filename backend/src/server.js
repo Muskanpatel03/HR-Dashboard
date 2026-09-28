@@ -8,6 +8,7 @@ const dashboardRoutes = require('./routes/dashboard');
 const auditRoutes = require('./routes/audit');
 const rolesRoutes = require('./routes/roles');
 const { loadRolesFromDb } = require('./config/roles');
+const { ensureCurrentSchema } = require('./db');
 
 const app = express();
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
@@ -32,6 +33,9 @@ const PORT = process.env.PORT || 4000;
 // Load the live, admin-editable role permissions from the DB before we
 // start accepting requests, so the very first request already sees any
 // permission changes made in a previous run.
-loadRolesFromDb().then(() => {
+ensureCurrentSchema().then(() => loadRolesFromDb()).then(() => {
   app.listen(PORT, () => console.log(`AUTOMAT HR MIS API listening on port ${PORT}`));
+}).catch((err) => {
+  console.error('Failed to initialize database schema', err);
+  process.exit(1);
 });

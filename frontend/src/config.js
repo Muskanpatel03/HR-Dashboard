@@ -60,6 +60,7 @@ export const DESIGNATIONS = [
   'TECHNICIAN', 'Technician cum Driver', 'Territory Manager', 'WORKER',
   'Zonal Head', 'ZONAL MANAGER',
 ];
+export const DESIGNATIONS_DISPLAY = DESIGNATIONS.map((d) => d.toUpperCase());
 
 // Manpower Plan vs Actual: each record carries both the planned headcount
 // and the actual headcount for that month/location/department, so variance
@@ -72,8 +73,8 @@ export const DESIGNATIONS = [
 export const ROLES = {
   Administrator: { modules: 'all', edit: 'all' },
     'HR Manager': {
-    modules: ['dashboard', 'manpower', 'recruitment', 'hiring', 'separation', 'loans', 'retirement', 'healthcheck', 'engagement', 'training', 'attendance'],
-    edit: ['manpower', 'recruitment', 'hiring', 'separation', 'loans', 'retirement', 'healthcheck', 'engagement', 'training', 'attendance'],
+    modules: ['dashboard', 'manpower', 'recruitment', 'hiring', 'separation', 'retirement', 'healthcheck', 'engagement', 'training', 'attendance'],
+    edit: ['manpower', 'recruitment', 'hiring', 'separation', 'retirement', 'healthcheck', 'engagement', 'training', 'attendance'],
   },
 
   'Plant Head': {
@@ -81,26 +82,29 @@ export const ROLES = {
     edit: ['manpower', 'attendance', 'engagement','training', 'healthcheck'],
   },
   Recruiter: { modules: ['dashboard', 'recruitment', 'hiring'], edit: ['recruitment', 'hiring'] },
-    'Finance & Accounts': { modules: ['dashboard', 'loans', 'loanSummary', 'electricity', 'canteen'], edit: ['loans', 'loanSummary', 'electricity', 'canteen'] },
+    'Finance & Accounts': { modules: ['dashboard', 'loanSummary', 'electricity', 'canteen'], edit: ['loanSummary', 'electricity', 'canteen'] },
   'Plant Operations': { modules: ['dashboard', 'electricity', 'canteen', 'attendance'], edit: ['electricity', 'canteen', 'training', 'attendance'] },
   Management: { modules: 'all', edit: [] },
   // Public self-signup default only — excludes Audit Trail and User
   // Management (staff emails/roles) since these shouldn't be public.
    Viewer: {
-    modules: ['dashboard', 'manpower', 'recruitment', 'hiring', 'separation', 'loans', 'loanSummary', 'retirement', 'electricity', 'canteen', 'healthcheck', 'engagement','training', 'attendance'],
+    modules: ['dashboard', 'manpower', 'recruitment', 'hiring', 'separation', 'loanSummary', 'retirement', 'electricity', 'canteen', 'healthcheck', 'engagement','training', 'attendance'],
     edit: [],
   },
 };
 
 // Roles an Administrator can hand out via User Management. Viewer is excluded —
 // it is only ever granted through public self-signup (enforced server-side too).
-export const ASSIGNABLE_ROLES = Object.keys(ROLES).filter((r) => r !== 'Viewer');
-
+export const ASSIGNABLE_ROLES = [
+  ...Object.keys(ROLES).filter((r) => r !== 'Viewer'),
+  ...DESIGNATIONS_DISPLAY,
+];
 // Must match backend/src/config/modules.js field names (js side)
 export const MODULES = [
    { key: 'manpower', label: 'Manpower', icon: Factory, showTotals: true, wrapHeaders: true, fields: [
     { name: 'month', label: 'Month', type: 'month' },
-    { name: 'location', label: 'Location', type: 'text' },
+  { name: 'entryDate', label: 'Specific Day', type: 'date' },
+      { name: 'location', label: 'Location', type: 'text' },
     { name: 'department', label: 'Department', type: 'select', options: DEPARTMENTS },
     { name: 'plannedDirectCount', label: 'Planned Direct', type: 'number' },
     { name: 'plannedIndirectCount', label: 'Planned Indirect', type: 'number' },
@@ -109,42 +113,28 @@ export const MODULES = [
     { name: 'plannedCostPerPerson', label: 'Planned Cost / Person (₹)', type: 'number' },
     { name: 'actualCostPerPerson', label: 'Actual Cost / Person (₹)', type: 'number' },
   ]},
-  { key: 'recruitment', label: 'Recruitment', icon: Briefcase, showTotals: true, wrapHeaders: true, fields: [
-    { name: 'candidateName', label: 'Candidate', type: 'text' },
-    { name: 'position', label: 'Position', type: 'text' },
+  { key: 'recruitment', label: 'Open Position', icon: Briefcase, showTotals: true, wrapHeaders: true, fields: [
+    { name: 'openingPosition', label: 'Opening Position', type: 'text' },
+    { name: 'month', label: 'Month', type: 'month' },
     { name: 'department', label: 'Department', type: 'select', options: DEPARTMENTS },
     { name: 'location', label: 'Location', type: 'text' },
-    { name: 'recruiter', label: 'Recruiter', type: 'text' },
-    { name: 'source', label: 'Source', type: 'text' },
-    { name: 'status', label: 'Stage', type: 'select', options: RECRUITMENT_STAGES },
-    { name: 'applicationDate', label: 'Applied', type: 'date' },
-    { name: 'joiningDate', label: 'Joining Date', type: 'date' },
+    { name: 'shortlisted', label: 'Shortlisted', type: 'number' },
+    { name: 'offered', label: 'Offered', type: 'number' },
   ]},
-  { key: 'hiring', label: 'Hiring', icon: UserPlus, showTotals: true, wrapHeaders: true, fields: [
-    { name: 'employeeName', label: 'Employee', type: 'text' },
-    { name: 'joiningDate', label: 'Joining Date', type: 'date' },
+  { key: 'hiring', label: 'Joined', icon: UserPlus, showTotals: true, wrapHeaders: true, fields: [
+    { name: 'month', label: 'Month', type: 'month' },
     { name: 'department', label: 'Department', type: 'select', options: DEPARTMENTS },
     { name: 'location', label: 'Location', type: 'text' },
-    { name: 'employmentType', label: 'Employment Type', type: 'text' },
+    { name: 'joined', label: 'Joined', type: 'number' },
   ]},
   { key: 'separation', label: 'Separation', icon: UserMinus, showTotals: true, wrapHeaders: true, fields: [
-    { name: 'employeeName', label: 'Employee', type: 'text' },
-    { name: 'separationDate', label: 'Separation Date', type: 'date' },
+    { name: 'month', label: 'Month', type: 'month' },
     { name: 'department', label: 'Department', type: 'select', options: DEPARTMENTS },
-    { name: 'location', label: 'Location', type: 'text' },
-    { name: 'type', label: 'Type', type: 'select', options: ['Resignation', 'Termination', 'Retirement', 'Other'] },
     { name: 'reason', label: 'Reason', type: 'text' },
-  ]},
-  { key: 'loans', label: 'Loans', icon: Landmark, showTotals: true, wrapHeaders: true, fields: [   
-     { name: 'employeeName', label: 'Employee', type: 'text' },
-    { name: 'department', label: 'Department', type: 'select', options: DEPARTMENTS },
-    { name: 'loanType', label: 'Loan Type', type: 'text' },
-    { name: 'sanctionedAmount', label: 'Sanctioned', type: 'number' },
-    { name: 'disbursedAmount', label: 'Disbursed', type: 'number' },
-    { name: 'monthlyRecovery', label: 'Monthly Recovery', type: 'number' },
-    { name: 'totalRecovered', label: 'Total Recovered', type: 'number' },
-    { name: 'startDate', label: 'Start Date', type: 'date' },
-       { name: 'status', label: 'Status', type: 'select', options: ['Active', 'Closed'] },
+    { name: 'mode', label: 'Mode', type: 'text' },
+    { name: 'location', label: 'Location', type: 'text' },
+    { name: 'lastWorkingDay', label: 'LWD / Last Working Day', type: 'date' },
+    { name: 'exit', label: 'Exit', type: 'select', options: ['Yes', 'No'] },
   ]},
   { key: 'loanSummary', label: 'Loan Summary', icon: Wallet, showTotals: true,  wrapHeaders: true, columnGroups: [
     { title: 'Budget & Corpus Position', fields: ['unit', 'budgetPersonal', 'budgetHome', 'availablePersonal', 'availableHome', 'takenPersonal', 'takenHome'] },
@@ -162,38 +152,24 @@ export const MODULES = [
     { name: 'takenFY2425', label: 'Loan Taken FY24-25 (₹ Lac)', type: 'number' },
     { name: 'outstandingTillJul26', label: 'Total Outstanding Till Jul-26 (₹ Lac)', type: 'number' },
   ]},
-  {
-  key: 'retirement',
-  label: 'Retirement',
-  icon: CalendarClock,
-  fields: [
+  
     {
-      name: 'employeeName',
-      label: 'Employee',
-      type: 'text'
-    },
-    {
-      name: 'employeeId',
-      label: 'Employee ID',
-      type: 'text'
-    },
-    {
-      name: 'department',
-      label: 'Department',
-      type: 'text'
-    },
-    {
-      name: 'location',
-      label: 'Location',
-      type: 'text'
-    },
-    {
-      name: 'dateOfBirth',
-      label: 'Date of Birth',
-      type: 'date'
-    }
-  ]
-},
+    key: 'retirement',
+    label: 'Retirement',
+    icon: CalendarClock,
+    defaultSort: { field: 'lastWorkingDay', dir: 'asc' },
+    monthFilterField: 'lastWorkingDay',
+    fields: [
+      { name: 'employeeName', label: 'Employee', type: 'text' },
+      { name: 'employeeId', label: 'Employee ID', type: 'text' },
+      { name: 'designation', label: 'Designation', type: 'text' },
+      { name: 'department', label: 'Department', type: 'text' },
+      { name: 'location', label: 'Location', type: 'text' },
+      { name: 'criticality', label: 'Critical / General', type: 'select', options: ['Critical', 'General'] },
+      { name: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
+      { name: 'lastWorkingDay', label: 'Last Working Day', type: 'date' },
+    ],
+  },
   { key: 'electricity', label: 'Electricity', icon: Zap, showTotals: true, wrapHeaders: true, fields: [
     { name: 'location', label: 'Location / Plant', type: 'text' },
     { name: 'month', label: 'Month', type: 'month' },
@@ -205,8 +181,6 @@ export const MODULES = [
   { key: 'canteen', label: 'Canteen', icon: UtensilsCrossed, showTotals: true, wrapHeaders: true, fields: [
     { name: 'month', label: 'Month', type: 'month' },
     { name: 'location', label: 'Location', type: 'text' },
-    { name: 'meals', label: 'Meals Served', type: 'number' },
-    { name: 'employees', label: 'Employees Covered', type: 'number' },
     { name: 'monthlyBill', label: 'Monthly Bill', type: 'number' },
     { name: 'employeeRecovery', label: 'Employee Recovery', type: 'number' },
   ]},
@@ -218,6 +192,28 @@ export const MODULES = [
   wrapHeaders: true,
 
   fields: [
+    {
+      name: 'employeeName',
+      label: 'Employee Name',
+      type: 'text'
+    },
+    {
+      name: 'department',
+      label: 'Department',
+      type: 'select',
+      options: DEPARTMENTS
+    },
+    {
+      name: 'designation',
+      label: 'Designation',
+      type: 'select',
+      options: DESIGNATIONS_DISPLAY
+    },
+    {
+      name: 'dateOfUsage',
+      label: 'Date of Usage (DOU)',
+      type: 'date'
+    },
     {
       name: 'period',
       label: 'Month / Period',
@@ -266,15 +262,20 @@ export const MODULES = [
   label: 'Training',
   icon: CalendarDays,
   showTotals: true, wrapHeaders: true, fields: [
+    { name: 'section', label: 'Training Section', type: 'select', options: ['Behavioral', 'Technical (Site 4)'] },
     { name: 'trainingName', label: 'Training Name', type: 'text' },
     { name: 'location', label: 'Location', type: 'text' },
     { name: 'trainingDate', label: 'Training Date', type: 'date' },
+    { name: 'trainer', label: 'Trainer', type: 'text' },
+    { name: 'numberOfPeople', label: 'No. of People', type: 'number' },
+    { name: 'averageRating', label: 'Average Rating', type: 'number' },
+    { name: 'remarks', label: 'Remarks', type: 'text' },
   ],
 },
   { key: 'attendance', label: 'Attendance', icon: ClipboardList, showTotals: true, wrapHeaders: true, fields: [
     { name: 'month', label: 'Month', type: 'month' },
     { name: 'department', label: 'Department', type: 'select', options: DEPARTMENTS },
-    { name: 'location', label: 'Location', type: 'text' },
+    { name: 'location', label: 'Office / Location', type: 'select', options: ['Industries', 'Sales Project', 'Head Office (HO)', 'Corporate Office'] },
     { name: 'totalWorkingDays', label: 'Working Days', type: 'number' },
     { name: 'employeeStrength', label: 'Employee Strength', type: 'number' },
     { name: 'absentDays', label: 'Absent Employee-Days', type: 'number' },
@@ -285,13 +286,31 @@ export const MODULES = [
     { name: 'name', label: 'Name', type: 'text' },
     { name: 'email', label: 'Email', type: 'text' },
     { name: 'department', label: 'Department', type: 'select', options: DEPARTMENTS },
-    { name: 'designation', label: 'Designation', type: 'select', options: DESIGNATIONS },
+  { name: 'designation', label: 'Designation', type: 'select', options: DESIGNATIONS_DISPLAY },
     { name: 'location', label: 'Location', type: 'text' },
-    { name: 'role', label: 'Assigned Role', type: 'select', options: ASSIGNABLE_ROLES },
     { name: 'status', label: 'Status', type: 'select', options: ['Active', 'Pending', 'Inactive'] },
-    { name: 'password', label: 'Set Password (optional)', type: 'password' },
+        { name: 'password', label: 'Set Password (optional)', type: 'password' },
   ]},
 ];
+
+export const DAILY_MANPOWER_CONFIG = {
+  key: 'dailyManpower',
+  label: 'Daily Manpower',
+  showTotals: true,
+  showSerialNumber: true,
+  computedAfterField: 'nightShift',
+  wrapHeaders: true,
+  fields: [
+    { name: 'date', label: 'Date', type: 'date' },
+    { name: 'department', label: 'Department', type: 'select', options: DEPARTMENTS },
+    { name: 'production', label: 'Production', type: 'number' },
+    { name: 'fixedManpower', label: 'Fixed Manpower', type: 'number' },
+    { name: 'dayShift', label: 'Day Shift', type: 'number' },
+    { name: 'nightShift', label: 'Night Shift', type: 'number' },
+    { name: 'absent', label: 'Absent', type: 'number' },
+    { name: 'doubleShift', label: 'Double Shift', type: 'number' },
+  ],
+};
 
 export const MODULE_MAP = Object.fromEntries(MODULES.map((m) => [m.key, m]));
 export const ALL_KEYS = MODULES.map((m) => m.key);
@@ -359,37 +378,39 @@ export const COMPUTED = {
       total: (rows) => fmtMoney(rows.reduce((s, v) => s + (num(v.directCount) + num(v.indirectCount)) * num(v.actualCostPerPerson), 0)),
     },
   ],
-  retirement: [
-  {
-    name: 'age',
-    label: 'Age as on Date',
-    compute: (row) => {
-      if (!row.dateOfBirth) return '—';
-
-      const dob = new Date(row.dateOfBirth);
-      const today = new Date();
-
-      let age = today.getFullYear() - dob.getFullYear();
-
-      const monthDiff = today.getMonth() - dob.getMonth();
-
-      if (
-        monthDiff < 0 ||
-        (monthDiff === 0 && today.getDate() < dob.getDate())
-      ) {
-        age--;
-      }
-
-      return age >= 0 ? `${age} Years` : '—';
-    }
-  }
-],
-  loans: [
+  dailyManpower: [
     {
-      name: 'outstanding',
-      label: 'Outstanding Amount',
-      compute: (v) => fmtMoney(Math.max(0, num(v.disbursedAmount) - num(v.totalRecovered))),
-      total: (rows) => fmtMoney(rows.reduce((s, v) => s + Math.max(0, num(v.disbursedAmount) - num(v.totalRecovered)), 0)),
+      name: 'total',
+      label: 'Total',
+      compute: (row) => (num(row.dayShift) + num(row.nightShift)).toLocaleString('en-IN'),
+      total: (rows) => rows.reduce((sum, row) => sum + num(row.dayShift) + num(row.nightShift), 0).toLocaleString('en-IN'),
+    },
+  ],
+   retirement: [
+    {
+      name: 'age',
+      label: 'Age as on Date',
+      compute: (row) => {
+        if (!row.dateOfBirth) return '—';
+        const dob = new Date(row.dateOfBirth);
+        const today = new Date();
+        let age = today.getFullYear() - dob.getFullYear();
+        const monthDiff = today.getMonth() - dob.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) age--;
+        return age >= 0 ? `${age} Years` : '—';
+      },
+    },
+    {
+      name: 'daysLeft',
+      label: 'Days Left',
+      compute: (row) => {
+        if (!row.lastWorkingDay) return '—';
+        const lwd = new Date(String(row.lastWorkingDay).slice(0, 10) + 'T00:00:00');
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const d = Math.round((lwd - today) / 86400000);
+        return d < 0 ? 'Retired' : `${d} days`;
+      },
     },
   ],
   retirement: [
@@ -448,16 +469,6 @@ export const COMPUTED = {
       compute: (v) => fmtMoney(Math.max(0, num(v.monthlyBill) - num(v.employeeRecovery))),
       total: (rows) => fmtMoney(rows.reduce((s, v) => s + Math.max(0, num(v.monthlyBill) - num(v.employeeRecovery)), 0)),
     },
-    {
-      name: 'costPerMeal',
-      label: 'Cost per Meal',
-      compute: (v) => (num(v.meals) > 0 ? '₹' + (num(v.monthlyBill) / num(v.meals)).toFixed(2) : '—'),
-      total: (rows) => {
-        const meals = rows.reduce((s, v) => s + num(v.meals), 0);
-        const bill = rows.reduce((s, v) => s + num(v.monthlyBill), 0);
-        return meals > 0 ? '₹' + (bill / meals).toFixed(2) : '—';
-      },
-    },
   ],
 
   attendance: [
@@ -501,10 +512,9 @@ export const CHARTS = {
         { key: 'actual', label: 'Actual', fields: ['directCount', 'indirectCount'] },
       ],
     },
-  recruitment: { type: 'pie', title: 'Candidates by stage', groupBy: 'status', aggregate: 'count' },
-  hiring: { type: 'bar', title: 'New joiners by department', groupBy: 'department', aggregate: 'count' },
+  recruitment: { type: 'bar', title: 'Opening Positions by Month', groupBy: 'month', aggregate: 'count' },
+  hiring: { type: 'bar', title: 'Joined by Department', groupBy: 'department', aggregate: 'sum', valueField: 'joined' },
   separation: { type: 'pie', title: 'Separations by type', groupBy: 'type', aggregate: 'count' },
-    loans: { type: 'pie', title: 'Loans by status', groupBy: 'status', aggregate: 'count' },
   loanSummary: { type: 'bar', title: 'Outstanding by unit (₹ Lac)', groupBy: 'unit', aggregate: 'sum', valueField: 'outstandingTillJul26' },
   electricity: { type: 'bar', title: 'Bill amount by location', groupBy: 'location', aggregate: 'sum', valueField: 'billAmount' },
   canteen: { type: 'bar', title: 'Monthly bill by location', groupBy: 'location', aggregate: 'sum', valueField: 'monthlyBill' },

@@ -71,7 +71,7 @@ export default function PeriodSummary({ config, records }) {
   const colCount = 1 + numericFields.length + computedFields.length;
 
   return (
-    <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="rounded">
+    <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="rounded overflow-x-auto">
       <div
         className="flex flex-wrap items-center justify-between gap-2 px-3 py-2"
         style={{ borderBottom: `1px solid ${C.line}` }}
@@ -97,7 +97,7 @@ export default function PeriodSummary({ config, records }) {
         </div>
       </div>
 
-      <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
+      <table className="w-full text-sm">
         <thead>
           <tr style={{ background: C.paper, borderBottom: `1px solid ${C.line}` }}>
             <th
@@ -141,7 +141,7 @@ export default function PeriodSummary({ config, records }) {
           {buckets.map((b) => (
             <tr key={b.key} style={{ borderBottom: `1px solid ${C.line}` }}>
               <td
-                className="px-3 py-2 whitespace-normal break-words"
+                className="px-3 py-2 nowrap-cell"
                 style={{ fontFamily: FONT_BODY, color: C.ink }}
               >
                 {b.label}
@@ -149,7 +149,7 @@ export default function PeriodSummary({ config, records }) {
               {numericFields.map((f) => (
                 <td
                   key={f.name}
-                  className="px-3 py-2 whitespace-normal break-words"
+                  className="px-3 py-2 nowrap-cell"
                   style={{ fontFamily: FONT_MONO }}
                 >
                   {b.rows.reduce((s, r) => s + num(r[f.name]), 0).toLocaleString("en-IN")}
@@ -158,7 +158,7 @@ export default function PeriodSummary({ config, records }) {
               {computedFields.map((c) => (
                 <td
                   key={c.name}
-                  className="px-3 py-2 whitespace-normal break-words"
+                  className="px-3 py-2 nowrap-cell"
                   style={{ fontFamily: FONT_MONO, color: C.steel }}
                 >
                   {c.total ? c.total(b.rows) : "—"}
@@ -168,16 +168,16 @@ export default function PeriodSummary({ config, records }) {
           ))}
           {buckets.length > 0 && (
             <tr style={{ background: C.paper, fontWeight: 600 }}>
-              <td className="px-3 py-2" style={{ color: C.ink }}>
+              <td className="px-3 py-2 nowrap-cell" style={{ color: C.ink }}>
                 Grand Total
               </td>
               {numericFields.map((f) => (
-                <td key={f.name} className="px-3 py-2" style={{ fontFamily: FONT_MONO, color: C.ink }}>
+                <td key={f.name} className="px-3 py-2 nowrap-cell" style={{ fontFamily: FONT_MONO, color: C.ink }}>
                   {records.reduce((s, r) => s + num(r[f.name]), 0).toLocaleString("en-IN")}
                 </td>
               ))}
               {computedFields.map((c) => (
-                <td key={c.name} className="px-3 py-2" style={{ fontFamily: FONT_MONO, color: C.ink }}>
+                <td key={c.name} className="px-3 py-2 nowrap-cell" style={{ fontFamily: FONT_MONO, color: C.ink }}>
                   {c.total ? c.total(records) : ""}
                 </td>
               ))}

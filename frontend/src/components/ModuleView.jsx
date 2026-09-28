@@ -110,7 +110,61 @@ function aggregate(records, chartConf) {
   return Object.values(map);
 }
 
+const PERIODS = ["Monthly", "Quarterly", "Half-Yearly", "Annual"];
 
+function defaultSortFor(config) {
+  if (config.defaultSort) return config.defaultSort;
+  const firstChronologicalField = config.fields.find((field) =>
+    field.type === "month" || field.type === "date"
+  );
+  return firstChronologicalField
+    ? { field: firstChronologicalField.name, dir: "asc" }
+    : null;
+}
+
+function periodKey(monthStr, period) {
+  const [y, m] = String(monthStr || "").split("-").map(Number);
+  if (!y || !m) return { key: "0000", label: "Unspecified" };
+  if (period === "Quarterly") { const q = Math.ceil(m / 3); return { key: `${y}-Q${q}`, label: `Q${q} ${y}` }; }
+  if (period === "Half-Yearly") { const h = m <= 6 ? 1 : 2; return { key: `${y}-H${h}`, label: `H${h} ${y}` }; }
+  return { key: `${y}`, label: `${y}` };
+}
+
+// Weighted average of a per-head rate field (noSum): sum(rate*weight)/sum(weight)
+function weightedAvg(rows, f) {
+  let num = 0, den = 0;
+  rows.forEach((r) => {
+    const w = f.weightFields.reduce((s, k) => s + (Number(r[k]) || 0), 0);
+    num += (Number(r[f.name]) || 0) * w;
+    den += w;
+  });
+  return den > 0 ? Math.round((num / den) * 100) / 100 : 0;
+}
+
+// Rolls monthly rows up to quarter / half-year / year.
+// Numbers are summed; noSum rate fields are blended by headcount.
+// Rows stay separate per location/department (every non-numeric column).
+function rollupByPeriod(rows, fields, periodName, period) {
+  const sums = fields.filter((f) => f.type === "number" && !f.noSum);
+  const rates = fields.filter((f) => f.noSum && f.weightFields);
+  const dims = fields.filter((f) => f.name !== periodName && f.type !== "number" && f.type !== "password");
+  const groups = {};
+  rows.forEach((r) => {
+    const { key, label } = periodKey(r[periodName], period);
+    const gk = key + "::" + dims.map((f) => r[f.name] ?? "").join("|");
+    if (!groups[gk]) {
+      groups[gk] = { id: gk, _key: key, _src: [], [periodName]: label };
+      dims.forEach((f) => { groups[gk][f.name] = r[f.name]; });
+      sums.forEach((f) => { groups[gk][f.name] = 0; });
+    }
+    const g = groups[gk];
+    g._src.push(r);
+    sums.forEach((f) => { g[f.name] += Number(r[f.name]) || 0; });
+  });
+  return Object.values(groups)
+    .map((g) => { rates.forEach((f) => { g[f.name] = weightedAvg(g._src, f); }); return g; })
+    .sort((a, b) => a._key.localeCompare(b._key));
+}
 // ============================================================
 // CSV ESCAPE
 // ============================================================
@@ -125,23 +179,26 @@ function csvEscape(value) {
 
 
 // ============================================================
-// DATE FORMATTER
+// DATE / MONTH HELPERS
 //
 // Converts:
-// 1968-07-01T00:00:00.000Z
+// 1968-07-01  (or 1968-07-01T00:00:00.000Z)
 //
 // Into:
 // 01-07-1968
 // ============================================================
 
+const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const monthKeyOf = (v) => (v ? String(v).slice(0, 7) : "");
+const monthLabel = (key) => {
+  const [y, m] = key.split("-");
+  return `${MONTH_LABELS[Number(m) - 1]} ${y}`;
+};
+
 function formatDate(value) {
-  if (
-    value === undefined ||
-    value === null ||
-    value === ""
-  ) {
-    return "—";
-  }
+  if (!value) return "—";
+  const m = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[3]}-${m[2]}-${m[1]}`;
 
   const date = new Date(value);
 
@@ -495,6 +552,8 @@ function ModuleChart({
 export default function ModuleView({
   config,
   editable,
+  recordFilter,
+  defaultValues = {},
 }) {
   const [records, setRecords] =
     useState([]);
@@ -513,9 +572,31 @@ export default function ModuleView({
 
   const [formValues, setFormValues] =
     useState({});
-
+  const [period, setPeriod] = useState("Monthly");
   const [search, setSearch] =
     useState("");
+
+  // Sorting + month filter (both optional per module via config)
+  const [sort, setSort] =
+    useState(defaultSortFor(config));
+
+  const [monthFilter, setMonthFilter] =
+    useState("all");
+
+  useEffect(() => {
+    setSort(defaultSortFor(config));
+    setMonthFilter("all");
+  }, [config.key]);
+
+  const toggleSort = (field) =>
+    setSort((s) =>
+      s && s.field === field
+        ? {
+            field,
+            dir: s.dir === "asc" ? "desc" : "asc",
+          }
+        : { field, dir: "asc" }
+    );
 
 
   // ==========================================================
@@ -561,7 +642,7 @@ export default function ModuleView({
   // ==========================================================
 
   const openNew = () => {
-    setFormValues({});
+    setFormValues({ ...defaultValues });
     setEditingId(null);
     setShowForm(true);
   };
@@ -652,20 +733,55 @@ export default function ModuleView({
 
 
   // ==========================================================
-  // SEARCH
+  // MONTH FILTER OPTIONS
+  // (only when the module config sets monthFilterField)
+  // ==========================================================
+
+  const monthField = config.monthFilterField;
+
+  const monthOptions = useMemo(() => {
+    if (!monthField) return [];
+
+    return [
+      ...new Set(
+        records
+          .map((r) => monthKeyOf(r[monthField]))
+          .filter(Boolean)
+      ),
+    ].sort();
+  }, [records, monthField]);
+
+
+  // ==========================================================
+  // MONTH FILTER + SEARCH + SORT
   // ==========================================================
 
   const filtered = useMemo(() => {
     const query =
       search.trim().toLowerCase();
 
-    if (!query) {
-      return records;
-    }
+    let rows = records.filter(
+      (record) => {
+        if (recordFilter && !recordFilter(record)) {
+          return false;
+        }
 
-    return records.filter(
-      (record) =>
-        config.fields.some(
+        // Month filter
+        if (
+          monthField &&
+          monthFilter !== "all" &&
+          monthKeyOf(record[monthField]) !==
+            monthFilter
+        ) {
+          return false;
+        }
+
+        // Search
+        if (!query) {
+          return true;
+        }
+
+        return config.fields.some(
           (field) => {
             const rawValue =
               record[field.name];
@@ -681,12 +797,55 @@ export default function ModuleView({
               .toLowerCase()
               .includes(query);
           }
-        )
+        );
+      }
     );
+
+    // Sort
+    if (sort) {
+      const { field, dir } = sort;
+
+      const type = config.fields.find(
+        (f) => f.name === field
+      )?.type;
+
+      const blank = (v) =>
+        v === null ||
+        v === undefined ||
+        v === "";
+
+      rows = [...rows].sort((a, b) => {
+        const av = a[field];
+        const bv = b[field];
+
+        if (blank(av) && blank(bv)) return 0;
+        if (blank(av)) return 1; // blanks always last
+        if (blank(bv)) return -1;
+
+        const cmp =
+          type === "number"
+            ? Number(av) - Number(bv)
+            : type === "month"
+              ? String(av).localeCompare(String(bv))
+            : String(av).localeCompare(
+                String(bv),
+                undefined,
+                { numeric: true }
+              );
+
+        return dir === "desc" ? -cmp : cmp;
+      });
+    }
+
+    return rows;
   }, [
     records,
     search,
+    sort,
+    monthFilter,
+    monthField,
     config.fields,
+    recordFilter,
   ]);
 
 
@@ -703,7 +862,16 @@ export default function ModuleView({
   const computedFields =
     COMPUTED[config.key] || [];
 
-
+  const periodField = config.fields.find((f) => f.type === "month");
+  const displayRows = useMemo(
+    () =>
+      periodField && period !== "Monthly"
+        ? rollupByPeriod(filtered, config.fields, periodField.name, period)
+        : filtered,
+    [filtered, config.fields, periodField, period],
+  );
+  // Rolled-up rows aren't single DB records, so edit/delete only in Monthly view
+  const canEditRows = editable && (!periodField || period === "Monthly");
   // ==========================================================
   // COLUMN GROUPS
   // ==========================================================
@@ -803,6 +971,40 @@ export default function ModuleView({
 
         <div className="flex items-center gap-2">
 
+          {/* Month filter (only for modules that enable it) */}
+
+          {monthField && (
+            <select
+              value={monthFilter}
+              onChange={(event) =>
+                setMonthFilter(
+                  event.target.value
+                )
+              }
+              className="px-2.5 py-2 text-sm rounded"
+              style={{
+                background: C.card,
+                border: `1px solid ${C.line}`,
+              }}
+            >
+              <option value="all">
+                All months
+              </option>
+
+              {monthOptions.map(
+                (month) => (
+                  <option
+                    key={month}
+                    value={month}
+                  >
+                    {monthLabel(month)}
+                  </option>
+                )
+              )}
+            </select>
+          )}
+
+
           <span
             style={{
               color: C.ink2,
@@ -820,12 +1022,7 @@ export default function ModuleView({
 
           <button
             onClick={() =>
-              downloadCSV(
-                config.key,
-                visibleFields,
-                computedFields,
-                filtered
-              )
+              downloadCSV(config.key, visibleFields, computedFields, displayRows)
             }
             disabled={
               filtered.length === 0
@@ -940,6 +1137,7 @@ export default function ModuleView({
 
             const groupColSpan =
               group.fields.length +
+              (config.showSerialNumber ? 1 : 0) +
               (isLast
                 ? computedFields.length
                 : 0) +
@@ -952,11 +1150,7 @@ export default function ModuleView({
                   background: C.card,
                   border: `1px solid ${C.line}`,
                 }}
-                className={`rounded ${
-                  config.wrapHeaders
-                    ? ""
-                    : "overflow-x-auto"
-                }`}
+                className="rounded overflow-x-auto"
               >
 
                 {/* Group heading */}
@@ -978,15 +1172,11 @@ export default function ModuleView({
 
 
                 <table
-                  className="w-full text-sm"
-                  style={
-                    config.wrapHeaders
-                      ? {
-                          tableLayout:
-                            "fixed",
-                        }
-                      : undefined
-                  }
+                  className="text-sm"
+                  style={{
+                    width: "100%",
+                    minWidth: "max-content",
+                  }}
                 >
 
                   {/* ==================================================
@@ -1002,33 +1192,47 @@ export default function ModuleView({
                       }}
                     >
 
-                      {group.fields.map(
-                        (field) => (
+                      {config.showSerialNumber && (
+                        <th className="text-left px-3 py-2 font-medium nowrap-cell" style={{ color: C.ink2, fontSize: 11.5 }}>S.No.</th>
+                      )}
+
+                      {group.fields.map((field) => (
+                        <React.Fragment key={field.name}>
                           <th
-                            key={
-                              field.name
-                            }
+                            onClick={() => toggleSort(field.name)}
+                            title="Click to sort"
                             style={{
-                              color:
-                                C.ink2,
-                              fontSize:
-                                11.5,
+                              color: C.ink2,
+                              fontSize: 11.5,
+                              cursor: "pointer",
+                              userSelect: "none",
+                              minWidth: config.wrapHeaders
+                                ? field.type !== "number" ? 120 : 100
+                                : undefined,
                             }}
                             className={`text-left px-3 py-2 font-medium ${
-                              config.wrapHeaders
+                              config.wrapHeaders && field.type !== "number"
                                 ? "whitespace-normal break-words leading-tight align-bottom"
-                                : "whitespace-nowrap"
+                                : "nowrap-cell align-bottom"
                             }`}
                           >
                             {field.label}
+                            {sort?.field === field.name
+                              ? sort.dir === "asc" ? " ▲" : " ▼"
+                              : ""}
                           </th>
-                        )
-                      )}
+                          {isLast && config.computedAfterField === field.name && computedFields.map((computed) => (
+                            <th key={computed.name} style={{ color: C.steel, fontSize: 11.5, minWidth: 110 }} className="text-left px-3 py-2 font-medium whitespace-normal break-words leading-tight align-bottom">
+                              {computed.label}
+                            </th>
+                          ))}
+                        </React.Fragment>
+                      ))}
 
 
                       {/* Computed headers */}
 
-                      {isLast &&
+                      {isLast && !config.computedAfterField &&
                         computedFields.map(
                           (computed) => (
                             <th
@@ -1040,12 +1244,9 @@ export default function ModuleView({
                                   C.steel,
                                 fontSize:
                                   11.5,
+                                minWidth: 110,
                               }}
-                              className={`text-left px-3 py-2 font-medium ${
-                                config.wrapHeaders
-                                  ? "whitespace-normal break-words leading-tight align-bottom"
-                                  : "whitespace-nowrap"
-                              }`}
+                              className="text-left px-3 py-2 font-medium whitespace-normal break-words leading-tight align-bottom"
                             >
                               {
                                 computed.label
@@ -1126,7 +1327,7 @@ export default function ModuleView({
 
                     {!loading &&
                       filtered.map(
-                        (record) => (
+                        (record, rowIndex) => (
                           <tr
                             key={
                               record.id
@@ -1136,41 +1337,37 @@ export default function ModuleView({
                             }}
                           >
 
+                            {config.showSerialNumber && (
+                              <td className="px-3 py-2 nowrap-cell" style={{ color: C.ink2 }}>{rowIndex + 1}</td>
+                            )}
+
                             {/* Normal fields */}
 
-                            {group.fields.map(
-                              (field) => (
+                            {group.fields.map((f) => (
+                              <React.Fragment key={f.name}>
                                 <td
-                                  key={
-                                    field.name
-                                  }
-                                  className={`px-3 py-2 ${
-                                    config.wrapHeaders
-                                      ? "whitespace-normal break-words"
-                                      : "whitespace-nowrap"
-                                  }`}
+                                  className={`px-3 py-2 ${config.wrapHeaders && f.type !== "number" ? "whitespace-normal break-words" : "nowrap-cell"}`}
                                   style={{
-                                    fontFamily:
-                                      field.type ===
-                                      "number"
-                                        ? FONT_MONO
-                                        : FONT_BODY,
+                                    fontFamily: f.type === "number" ? FONT_MONO : FONT_BODY,
+                                    minWidth: config.wrapHeaders && f.type !== "number" ? 120 : undefined,
                                   }}
                                 >
-                                  {formatCellValue(
-                                    record[
-                                      field.name
-                                    ],
-                                    field.type
-                                  )}
+                                  {f.type === "date"
+                                    ? formatDate(record[f.name])
+                                    : record[f.name] || "—"}
                                 </td>
-                              )
-                            )}
+                                {isLast && config.computedAfterField === f.name && computedFields.map((computed) => (
+                                  <td key={computed.name} className="px-3 py-2 nowrap-cell" style={{ fontFamily: FONT_MONO, color: C.steel, minWidth: 110 }}>
+                                    {computed.compute(record)}
+                                  </td>
+                                ))}
+                              </React.Fragment>
+                            ))}
 
 
                             {/* Computed fields */}
 
-                            {isLast &&
+                            {isLast && !config.computedAfterField &&
                               computedFields.map(
                                 (
                                   computed
@@ -1179,16 +1376,13 @@ export default function ModuleView({
                                     key={
                                       computed.name
                                     }
-                                    className={`px-3 py-2 ${
-                                      config.wrapHeaders
-                                        ? "whitespace-normal break-words"
-                                        : "whitespace-nowrap"
-                                    }`}
+                                    className="px-3 py-2 nowrap-cell"
                                     style={{
                                       fontFamily:
                                         FONT_MONO,
                                       color:
                                         C.steel,
+                                      minWidth: 110,
                                     }}
                                   >
                                     {computed.compute(
@@ -1272,73 +1466,39 @@ export default function ModuleView({
                           }}
                         >
 
-                          {group.fields.map(
-                            (
-                              field,
-                              fieldIndex
-                            ) => (
+                          {config.showSerialNumber && <td className="px-3 py-2" />}
+
+                          {group.fields.map((field, fieldIndex) => (
+                            <React.Fragment key={field.name}>
                               <td
-                                key={
-                                  field.name
-                                }
-                                className={`px-3 py-2 ${
-                                  config.wrapHeaders
-                                    ? "whitespace-normal break-words"
-                                    : "whitespace-nowrap"
-                                }`}
-                                style={{
-                                  fontFamily:
-                                    field.type ===
-                                    "number"
-                                      ? FONT_MONO
-                                      : FONT_BODY,
-                                  color:
-                                    C.ink,
-                                }}
+                                className={`px-3 py-2 ${config.wrapHeaders && field.type !== "number" ? "whitespace-normal break-words" : "nowrap-cell"}`}
+                                style={{ fontFamily: field.type === "number" ? FONT_MONO : FONT_BODY, color: C.ink }}
                               >
-                                {fieldIndex ===
-                                0
+                                {fieldIndex === 0
                                   ? "Total"
-                                  : field.type ===
-                                    "number"
-                                  ? filtered
-                                      .reduce(
-                                        (
-                                          sum,
-                                          record
-                                        ) =>
-                                          sum +
-                                          (Number(
-                                            record[
-                                              field.name
-                                            ]
-                                          ) ||
-                                            0),
-                                        0
-                                      )
-                                      .toLocaleString(
-                                        "en-IN"
-                                      )
-                                  : ""}
+                                  : field.type === "number"
+                                    ? filtered.reduce((sum, record) => sum + (Number(record[field.name]) || 0), 0).toLocaleString("en-IN")
+                                    : ""}
                               </td>
-                            )
-                          )}
+                              {isLast && config.computedAfterField === field.name && computedFields.map((computed) => (
+                                <td key={computed.name} className="px-3 py-2 nowrap-cell" style={{ fontFamily: FONT_MONO, color: C.steel }}>
+                                  {computed.total ? computed.total(filtered) : ""}
+                                </td>
+                              ))}
+                            </React.Fragment>
+                          ))}
 
 
                           {/* Computed totals */}
 
-                          {isLast &&
+                          {isLast && !config.computedAfterField &&
                             computedFields.map(
                               (computed) => (
                                 <td
                                   key={
                                     computed.name
                                   }
-                                  className={`px-3 py-2 ${
-                                    config.wrapHeaders
-                                      ? "whitespace-normal break-words"
-                                      : "whitespace-nowrap"
-                                  }`}
+                                  className="px-3 py-2 nowrap-cell"
                                   style={{
                                     fontFamily:
                                       FONT_MONO,

@@ -57,55 +57,65 @@ CREATE TABLE IF NOT EXISTS manpower (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS daily_manpower (
+  id SERIAL PRIMARY KEY,
+  date DATE,
+  location TEXT,
+  department TEXT,
+  direct_present INTEGER,
+  indirect_present INTEGER,
+  direct_absent INTEGER,
+  indirect_absent INTEGER,
+  production INTEGER,
+  fixed_manpower INTEGER,
+  day_shift INTEGER,
+  night_shift INTEGER,
+  absent INTEGER,
+  double_shift INTEGER,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now();
+ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS production INTEGER;
+ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS fixed_manpower INTEGER;
+ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS day_shift INTEGER;
+ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS night_shift INTEGER;
+ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS absent INTEGER;
+ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS double_shift INTEGER;
+
 CREATE TABLE IF NOT EXISTS recruitment (
   id SERIAL PRIMARY KEY,
-  candidate_name TEXT,
-  position TEXT,
+  opening_position TEXT,
+  month TEXT,
   department TEXT,
   location TEXT,
-  recruiter TEXT,
-  source TEXT,
-  status TEXT,
-  application_date DATE,
-  joining_date DATE,
+  shortlisted INTEGER DEFAULT 0,
+  offered INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS hiring (
   id SERIAL PRIMARY KEY,
-  employee_name TEXT,
-  joining_date DATE,
+  month TEXT,
   department TEXT,
   location TEXT,
-  employment_type TEXT,
+  joined INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS separation (
   id SERIAL PRIMARY KEY,
-  employee_name TEXT,
-  separation_date DATE,
+  month TEXT,
   department TEXT,
-  location TEXT,
-  type TEXT,
   reason TEXT,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS loans (
-  id SERIAL PRIMARY KEY,
-  employee_name TEXT,
-  department TEXT,
-  loan_type TEXT,
-  sanctioned_amount NUMERIC,
-  disbursed_amount NUMERIC,
-  monthly_recovery NUMERIC,
-  total_recovered NUMERIC,
-  start_date DATE,
-  status TEXT,
+  mode TEXT,
+  location TEXT,
+  last_working_day DATE,
+  exit TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -137,8 +147,6 @@ CREATE TABLE IF NOT EXISTS canteen (
   id SERIAL PRIMARY KEY,
   month TEXT,
   location TEXT,
-  meals INTEGER,
-  employees INTEGER,
   monthly_bill NUMERIC,
   employee_recovery NUMERIC,
   created_at TIMESTAMPTZ DEFAULT now(),
@@ -147,8 +155,16 @@ CREATE TABLE IF NOT EXISTS canteen (
 
 CREATE TABLE IF NOT EXISTS healthcheck (
   id SERIAL PRIMARY KEY,
+  period TEXT,
+  as_of_date DATE,
   employee_name TEXT,
   department TEXT,
+  designation TEXT,
+  date_of_usage DATE,
+  total_coupons_purchased INTEGER,
+  total_coupons_available INTEGER,
+  coupons_available_ho INTEGER,
+  coupons_available_industries INTEGER,
   coupon_issued TEXT,
   coupon_used TEXT,
   checkup_date DATE,
@@ -186,9 +202,14 @@ CREATE TABLE IF NOT EXISTS attendance (
 );
 CREATE TABLE IF NOT EXISTS training (
   id SERIAL PRIMARY KEY,
+  section TEXT,
   training_name TEXT,
   training_date DATE,
   location TEXT,
+  trainer TEXT,
+  number_of_people INTEGER,
+  average_rating NUMERIC,
+  remarks TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -220,3 +241,28 @@ ALTER TABLE manpower ADD COLUMN IF NOT EXISTS actual_cost_per_person NUMERIC;
 CREATE INDEX IF NOT EXISTS idx_audit_time ON audit_log (time DESC);
 CREATE INDEX IF NOT EXISTS idx_recruitment_status ON recruitment (status);
 CREATE INDEX IF NOT EXISTS idx_manpower_month ON manpower (month);
+ALTER TABLE manpower ADD COLUMN IF NOT EXISTS entry_date DATE;
+
+ALTER TABLE recruitment ADD COLUMN IF NOT EXISTS opening_position TEXT;
+ALTER TABLE recruitment ADD COLUMN IF NOT EXISTS month TEXT;
+ALTER TABLE recruitment ADD COLUMN IF NOT EXISTS shortlisted INTEGER DEFAULT 0;
+ALTER TABLE recruitment ADD COLUMN IF NOT EXISTS offered INTEGER DEFAULT 0;
+ALTER TABLE hiring ADD COLUMN IF NOT EXISTS month TEXT;
+ALTER TABLE hiring ADD COLUMN IF NOT EXISTS joined INTEGER DEFAULT 0;
+ALTER TABLE separation ADD COLUMN IF NOT EXISTS month TEXT;
+ALTER TABLE separation ADD COLUMN IF NOT EXISTS mode TEXT;
+ALTER TABLE separation ADD COLUMN IF NOT EXISTS last_working_day DATE;
+ALTER TABLE separation ADD COLUMN IF NOT EXISTS exit TEXT;
+ALTER TABLE healthcheck ADD COLUMN IF NOT EXISTS designation TEXT;
+ALTER TABLE healthcheck ADD COLUMN IF NOT EXISTS date_of_usage DATE;
+ALTER TABLE healthcheck ADD COLUMN IF NOT EXISTS period TEXT;
+ALTER TABLE healthcheck ADD COLUMN IF NOT EXISTS as_of_date DATE;
+ALTER TABLE healthcheck ADD COLUMN IF NOT EXISTS total_coupons_purchased INTEGER;
+ALTER TABLE healthcheck ADD COLUMN IF NOT EXISTS total_coupons_available INTEGER;
+ALTER TABLE healthcheck ADD COLUMN IF NOT EXISTS coupons_available_ho INTEGER;
+ALTER TABLE healthcheck ADD COLUMN IF NOT EXISTS coupons_available_industries INTEGER;
+ALTER TABLE training ADD COLUMN IF NOT EXISTS section TEXT;
+ALTER TABLE training ADD COLUMN IF NOT EXISTS trainer TEXT;
+ALTER TABLE training ADD COLUMN IF NOT EXISTS number_of_people INTEGER;
+ALTER TABLE training ADD COLUMN IF NOT EXISTS average_rating NUMERIC;
+ALTER TABLE training ADD COLUMN IF NOT EXISTS remarks TEXT;

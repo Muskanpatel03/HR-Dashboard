@@ -11,6 +11,10 @@ const { authenticate } = require('../middleware/auth');
 const router = express.Router();
 router.use(authenticate);
 
+function permissionModuleKey(moduleKey) {
+  return moduleKey === 'dailyManpower' ? 'manpower' : moduleKey;
+}
+
 function normalizeValue(val, type) {
   if (val === undefined || val === null || val === '') return null;
   if (type === 'number') {
@@ -88,7 +92,7 @@ router.get('/:module', async (req, res) => {
   const { module: moduleKey } = req.params;
   const conf = MODULES[moduleKey];
   if (!conf) return res.status(404).json({ error: 'Unknown module' });
-  if (!canView(req.user.role, moduleKey)) return res.status(403).json({ error: 'Not permitted to view this module' });
+  if (!canView(req.user.role, permissionModuleKey(moduleKey))) return res.status(403).json({ error: 'Not permitted to view this module' });
   try {
     const cols = conf.columns.map((c) => c.db).join(', ');
     const result = await pool.query(`SELECT id, ${cols} FROM ${conf.table} ORDER BY id DESC`);
@@ -103,7 +107,7 @@ router.post('/:module', async (req, res) => {
   const { module: moduleKey } = req.params;
   const conf = MODULES[moduleKey];
   if (!conf) return res.status(404).json({ error: 'Unknown module' });
-  if (!canEdit(req.user.role, moduleKey)) return res.status(403).json({ error: 'Not permitted to add records here' });
+  if (!canEdit(req.user.role, permissionModuleKey(moduleKey))) return res.status(403).json({ error: 'Not permitted to add records here' });
   if (moduleKey === 'usersmgmt' && !ASSIGNABLE_ROLES.includes(req.body.role)) {
     return res.status(400).json({ error: 'That role cannot be assigned. Viewer accounts are self-signup only.' });
   }
@@ -146,7 +150,7 @@ router.put('/:module/:id', async (req, res) => {
   const { module: moduleKey, id } = req.params;
   const conf = MODULES[moduleKey];
   if (!conf) return res.status(404).json({ error: 'Unknown module' });
-  if (!canEdit(req.user.role, moduleKey)) return res.status(403).json({ error: 'Not permitted to edit records here' });
+  if (!canEdit(req.user.role, permissionModuleKey(moduleKey))) return res.status(403).json({ error: 'Not permitted to edit records here' });
   if (moduleKey === 'usersmgmt' && !ASSIGNABLE_ROLES.includes(req.body.role)) {
     return res.status(400).json({ error: 'That role cannot be assigned. Viewer accounts are self-signup only.' });
   }
@@ -199,7 +203,7 @@ router.delete('/:module/:id', async (req, res) => {
   const { module: moduleKey, id } = req.params;
   const conf = MODULES[moduleKey];
   if (!conf) return res.status(404).json({ error: 'Unknown module' });
-  if (!canEdit(req.user.role, moduleKey)) return res.status(403).json({ error: 'Not permitted to delete records here' });
+  if (!canEdit(req.user.role, permissionModuleKey(moduleKey))) return res.status(403).json({ error: 'Not permitted to delete records here' });
 
   const client = await pool.connect();
   try {

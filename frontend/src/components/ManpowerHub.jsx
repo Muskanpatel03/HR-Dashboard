@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import ModuleView from './ModuleView';
-import { C, MODULE_MAP } from '../config';
+import { C, DAILY_MANPOWER_CONFIG, MODULE_MAP } from '../config';
 
 const TABS = [
   { key: 'total', label: 'Total Manpower' },
-  { key: 'direct', label: 'Direct HC' },
-  { key: 'indirect', label: 'Indirect HC' },
+  { key: 'daily', label: 'Daily Manpower' },
 ];
 
 export default function ManpowerHub({
@@ -48,7 +47,7 @@ export default function ManpowerHub({
 
       {/* Manpower Content */}
       <ModuleView
-        config={MODULE_MAP.manpower}
+        config={active === 'daily' ? DAILY_MANPOWER_CONFIG : MODULE_MAP.manpower}
         editable={canEditModule('manpower')}
       />
 

@@ -8,8 +8,8 @@ import { C, MODULE_MAP } from '../config';
 // dates vs. exit reasons) — this just folds them into one sidebar section
 // with tabs, plus a quick "hired vs separated" count at a glance.
 const TABS = [
-  { key: 'recruitment', label: 'Candidates' },
-  { key: 'hiring', label: 'Hiring' },
+  { key: 'recruitment', label: 'Open Position' },
+  { key: 'hiring', label: 'Joined' },
   { key: 'separation', label: 'Separation' },
 ];
 
@@ -20,7 +20,10 @@ export default function RecruitmentHub({ visibleModuleKeys, canEditModule }) {
 
   useEffect(() => {
     if (visibleModuleKeys.includes('hiring')) {
-      api.get('/hiring').then((res) => setCounts((c) => ({ ...c, hiring: res.data.records.length }))).catch(() => {});
+      api.get('/hiring').then((res) => setCounts((c) => ({
+        ...c,
+        hiring: res.data.records.reduce((sum, record) => sum + (Number(record.joined) || 0), 0),
+      }))).catch(() => {});
     }
     if (visibleModuleKeys.includes('separation')) {
       api.get('/separation').then((res) => setCounts((c) => ({ ...c, separation: res.data.records.length }))).catch(() => {});

@@ -21,8 +21,12 @@ table {
 
 table th,
 table td {
-  word-break: break-word;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+}
+.nowrap-cell {
+  white-space: nowrap !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
 }
 
 button {

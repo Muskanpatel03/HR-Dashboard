@@ -10,7 +10,7 @@ const MODULES = {
   // ------------------------------------------------------------
   // MANPOWER
   // ------------------------------------------------------------
-  manpower: {
+    manpower: {
     table: "manpower",
 
     columns: [
@@ -59,9 +59,26 @@ const MODULES = {
         db: "actual_cost_per_person",
         type: "number",
       },
+      {
+        js: "entryDate",
+        db: "entry_date",
+        type: "date",
+      },
     ],
   },
-
+  dailyManpower: {
+  table: 'daily_manpower',
+  columns: [
+    { js: 'date', db: 'date', type: 'date' },
+    { js: 'department', db: 'department', type: 'text' },
+    { js: 'production', db: 'production', type: 'number' },
+    { js: 'fixedManpower', db: 'fixed_manpower', type: 'number' },
+    { js: 'dayShift', db: 'day_shift', type: 'number' },
+    { js: 'nightShift', db: 'night_shift', type: 'number' },
+    { js: 'absent', db: 'absent', type: 'number' },
+    { js: 'doubleShift', db: 'double_shift', type: 'number' },
+  ]
+},
   // ------------------------------------------------------------
   // RECRUITMENT
   // ------------------------------------------------------------
@@ -70,14 +87,14 @@ const MODULES = {
 
     columns: [
       {
-        js: "candidateName",
-        db: "candidate_name",
+        js: "openingPosition",
+        db: "opening_position",
         type: "text",
       },
       {
-        js: "position",
-        db: "position",
-        type: "text",
+        js: "month",
+        db: "month",
+        type: "month",
       },
       {
         js: "department",
@@ -90,29 +107,14 @@ const MODULES = {
         type: "text",
       },
       {
-        js: "recruiter",
-        db: "recruiter",
-        type: "text",
+        js: "shortlisted",
+        db: "shortlisted",
+        type: "number",
       },
       {
-        js: "source",
-        db: "source",
-        type: "text",
-      },
-      {
-        js: "status",
-        db: "status",
-        type: "text",
-      },
-      {
-        js: "applicationDate",
-        db: "application_date",
-        type: "date",
-      },
-      {
-        js: "joiningDate",
-        db: "joining_date",
-        type: "date",
+        js: "offered",
+        db: "offered",
+        type: "number",
       },
     ],
   },
@@ -125,14 +127,9 @@ const MODULES = {
 
     columns: [
       {
-        js: "employeeName",
-        db: "employee_name",
-        type: "text",
-      },
-      {
-        js: "joiningDate",
-        db: "joining_date",
-        type: "date",
+        js: "month",
+        db: "month",
+        type: "month",
       },
       {
         js: "department",
@@ -145,9 +142,9 @@ const MODULES = {
         type: "text",
       },
       {
-        js: "employmentType",
-        db: "employment_type",
-        type: "text",
+        js: "joined",
+        db: "joined",
+        type: "number",
       },
     ],
   },
@@ -160,18 +157,23 @@ const MODULES = {
 
     columns: [
       {
-        js: "employeeName",
-        db: "employee_name",
-        type: "text",
-      },
-      {
-        js: "separationDate",
-        db: "separation_date",
-        type: "date",
+        js: "month",
+        db: "month",
+        type: "month",
       },
       {
         js: "department",
         db: "department",
+        type: "text",
+      },
+      {
+        js: "reason",
+        db: "reason",
+        type: "text",
+      },
+      {
+        js: "mode",
+        db: "mode",
         type: "text",
       },
       {
@@ -180,68 +182,13 @@ const MODULES = {
         type: "text",
       },
       {
-        js: "type",
-        db: "type",
-        type: "text",
-      },
-      {
-        js: "reason",
-        db: "reason",
-        type: "text",
-      },
-    ],
-  },
-
-  // ------------------------------------------------------------
-  // LOANS
-  // ------------------------------------------------------------
-  loans: {
-    table: "loans",
-
-    columns: [
-      {
-        js: "employeeName",
-        db: "employee_name",
-        type: "text",
-      },
-      {
-        js: "department",
-        db: "department",
-        type: "text",
-      },
-      {
-        js: "loanType",
-        db: "loan_type",
-        type: "text",
-      },
-      {
-        js: "sanctionedAmount",
-        db: "sanctioned_amount",
-        type: "number",
-      },
-      {
-        js: "disbursedAmount",
-        db: "disbursed_amount",
-        type: "number",
-      },
-      {
-        js: "monthlyRecovery",
-        db: "monthly_recovery",
-        type: "number",
-      },
-      {
-        js: "totalRecovered",
-        db: "total_recovered",
-        type: "number",
-      },
-      {
-        js: "startDate",
-        db: "start_date",
+        js: "lastWorkingDay",
+        db: "last_working_day",
         type: "date",
       },
       {
-        js: "status",
-        db: "status",
+        js: "exit",
+        db: "exit",
         type: "text",
       },
     ],
@@ -315,63 +262,17 @@ const MODULES = {
   // ------------------------------------------------------------
   // RETIREMENT
   // ------------------------------------------------------------
-  retirement: {
-    table: "retirement",
-
+   retirement: {
+    table: 'retirement',
     columns: [
-      {
-        js: "employeeName",
-        db: "employee_name",
-        type: "text",
-      },
-      {
-        js: "employeeId",
-        db: "employee_id",
-        type: "text",
-      },
-      {
-        js: "department",
-        db: "department",
-        type: "text",
-      },
-      {
-        js: "location",
-        db: "location",
-        type: "text",
-      },
-      {
-        js: "dateOfBirth",
-        db: "date_of_birth",
-        type: "date",
-      },
-    ],
-
-    fields: [
-      {
-        name: "employeeName",
-        label: "Employee",
-        type: "text",
-      },
-      {
-        name: "employeeId",
-        label: "Employee ID",
-        type: "text",
-      },
-      {
-        name: "department",
-        label: "Department",
-        type: "text",
-      },
-      {
-        name: "location",
-        label: "Location",
-        type: "text",
-      },
-      {
-        name: "dateOfBirth",
-        label: "Date of Birth",
-        type: "date",
-      },
+      { js: 'employeeName', db: 'employee_name', type: 'text' },
+      { js: 'employeeId', db: 'employee_id', type: 'text' },
+      { js: 'designation', db: 'designation', type: 'text' },
+      { js: 'department', db: 'department', type: 'text' },
+      { js: 'location', db: 'location', type: 'text' },
+      { js: 'criticality', db: 'criticality', type: 'text' },
+      { js: 'dateOfBirth', db: 'date_of_birth', type: 'date' },
+      { js: 'lastWorkingDay', db: 'last_working_day', type: 'date' },
     ],
   },
 
@@ -433,16 +334,6 @@ const MODULES = {
         type: "text",
       },
       {
-        js: "meals",
-        db: "meals",
-        type: "number",
-      },
-      {
-        js: "employees",
-        db: "employees",
-        type: "number",
-      },
-      {
         js: "monthlyBill",
         db: "monthly_bill",
         type: "number",
@@ -462,6 +353,26 @@ const MODULES = {
     table: "healthcheck",
 
     columns: [
+      {
+        js: "employeeName",
+        db: "employee_name",
+        type: "text",
+      },
+      {
+        js: "department",
+        db: "department",
+        type: "text",
+      },
+      {
+        js: "designation",
+        db: "designation",
+        type: "text",
+      },
+      {
+        js: "dateOfUsage",
+        db: "date_of_usage",
+        type: "date",
+      },
       {
         js: "period",
         db: "period",
@@ -558,6 +469,11 @@ const MODULES = {
 
     columns: [
       {
+        js: "section",
+        db: "section",
+        type: "text",
+      },
+      {
         js: "trainingName",
         db: "training_name",
         type: "text",
@@ -570,6 +486,26 @@ const MODULES = {
       {
         js: "location",
         db: "location",
+        type: "text",
+      },
+      {
+        js: "trainer",
+        db: "trainer",
+        type: "text",
+      },
+      {
+        js: "numberOfPeople",
+        db: "number_of_people",
+        type: "number",
+      },
+      {
+        js: "averageRating",
+        db: "average_rating",
+        type: "number",
+      },
+      {
+        js: "remarks",
+        db: "remarks",
         type: "text",
       },
     ],

@@ -14,6 +14,7 @@ router.get('/', async (req, res) => {
     const result = await pool.query(
       'SELECT id, time, user_name, role, module, action, detail FROM audit_log ORDER BY time DESC LIMIT 300'
     );
+    
     res.json({ audit: result.rows });
   } catch (e) {
     console.error(e);

@@ -4,8 +4,9 @@ import { LayoutGrid, History, LogOut, Shield } from 'lucide-react';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import ModuleView from './components/ModuleView';
+import ManpowerHub from './components/ManpowerHub';
 import RecruitmentHub from './components/RecruitmentHub';
-import LoansHub from './components/LoansHub';
+import TrainingHub from './components/TrainingHub';
 import AuditView from './components/AuditView';
 import AccessControl from './components/AccessControl';
 
@@ -19,7 +20,6 @@ import {
 } from './config';
 
 const RECRUITMENT_GROUP = ['recruitment', 'hiring', 'separation'];
-const LOANS_GROUP = ['loans', 'loanSummary'];
 
 export default function App() {
   // ==================================================
@@ -99,16 +99,6 @@ export default function App() {
   }, [visibleModuleKeys]);
 
   // ==================================================
-  // LOANS GROUP
-  // ==================================================
-
-  const canSeeLoansGroup = useMemo(() => {
-    return LOANS_GROUP.some((key) =>
-      visibleModuleKeys.includes(key)
-    );
-  }, [visibleModuleKeys]);
-
-  // ==================================================
   // NAVIGATION ITEMS
   // ==================================================
 
@@ -136,16 +126,6 @@ export default function App() {
         // Recruitment group
         if (m.key === 'recruitment') {
           return canSeeRecruitmentGroup;
-        }
-
-        // Loan Summary is inside LoansHub
-        if (m.key === 'loanSummary') {
-          return false;
-        }
-
-        // Loans group
-        if (m.key === 'loans') {
-          return canSeeLoansGroup;
         }
 
         return visibleModuleKeys.includes(m.key);
@@ -176,7 +156,6 @@ export default function App() {
     user,
     canSeeDashboard,
     canSeeRecruitmentGroup,
-    canSeeLoansGroup,
     visibleModuleKeys,
   ]);
 
@@ -307,10 +286,8 @@ export default function App() {
         : active === 'roles'
           ? 'Access Control'
           : active === 'recruitment'
-          ? 'Recruitment'
-          : active === 'loans'
-            ? 'Loans'
-            : MODULE_MAP[active]?.label ||
+          ? 'Open Position'
+          : MODULE_MAP[active]?.label ||
               'Human Resource Dashboard';
 
   // ==================================================
@@ -556,14 +533,14 @@ export default function App() {
             />
           )}
 
-          {active === 'loans' && (
-            <LoansHub
-              visibleModuleKeys={
-                visibleModuleKeys
-              }
-              canEditModule={
-                canEditModule
-              }
+          {active === 'training' && (
+            <TrainingHub canEditModule={canEditModule} />
+          )}
+
+          {active === 'manpower' && (
+            <ManpowerHub
+              visibleModuleKeys={visibleModuleKeys}
+              canEditModule={canEditModule}
             />
           )}
 
@@ -571,7 +548,8 @@ export default function App() {
             active !== 'audit' &&
             active !== 'roles' &&
             active !== 'recruitment' &&
-            active !== 'loans' &&
+            active !== 'training' &&
+            active !== 'manpower' &&
             MODULE_MAP[active] && (
               <ModuleView
                 config={MODULE_MAP[active]}

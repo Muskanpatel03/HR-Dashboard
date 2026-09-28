@@ -25,6 +25,8 @@ export default function AccessControl() {
   const [error, setError] = useState('');
   const [savingRole, setSavingRole] = useState(null);
   const [savedRole, setSavedRole] = useState(null);
+  const [search, setSearch] = useState('');
+  const [openRole, setOpenRole] = useState(null); // only one role expanded at a time
 
   const load = useCallback(() => {
     setLoading(true);
@@ -50,7 +52,9 @@ export default function AccessControl() {
   }
 
   const { roles, allModules, protectedRoles } = data;
-  const roleNames = Object.keys(roles);
+  const roleNames = Object.keys(roles).filter((r) =>
+    r.toLowerCase().includes(search.toLowerCase())
+  );
 
   function toggle(role, listKey, moduleKey) {
     if (protectedRoles.includes(role)) return;
@@ -94,11 +98,20 @@ export default function AccessControl() {
         Changes apply immediately, app-wide, as soon as you save a role — no redeploy needed.
       </div>
 
-      {error && (
+     {error && (
         <div style={{ color: C.rust, fontSize: 13 }} className="flex items-center gap-2">
           <AlertCircle size={16} /> {error}
         </div>
       )}
+
+      <input
+        type="text"
+        placeholder={`Search roles/designations… (${Object.keys(roles).length} total)`}
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="w-full px-3 py-2 text-sm rounded"
+        style={{ border: `1px solid ${C.line}` }}
+      />
 
       {roleNames.map((role) => {
         const perm = roles[role];
@@ -108,7 +121,10 @@ export default function AccessControl() {
 
         return (
           <div key={role} style={{ background: C.card, border: `1px solid ${C.line}` }} className="rounded p-4">
-            <div className="flex items-center justify-between mb-3">
+             <div
+              className="flex items-center justify-between mb-3 cursor-pointer"
+              onClick={() => setOpenRole(openRole === role ? null : role)}
+            >
               <div style={{ fontFamily: FONT_HEAD, fontSize: 15, color: C.ink }}>
                 {role}
                 {isProtected && (
@@ -116,6 +132,9 @@ export default function AccessControl() {
                     (full access always — not editable)
                   </span>
                 )}
+                <span style={{ fontSize: 11, color: C.ink2 }} className="ml-2 font-normal">
+                  {viewList === 'all' || perm.modules === 'all' ? 'all modules' : `${(perm.modules === 'all' ? allModules : perm.modules).length} modules`} · click to {openRole === role ? 'collapse' : 'expand'}
+                </span>
               </div>
               {!isProtected && (
                 <button
@@ -130,6 +149,7 @@ export default function AccessControl() {
               )}
             </div>
 
+            {openRole === role && (
             <div className="overflow-x-auto">
               <table className="text-sm" style={{ minWidth: 560 }}>
                 <thead>
@@ -170,6 +190,7 @@ export default function AccessControl() {
                 </tbody>
               </table>
             </div>
+            )}
           </div>
         );
       })}
