@@ -174,11 +174,11 @@ router.get('/', async (req, res) => {
       q(
         perm.manpower,
         `
-        SELECT date, department, production, fixed_manpower,
+        SELECT date, department_production, fixed_manpower,
                day_shift, night_shift, absent, double_shift
         FROM daily_manpower
         WHERE ${whereFor(range, 'date', year, requestedDate)}
-        ORDER BY date DESC, department ASC
+        ORDER BY date DESC, department_production ASC
         `
       ),
 
@@ -482,8 +482,7 @@ router.get('/', async (req, res) => {
       const nightShift = Number(row.night_shift) || 0;
       return {
         date: String(row.date || '').slice(0, 10),
-        department: row.department || '—',
-        production: Number(row.production) || 0,
+        departmentProduction: row.department_production || '—',
         fixedManpower: Number(row.fixed_manpower) || 0,
         dayShift,
         nightShift,

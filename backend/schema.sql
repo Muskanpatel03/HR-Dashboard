@@ -84,6 +84,11 @@ ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS day_shift INTEGER;
 ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS night_shift INTEGER;
 ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS absent INTEGER;
 ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS double_shift INTEGER;
+ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS department_production TEXT;
+UPDATE daily_manpower
+SET department_production = CONCAT_WS(' - ', NULLIF(department, ''), NULLIF(production::TEXT, ''))
+WHERE department_production IS NULL
+  AND (department IS NOT NULL OR production IS NOT NULL);
 
 CREATE TABLE IF NOT EXISTS recruitment (
   id SERIAL PRIMARY KEY,

@@ -313,8 +313,7 @@ export const DAILY_MANPOWER_CONFIG = {
   wrapHeaders: true,
   fields: [
     { name: 'date', label: 'Date', type: 'date' },
-    { name: 'department', label: 'Department', type: 'select', options: DEPARTMENTS },
-    { name: 'production', label: 'Production', type: 'number' },
+    { name: 'departmentProduction', label: 'Department_Production', type: 'text' },
     { name: 'fixedManpower', label: 'Fixed Manpower', type: 'number' },
     { name: 'dayShift', label: 'Day Shift', type: 'number' },
     { name: 'nightShift', label: 'Night Shift', type: 'number' },

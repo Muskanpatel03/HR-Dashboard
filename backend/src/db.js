@@ -40,10 +40,16 @@ async function ensureCurrentSchema() {
     'ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS night_shift INTEGER',
     'ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS absent INTEGER',
     'ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS double_shift INTEGER',
+    'ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS department_production TEXT',
+    `UPDATE daily_manpower
+     SET department_production = CONCAT_WS(' - ', NULLIF(department, ''), NULLIF(production::TEXT, ''))
+     WHERE department_production IS NULL
+       AND (department IS NOT NULL OR production IS NOT NULL)`,
     'ALTER TABLE recruitment ADD COLUMN IF NOT EXISTS opening_position TEXT',
     'ALTER TABLE recruitment ADD COLUMN IF NOT EXISTS month TEXT',
     'ALTER TABLE recruitment ADD COLUMN IF NOT EXISTS shortlisted INTEGER DEFAULT 0',
     'ALTER TABLE recruitment ADD COLUMN IF NOT EXISTS offered INTEGER DEFAULT 0',
+    'ALTER TABLE recruitment ADD COLUMN IF NOT EXISTS status TEXT',
     'ALTER TABLE hiring ADD COLUMN IF NOT EXISTS month TEXT',
     'ALTER TABLE hiring ADD COLUMN IF NOT EXISTS joined INTEGER DEFAULT 0',
     'ALTER TABLE separation ADD COLUMN IF NOT EXISTS month TEXT',
