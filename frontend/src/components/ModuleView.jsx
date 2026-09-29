@@ -1173,7 +1173,7 @@ export default function ModuleView({
 
 
                 <table
-                  className="text-sm"
+                  className="text-sm spreadsheet-table"
                   style={{
                     width: "100%",
                     minWidth: "max-content",
@@ -1332,6 +1332,7 @@ export default function ModuleView({
                             key={
                               record.id
                             }
+                            className="spreadsheet-row"
                             style={{
                               borderBottom: `1px solid ${C.line}`,
                             }}

@@ -29,6 +29,19 @@ table td {
   word-break: normal !important;
 }
 
+.spreadsheet-table th,
+.spreadsheet-table td {
+  border: 1px solid #d5d9df;
+}
+
+.spreadsheet-table tbody .spreadsheet-row:nth-child(even) {
+  background: #f7f9fc;
+}
+
+.spreadsheet-table tbody .spreadsheet-row:hover {
+  background: #eaf3ff;
+}
+
 button {
   transition: filter 150ms ease, transform 100ms ease, box-shadow 150ms ease;
 }
