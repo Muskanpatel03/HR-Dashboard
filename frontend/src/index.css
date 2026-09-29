@@ -38,3 +38,7 @@ button:not(:disabled):hover {
 button:not(:disabled):active {
   transform: scale(0.98);
 }
+
+.sidebar-nav-item:hover {
+  background: var(--sidebar-hover);
+}

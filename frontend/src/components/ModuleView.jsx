@@ -1149,8 +1149,9 @@ export default function ModuleView({
                 style={{
                   background: C.card,
                   border: `1px solid ${C.line}`,
+                  maxHeight: "70vh",
                 }}
-                className="rounded overflow-x-auto"
+                className="rounded overflow-auto"
               >
 
                 {/* Group heading */}
@@ -1183,17 +1184,16 @@ export default function ModuleView({
                       TABLE HEADER
                   ================================================== */}
 
-                  <thead>
+                  <thead style={{ position: "sticky", top: 0, zIndex: 1, background: C.navyTint }}>
                     <tr
                       style={{
-                        background:
-                          C.paper,
-                        borderBottom: `1px solid ${C.line}`,
+                        background: C.navyTint,
+                        borderBottom: `1px solid ${C.navyLine}`,
                       }}
                     >
 
                       {config.showSerialNumber && (
-                        <th className="text-left px-3 py-2 font-medium nowrap-cell" style={{ color: C.ink2, fontSize: 11.5 }}>S.No.</th>
+                        <th className="text-left px-3 py-2 font-medium nowrap-cell" style={{ color: C.ink, fontSize: 11.5 }}>S.No.</th>
                       )}
 
                       {group.fields.map((field) => (
@@ -1202,7 +1202,7 @@ export default function ModuleView({
                             onClick={() => toggleSort(field.name)}
                             title="Click to sort"
                             style={{
-                              color: C.ink2,
+                              color: C.ink,
                               fontSize: 11.5,
                               cursor: "pointer",
                               userSelect: "none",

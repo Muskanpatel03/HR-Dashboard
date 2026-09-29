@@ -14,9 +14,9 @@ export default function AuditView() {
     <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="rounded overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr style={{ background: C.paper, borderBottom: `1px solid ${C.line}` }}>
+          <tr style={{ background: C.navyTint, borderBottom: `1px solid ${C.navyLine}` }}>
             {['Time', 'User', 'Role', 'Module', 'Action', 'Detail'].map((h) => (
-              <th key={h} style={{ color: C.ink2, fontSize: 11.5 }} className="text-left px-3 py-2 font-medium">{h}</th>
+              <th key={h} style={{ color: C.ink, fontSize: 11.5 }} className="text-left px-3 py-2 font-medium">{h}</th>
             ))}
           </tr>
         </thead>

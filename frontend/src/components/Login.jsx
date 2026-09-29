@@ -111,11 +111,11 @@ export default function Login({ onLogin }) {
   };
 
   return (
-    <div style={{ background: C.paper, minHeight: '100vh', fontFamily: FONT_BODY }} className="flex items-center justify-center px-4">
-      <form onSubmit={mode === 'signin' ? submitSignIn : mode === 'signup' ? submitSignUp : submitOtp} style={{ background: C.card, border: `1px solid ${C.line}`, width: 380 }} className="p-7 rounded shadow-sm">
+    <div style={{ background: C.navyTint, minHeight: '100vh', fontFamily: FONT_BODY }} className="flex items-center justify-center px-4">
+      <form onSubmit={mode === 'signin' ? submitSignIn : mode === 'signup' ? submitSignUp : submitOtp} style={{ background: C.card, border: `1px solid ${C.navyLine}`, boxShadow: '0 18px 44px rgba(32, 57, 78, 0.12)', width: 380 }} className="p-7 rounded">
         <div
   className="flex items-center justify-center px-3 py-4 border-b"
-  style={{ borderColor: C.line }}
+  style={{ borderColor: C.navyLine }}
 >
   <img
     src="/automat.png"
@@ -130,12 +130,12 @@ export default function Login({ onLogin }) {
 </div>
 
         {mode !== 'otp' && (
-          <div className="flex mb-5 rounded overflow-hidden" style={{ border: `1px solid ${C.line}` }}>
+          <div className="flex mb-5 rounded overflow-hidden" style={{ border: `1px solid ${C.navyLine}` }}>
             <button
               type="button"
               onClick={() => switchMode('signin')}
               className="flex-1 py-1.5 text-sm"
-              style={{ background: mode === 'signin' ? C.steelTint : 'transparent', color: mode === 'signin' ? C.steel : C.ink2 }}
+              style={{ background: mode === 'signin' ? C.navyTint : 'transparent', color: mode === 'signin' ? C.navy : C.ink2 }}
             >
               Sign in
             </button>
@@ -143,7 +143,7 @@ export default function Login({ onLogin }) {
               type="button"
               onClick={() => switchMode('signup')}
               className="flex-1 py-1.5 text-sm"
-              style={{ background: mode === 'signup' ? C.steelTint : 'transparent', color: mode === 'signup' ? C.steel : C.ink2 }}
+              style={{ background: mode === 'signup' ? C.navyTint : 'transparent', color: mode === 'signup' ? C.navy : C.ink2 }}
             >
               Sign up
             </button>
@@ -159,7 +159,7 @@ export default function Login({ onLogin }) {
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Full Name"
               className="w-full mt-1 mb-4 px-3 py-2 rounded text-sm"
-              style={{ background: C.paper, border: `1px solid ${C.line}`, color: C.ink }}
+              style={{ background: C.navyTint, border: `1px solid ${C.navyLine}`, color: C.ink }}
             />
           </>
         )}
@@ -180,7 +180,7 @@ export default function Login({ onLogin }) {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@automat.com"
               className="w-full mt-1 mb-4 px-3 py-2 rounded text-sm"
-              style={{ background: C.paper, border: `1px solid ${C.line}`, color: C.ink }}
+              style={{ background: C.navyTint, border: `1px solid ${C.navyLine}`, color: C.ink }}
             />
             <label style={{ color: C.ink2, fontSize: 12 }}>Password</label>
             <div className="relative mt-1 mb-5">
@@ -192,7 +192,7 @@ export default function Login({ onLogin }) {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={mode === 'signup' ? 'At least 8 characters' : '••••••••'}
                 className="w-full px-3 py-2 pr-9 rounded text-sm"
-                style={{ background: C.paper, border: `1px solid ${C.line}`, color: C.ink }}
+                style={{ background: C.navyTint, border: `1px solid ${C.navyLine}`, color: C.ink }}
               />
               <button
                 type="button"
@@ -218,7 +218,7 @@ export default function Login({ onLogin }) {
               placeholder="123456"
               autoFocus
               className="w-full mt-1 mb-5 px-3 py-2 rounded text-sm tracking-[6px] text-center"
-              style={{ background: C.paper, border: `1px solid ${C.line}`, color: C.ink }}
+              style={{ background: C.navyTint, border: `1px solid ${C.navyLine}`, color: C.ink }}
             />
           </>
         )}
@@ -237,7 +237,7 @@ export default function Login({ onLogin }) {
           </div>
         )}
 
-        <button type="submit" disabled={loading} className="w-full py-2.5 rounded text-sm font-medium" style={{ background: C.steel, color: '#fff' }}>
+        <button type="submit" disabled={loading} className="w-full py-2.5 rounded text-sm font-medium" style={{ background: C.navy, color: '#fff' }}>
           {loading ? 'Please wait…' : mode === 'signin' ? 'Sign in' : mode === 'signup' ? 'Create account' : 'Verify OTP'}
         </button>
 

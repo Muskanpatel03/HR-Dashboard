@@ -3,7 +3,7 @@ import ModuleView from './ModuleView';
 import { C, MODULE_MAP } from '../config';
 
 const SECTIONS = [
-  { key: 'Behavioral', label: 'Behavioral' },
+  { key: 'Behavioural', label: 'Behavioural' },
   { key: 'Technical (Site 4)', label: 'Technical (Site 4)' },
 ];
 

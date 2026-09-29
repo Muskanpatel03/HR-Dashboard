@@ -154,9 +154,9 @@ export default function AccessControl() {
               <table className="text-sm" style={{ minWidth: 560 }}>
                 <thead>
                   <tr>
-                    <th style={{ color: C.ink2, fontSize: 11 }} className="text-left pr-3 pb-1 font-medium">Module</th>
-                    <th style={{ color: C.ink2, fontSize: 11 }} className="text-center px-3 pb-1 font-medium">View</th>
-                    <th style={{ color: C.ink2, fontSize: 11 }} className="text-center px-3 pb-1 font-medium">Edit</th>
+                    <th style={{ color: C.ink, fontSize: 11, background: C.navyTint }} className="text-left pr-3 pb-1 font-medium">Module</th>
+                    <th style={{ color: C.ink, fontSize: 11, background: C.navyTint }} className="text-center px-3 pb-1 font-medium">View</th>
+                    <th style={{ color: C.ink, fontSize: 11, background: C.navyTint }} className="text-center px-3 pb-1 font-medium">Edit</th>
                   </tr>
                 </thead>
                 <tbody>

@@ -28,17 +28,20 @@ const MONTH_NAMES = [
 const RANGE_SQL = {
   all: '1=1',
   daily: '1=1', // the actual day filter is applied via requestedDate in whereFor, below
-  '15d': "(%COL%) >= (current_date - interval '15 days')",
-  '30d': "(%COL%) >= (current_date - interval '30 days')",
+  '15d': "(%COL%) >= (current_date - interval '14 days') AND (%COL%) < (current_date + interval '1 day')",
+  '30d': "(%COL%) >= (current_date - interval '29 days') AND (%COL%) < (current_date + interval '1 day')",
   month: "date_trunc('month', (%COL%)) = date_trunc('month', current_date)",
   year: "date_trunc('year', (%COL%)) = date_trunc('year', current_date)",
 };
 
 const VALID_RANGES = Object.keys(RANGE_SQL);
 
-function whereFor(range, colExpr, year, selectedDate) {
+function whereFor(range, colExpr, year, selectedDate, { monthGranularity = false } = {}) {
   if (selectedDate) {
     // Exact day picked in Daily mode — overrides range and year.
+    if (monthGranularity) {
+      return `date_trunc('month', (${colExpr})) = date_trunc('month', '${selectedDate}'::date)`;
+    }
     return `(${colExpr})::date = '${selectedDate}'`;
   }
 
@@ -46,11 +49,22 @@ function whereFor(range, colExpr, year, selectedDate) {
     return `extract(year from (${colExpr})) = ${year}`;
   }
 
+  if (monthGranularity && (range === '15d' || range === '30d')) {
+    const daysBack = range === '15d' ? 14 : 29;
+    return `date_trunc('month', (${colExpr})) BETWEEN date_trunc('month', current_date - interval '${daysBack} days') AND date_trunc('month', current_date)`;
+  }
+
   const tmpl = RANGE_SQL[
     VALID_RANGES.includes(range) ? range : 'all'
   ];
 
   return tmpl.replace(/%COL%/g, colExpr);
+}
+
+function whereForDateOrMonth(range, dateColumn, monthExpr, year, selectedDate) {
+  const dateFilter = whereFor(range, dateColumn, year, selectedDate);
+  const monthFilter = whereFor(range, monthExpr, year, selectedDate, { monthGranularity: true });
+  return `((${dateColumn} IS NOT NULL AND (${dateFilter})) OR (${dateColumn} IS NULL AND (${monthFilter})))`;
 }
 
 function pct(part, whole) {
@@ -97,9 +111,6 @@ router.get('/', async (req, res) => {
       : null;
 
   const monthCol = "to_date(month, 'YYYY-MM')";
-
-  const manpowerDateCol =
-    "COALESCE(entry_date, to_date(month, 'YYYY-MM'))";
 
   const perm = {
     manpower: canView(req.user.role, 'manpower'),
@@ -149,9 +160,10 @@ router.get('/', async (req, res) => {
           planned_direct_count,
           planned_indirect_count
         FROM manpower
-        WHERE ${whereFor(
+        WHERE ${whereForDateOrMonth(
           range,
-          manpowerDateCol,
+          'entry_date',
+          "to_date(month, 'YYYY-MM')",
           year,
           requestedDate
         )}
@@ -180,7 +192,8 @@ router.get('/', async (req, res) => {
           range,
           "to_date(month, 'YYYY-MM')",
           year,
-          requestedDate
+          requestedDate,
+          { monthGranularity: true }
         )}
         ORDER BY to_date(month, 'YYYY-MM') ASC NULLS LAST
         `
@@ -199,7 +212,8 @@ router.get('/', async (req, res) => {
           range,
           monthCol,
           year,
-          requestedDate
+          requestedDate,
+          { monthGranularity: true }
         )}
         `
       ),
@@ -234,7 +248,8 @@ router.get('/', async (req, res) => {
           range,
           monthCol,
           year,
-          requestedDate
+          requestedDate,
+          { monthGranularity: true }
         )}
         `
       ),
@@ -294,7 +309,8 @@ router.get('/', async (req, res) => {
           range,
           "to_date(month, 'YYYY-MM')",
           year,
-          requestedDate
+          requestedDate,
+          { monthGranularity: true }
         )}
         ORDER BY to_date(month, 'YYYY-MM') ASC NULLS LAST
         `
@@ -306,9 +322,10 @@ router.get('/', async (req, res) => {
         `
         SELECT month, department, reason, mode, location, last_working_day, exit
         FROM separation
-        WHERE ${whereFor(
+        WHERE ${whereForDateOrMonth(
           range,
-          "COALESCE(last_working_day, to_date(month, 'YYYY-MM'))",
+          'last_working_day',
+          "to_date(month, 'YYYY-MM')",
           year,
           requestedDate
         )}

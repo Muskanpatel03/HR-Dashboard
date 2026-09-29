@@ -4,7 +4,17 @@ import {
 } from 'lucide-react';
 
 export const C = {
-  ink: '#20242A',       // primary text (dark charcoal, not pure black)
+  ink: '#20394E',       // primary text and heading color
+  navy: '#20394E',
+  navyHover: '#2D4A61',
+  navyActive: '#3B607D',
+  navyBorder: '#34536A',
+  navyHighlight: '#9BD1F0',
+  navyTint: '#E4EDF3',
+  navyWash: '#F3F7FA',
+  navyLine: '#C3D3DF',
+  navyText: '#DCE7EE',
+  navyMuted: '#B6CBD9',
   panel: '#FFFFFF',     // sidebar / header background
   paper: '#F5F3EE',     // page background (warm light)
   card: '#FFFFFF',
@@ -262,7 +272,7 @@ export const MODULES = [
   label: 'Training',
   icon: CalendarDays,
   showTotals: true, wrapHeaders: true, fields: [
-    { name: 'section', label: 'Training Section', type: 'select', options: ['Behavioral', 'Technical (Site 4)'] },
+    { name: 'section', label: 'Training Section', type: 'select', options: ['Behavioural', 'Technical (Site 4)'] },
     { name: 'trainingName', label: 'Training Name', type: 'text' },
     { name: 'location', label: 'Location', type: 'text' },
     { name: 'trainingDate', label: 'Training Date', type: 'date' },

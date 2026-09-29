@@ -99,10 +99,10 @@ export default function PeriodSummary({ config, records }) {
 
       <table className="w-full text-sm">
         <thead>
-          <tr style={{ background: C.paper, borderBottom: `1px solid ${C.line}` }}>
+          <tr style={{ background: C.navyTint, borderBottom: `1px solid ${C.navyLine}` }}>
             <th
               className="text-left px-3 py-2 font-medium whitespace-normal break-words leading-tight align-bottom"
-              style={{ color: C.ink2, fontSize: 11.5 }}
+              style={{ color: C.ink, fontSize: 11.5 }}
             >
               Period
             </th>
@@ -110,7 +110,7 @@ export default function PeriodSummary({ config, records }) {
               <th
                 key={f.name}
                 className="text-left px-3 py-2 font-medium whitespace-normal break-words leading-tight align-bottom"
-                style={{ color: C.ink2, fontSize: 11.5 }}
+                style={{ color: C.ink, fontSize: 11.5 }}
               >
                 {f.label}
               </th>

@@ -17,6 +17,11 @@ const RANGES = [
 ];
 
 const PIE_COLORS = [C.steel, C.amber, C.moss, C.rust];
+const DASHBOARD_PANEL_STYLE = {
+  background: C.card,
+  border: `1px solid ${C.line}`,
+  borderTop: `3px solid ${C.navyLine}`,
+};
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const monthLabel = (value) => {
   const [year, month] = String(value || '').split('-').map(Number);
@@ -27,7 +32,7 @@ function PieCard({ title, data }) {
   const safeData = Array.isArray(data) ? data : [];
   const total = safeData.reduce((s, d) => s + (Number(d.value) || 0), 0);
   return (
-    <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="p-4 rounded">
+    <div style={DASHBOARD_PANEL_STYLE} className="p-4 rounded">
       <div style={{ fontFamily: FONT_HEAD, fontSize: 15, color: C.ink }} className="mb-2">{title}</div>
       {total === 0 ? (
         <div style={{ color: C.ink2, fontSize: 13 }} className="py-10 text-center">No data for this period.</div>
@@ -178,7 +183,7 @@ export default function Dashboard() {
 
       <div className="grid gap-4" style={{ gridTemplateColumns: '1.3fr 1fr' }}>
         {d.permissions.manpower && (
-          <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="p-4 rounded">
+          <div style={DASHBOARD_PANEL_STYLE} className="p-4 rounded">
             <div style={{ fontFamily: FONT_HEAD, fontSize: 15, color: C.ink }} className="mb-3">Manpower by location</div>
             <ResponsiveContainer width="100%" height={230}>
               <BarChart data={d.manpowerByLocation}>
@@ -192,7 +197,7 @@ export default function Dashboard() {
           </div>
         )}
         {d.permissions.recruitment && (
-          <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="p-4 rounded">
+          <div style={DASHBOARD_PANEL_STYLE} className="p-4 rounded">
             <div style={{ fontFamily: FONT_HEAD, fontSize: 15, color: C.ink }} className="mb-3">Recruitment funnel</div>
             <ResponsiveContainer width="100%" height={230}>
               <BarChart data={d.recruitmentFunnel} layout="vertical" margin={{ left: 20 }}>
@@ -210,7 +215,7 @@ export default function Dashboard() {
       {(d.permissions.recruitment || d.permissions.hiring || d.permissions.separation) && (
         <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
           {d.permissions.recruitment && d.recruitmentMonthlyTrend?.length > 0 && (
-            <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="p-4 rounded">
+            <div style={DASHBOARD_PANEL_STYLE} className="p-4 rounded">
               <div style={{ fontFamily: FONT_HEAD, fontSize: 15, color: C.ink }} className="mb-3">Recruitment by month</div>
               <ResponsiveContainer width="100%" height={230}>
                 <BarChart data={d.recruitmentMonthlyTrend}>
@@ -226,7 +231,7 @@ export default function Dashboard() {
             </div>
           )}
           {d.permissions.hiring && d.hiringMonthlyTrend?.length > 0 && (
-            <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="p-4 rounded">
+            <div style={DASHBOARD_PANEL_STYLE} className="p-4 rounded">
               <div style={{ fontFamily: FONT_HEAD, fontSize: 15, color: C.ink }} className="mb-3">Joined by month</div>
               <ResponsiveContainer width="100%" height={230}>
                 <BarChart data={d.hiringMonthlyTrend}>
@@ -240,7 +245,7 @@ export default function Dashboard() {
             </div>
           )}
           {d.permissions.separation && d.separationMonthlyTrend?.length > 0 && (
-            <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="p-4 rounded">
+            <div style={DASHBOARD_PANEL_STYLE} className="p-4 rounded">
               <div style={{ fontFamily: FONT_HEAD, fontSize: 15, color: C.ink }} className="mb-3">Separations by month</div>
               <ResponsiveContainer width="100%" height={230}>
                 <BarChart data={d.separationMonthlyTrend}>
@@ -259,7 +264,7 @@ export default function Dashboard() {
       {d.permissions.manpower && (
         <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 1fr' }}>
           {d.manpowerMonthlyTrend?.length > 0 && (
-            <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="p-4 rounded">
+            <div style={DASHBOARD_PANEL_STYLE} className="p-4 rounded">
               <div style={{ fontFamily: FONT_HEAD, fontSize: 15, color: C.ink }} className="mb-3">Manpower trend — Planned vs Actual</div>
               <ResponsiveContainer width="100%" height={220}>
                 <LineChart data={d.manpowerMonthlyTrend}>
@@ -279,10 +284,7 @@ export default function Dashboard() {
               scrollable table of every logged day underneath. Always shown
               (even with zero entries) so the feature is discoverable. */}
           <div
-            style={{
-              background: C.card,
-              border: `1px solid ${C.line}`,
-            }}
+            style={DASHBOARD_PANEL_STYLE}
             className="p-4 rounded"
           >
             <div
@@ -478,12 +480,12 @@ export default function Dashboard() {
                   className="mt-3"
                 >
                   <table className="w-full text-sm">
-                    <thead style={{ position: 'sticky', top: 0, background: C.card }}>
-                      <tr style={{ borderBottom: `1px solid ${C.line}` }}>
-                        <th className="text-left px-2 py-1.5 nowrap-cell" style={{ color: C.ink2, fontSize: 11.5 }}>Date</th>
-                        <th className="text-left px-2 py-1.5 nowrap-cell" style={{ color: C.ink2, fontSize: 11.5 }}>Direct</th>
-                        <th className="text-left px-2 py-1.5 nowrap-cell" style={{ color: C.ink2, fontSize: 11.5 }}>Indirect</th>
-                        <th className="text-left px-2 py-1.5 nowrap-cell" style={{ color: C.ink2, fontSize: 11.5 }}>Total</th>
+                    <thead style={{ position: 'sticky', top: 0, background: C.navyTint }}>
+                      <tr style={{ borderBottom: `1px solid ${C.navyLine}` }}>
+                        <th className="text-left px-2 py-1.5 nowrap-cell" style={{ color: C.ink, fontSize: 11.5 }}>Date</th>
+                        <th className="text-left px-2 py-1.5 nowrap-cell" style={{ color: C.ink, fontSize: 11.5 }}>Direct</th>
+                        <th className="text-left px-2 py-1.5 nowrap-cell" style={{ color: C.ink, fontSize: 11.5 }}>Indirect</th>
+                        <th className="text-left px-2 py-1.5 nowrap-cell" style={{ color: C.ink, fontSize: 11.5 }}>Total</th>
                       </tr>
                     </thead>
                     <tbody>

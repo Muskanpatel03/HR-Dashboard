@@ -286,7 +286,7 @@ export default function App() {
         : active === 'roles'
           ? 'Access Control'
           : active === 'recruitment'
-          ? 'Open Position'
+          ? 'Recruitment'
           : MODULE_MAP[active]?.label ||
               'Human Resource Dashboard';
 
@@ -320,8 +320,9 @@ export default function App() {
 
       <aside
         style={{
-          background: C.steelTint,
-          borderRight: '1px solid #D5E0E6',
+          background: C.navy,
+          borderRight: `1px solid ${C.navyBorder}`,
+          '--sidebar-hover': C.navyHover,
           height: '100vh',
         }}
         className="shrink-0 flex flex-col w-16 md:w-56"
@@ -332,7 +333,7 @@ export default function App() {
         <div
           className="flex items-center gap-2 px-3 py-4 border-b"
           style={{
-            borderColor: '#D5E0E6',
+            borderColor: C.navyBorder,
           }}
         >
           <img
@@ -351,7 +352,7 @@ export default function App() {
             <div
               style={{
                 fontFamily: FONT_HEAD,
-                color: C.ink,
+                color: '#FFFFFF',
                 fontSize: 17,
                 letterSpacing: 0.3,
               }}
@@ -361,7 +362,7 @@ export default function App() {
 
             <div
               style={{
-                color: C.ink2,
+                color: C.navyMuted,
                 fontSize: 10.5,
               }}
             >
@@ -385,19 +386,19 @@ export default function App() {
                 onClick={() =>
                   handleNavigation(item.key)
                 }
-                className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-[#DCE7ED]"
+                className="sidebar-nav-item w-full flex items-center gap-3 px-3 py-2.5 text-left"
                 style={{
                   background: isActive
-                    ? '#D4E2EB'
+                    ? C.navyActive
                     : undefined,
 
                   borderLeft: isActive
-                    ? `3px solid ${C.steel}`
+                    ? `3px solid ${C.navyHighlight}`
                     : '3px solid transparent',
 
                   color: isActive
-                    ? C.steel
-                    : C.ink2,
+                    ? '#FFFFFF'
+                    : C.navyText,
                 }}
               >
                 <Icon
@@ -418,12 +419,12 @@ export default function App() {
         <div
           className="px-3 py-3 border-t hidden md:block"
           style={{
-            borderColor: '#D5E0E6',
+            borderColor: C.navyBorder,
           }}
         >
           <div
             style={{
-              color: C.ink,
+              color: '#FFFFFF',
               fontSize: 13,
             }}
           >
@@ -432,7 +433,7 @@ export default function App() {
 
           <div
             style={{
-              color: C.steel,
+              color: C.navyHighlight,
               fontSize: 11,
             }}
           >
@@ -444,7 +445,7 @@ export default function App() {
             onClick={logout}
             className="mt-2 flex items-center gap-1.5 text-xs"
             style={{
-              color: C.ink2,
+              color: C.navyMuted,
               cursor: 'pointer',
             }}
           >
@@ -470,8 +471,8 @@ export default function App() {
 
         <header
           style={{
-            background: C.card,
-            borderBottom: `1px solid ${C.line}`,
+            background: C.navyTint,
+            borderBottom: `1px solid ${C.navyLine}`,
             position: 'sticky',
             top: 0,
             zIndex: 10,
