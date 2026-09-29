@@ -61,7 +61,7 @@ function PieCard({ title, data }) {
   );
 }
 
-export default function Dashboard() {
+export default function Dashboard({ onNavigate }) {
   const [range, setRange] = useState('all');
   const [year, setYear] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
@@ -197,7 +197,20 @@ export default function Dashboard() {
           </div>
         )}
         {d.permissions.recruitment && (
-          <div style={DASHBOARD_PANEL_STYLE} className="p-4 rounded">
+          <div
+            style={{ ...DASHBOARD_PANEL_STYLE, cursor: 'pointer' }}
+            className="p-4 rounded"
+            role="button"
+            tabIndex={0}
+            onClick={() => onNavigate?.('recruitment')}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onNavigate?.('recruitment');
+              }
+            }}
+            aria-label="Open recruitment section"
+          >
             <div style={{ fontFamily: FONT_HEAD, fontSize: 15, color: C.ink }} className="mb-3">Recruitment funnel</div>
             <ResponsiveContainer width="100%" height={230}>
               <BarChart data={d.recruitmentFunnel} layout="vertical" margin={{ left: 20 }}>

@@ -512,7 +512,7 @@ export default function App() {
         <div className="p-5">
 
           {active === 'dashboard' && (
-            <Dashboard />
+            <Dashboard onNavigate={handleNavigation} />
           )}
 
           {active === 'audit' && (

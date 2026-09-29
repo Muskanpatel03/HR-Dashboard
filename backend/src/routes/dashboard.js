@@ -186,7 +186,7 @@ router.get('/', async (req, res) => {
       q(
         perm.recruitment,
         `
-        SELECT month, opening_position, department, location, shortlisted, offered
+        SELECT month, opening_position, department, location, shortlisted, offered, status
         FROM recruitment
         WHERE ${whereFor(
           range,

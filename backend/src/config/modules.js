@@ -116,6 +116,16 @@ const MODULES = {
         db: "offered",
         type: "number",
       },
+      {
+        js: "status",
+        db: "status",
+        type: "select",
+        options: [
+          'Requirement', 'Sourcing', 'Screening', 'Shortlisted',
+          'Interview Scheduled', 'Interviewed', 'Selected', 'Offer',
+          'Joined', 'Rejected', 'Not Joined',
+        ],
+      },
     ],
   },
 

@@ -130,6 +130,7 @@ export const MODULES = [
     { name: 'location', label: 'Location', type: 'text' },
     { name: 'shortlisted', label: 'Shortlisted', type: 'number' },
     { name: 'offered', label: 'Offered', type: 'number' },
+    { name: 'status', label: 'Stage', type: 'select', options: RECRUITMENT_STAGES },
   ]},
   { key: 'hiring', label: 'Joined', icon: UserPlus, showTotals: true, wrapHeaders: true, fields: [
     { name: 'month', label: 'Month', type: 'month' },
