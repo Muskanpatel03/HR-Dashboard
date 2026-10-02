@@ -7,6 +7,7 @@ const recordRoutes = require('./routes/records');
 const dashboardRoutes = require('./routes/dashboard');
 const auditRoutes = require('./routes/audit');
 const rolesRoutes = require('./routes/roles');
+const operationMatrixRoutes = require('./routes/operation-matrix');
 const { loadRolesFromDb } = require('./config/roles');
 const { ensureCurrentSchema } = require('./db');
 
@@ -19,6 +20,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/roles', rolesRoutes);
+app.use('/api/operation-matrix', operationMatrixRoutes);
 app.use('/api', recordRoutes);
 
 app.use((req, res) => res.status(404).json({ error: 'Not found' }));

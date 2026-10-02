@@ -582,10 +582,12 @@ export default function ModuleView({
 
   const [monthFilter, setMonthFilter] =
     useState("all");
+  const [selectedDate, setSelectedDate] = useState("");
 
   useEffect(() => {
     setSort(defaultSortFor(config));
     setMonthFilter("all");
+    setSelectedDate("");
   }, [config.key]);
 
   const toggleSort = (field) =>
@@ -642,7 +644,10 @@ export default function ModuleView({
   // ==========================================================
 
   const openNew = () => {
-    setFormValues({ ...defaultValues });
+    setFormValues({
+      ...defaultValues,
+      ...(config.key === "dailyManpower" && selectedDate ? { date: selectedDate } : {}),
+    });
     setEditingId(null);
     setShowForm(true);
   };
@@ -751,6 +756,20 @@ export default function ModuleView({
     ].sort();
   }, [records, monthField]);
 
+  const dailyManpowerDates = useMemo(() => {
+    if (config.key !== "dailyManpower") return [];
+
+    const countsByDate = new Map();
+    records.forEach((record) => {
+      const date = String(record.date || "").slice(0, 10);
+      if (date) countsByDate.set(date, (countsByDate.get(date) || 0) + 1);
+    });
+
+    return [...countsByDate]
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }, [config.key, records]);
+
 
   // ==========================================================
   // MONTH FILTER + SEARCH + SORT
@@ -763,6 +782,14 @@ export default function ModuleView({
     let rows = records.filter(
       (record) => {
         if (recordFilter && !recordFilter(record)) {
+          return false;
+        }
+
+        if (
+          config.key === "dailyManpower" &&
+          selectedDate &&
+          String(record.date || "").slice(0, 10) !== selectedDate
+        ) {
           return false;
         }
 
@@ -845,7 +872,9 @@ export default function ModuleView({
     monthFilter,
     monthField,
     config.fields,
+    config.key,
     recordFilter,
+    selectedDate,
   ]);
 
 
@@ -971,6 +1000,24 @@ export default function ModuleView({
 
         <div className="flex items-center gap-2">
 
+          {config.key === "dailyManpower" && (
+            <label className="flex items-center gap-2 text-sm" style={{ color: C.ink2 }}>
+              <span>Date</span>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(event) => setSelectedDate(event.target.value)}
+                className="px-2.5 py-2 text-sm rounded"
+                style={{ background: C.card, border: `1px solid ${C.line}`, color: C.ink }}
+              />
+              {selectedDate && (
+                <button type="button" onClick={() => setSelectedDate("")} className="text-xs underline">
+                  Clear
+                </button>
+              )}
+            </label>
+          )}
+
           {/* Month filter (only for modules that enable it) */}
 
           {monthField && (
@@ -1069,6 +1116,36 @@ export default function ModuleView({
 
         </div>
       </div>
+
+      {config.key === "dailyManpower" && dailyManpowerDates.length > 0 && (
+        <div className="space-y-2" aria-label="Daily manpower dates">
+          <div className="text-xs" style={{ color: C.ink2 }}>
+            {selectedDate ? `Records for ${formatDate(selectedDate)}` : "Select a date to view its records"}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {dailyManpowerDates.map(({ date, count }) => {
+              const isSelected = selectedDate === date;
+              return (
+                <button
+                  key={date}
+                  type="button"
+                  onClick={() => setSelectedDate(isSelected ? "" : date)}
+                  aria-pressed={isSelected}
+                  aria-label={`${formatDate(date)}, ${count} records`}
+                  className="px-3 py-1.5 text-sm rounded"
+                  style={{
+                    background: isSelected ? C.steel : C.card,
+                    color: isSelected ? "#fff" : C.ink,
+                    border: `1px solid ${isSelected ? C.steel : C.line}`,
+                  }}
+                >
+                  {formatDate(date)} <span style={{ opacity: 0.75 }}>({count})</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
 
       {/* ====================================================

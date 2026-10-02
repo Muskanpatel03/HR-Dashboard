@@ -120,6 +120,7 @@ router.get('/', async (req, res) => {
     retirement: canView(req.user.role, 'retirement'),
     electricity: canView(req.user.role, 'electricity'),
     canteen: canView(req.user.role, 'canteen'),
+    loanSummary: canView(req.user.role, 'loanSummary'),
     healthcheck: canView(req.user.role, 'healthcheck'),
     engagement: canView(req.user.role, 'engagement'),
     training: canView(req.user.role, 'training'),
@@ -140,6 +141,7 @@ router.get('/', async (req, res) => {
       retirement,
       electricity,
       canteen,
+      loanSummary,
       healthcheck,
       engagement,
       hiring,
@@ -266,6 +268,23 @@ router.get('/', async (req, res) => {
           year,
           requestedDate
         )}
+        `
+      ),
+
+      // LOAN SUMMARY
+      q(
+        perm.loanSummary,
+        `
+        SELECT
+          unit,
+          SUM(budget_personal) AS budget_personal,
+          SUM(budget_home) AS budget_home,
+          SUM(taken_personal) AS taken_personal,
+          SUM(taken_home) AS taken_home,
+          SUM(outstanding_till_jul26) AS outstanding_till_jul26
+        FROM loan_summary
+        GROUP BY unit
+        ORDER BY unit
         `
       ),
 
@@ -729,6 +748,13 @@ router.get('/', async (req, res) => {
       0
     );
 
+    const loanByUnit = loanSummary.rows.map((row) => ({
+      unit: row.unit || '—',
+      budget: (Number(row.budget_personal) || 0) + (Number(row.budget_home) || 0),
+      taken: (Number(row.taken_personal) || 0) + (Number(row.taken_home) || 0),
+      outstanding: Number(row.outstanding_till_jul26) || 0,
+    }));
+
     // =========================================================
     // HEALTH CHECK
     // =========================================================
@@ -873,6 +899,7 @@ router.get('/', async (req, res) => {
       recruitmentMonthlyTrend,
       hiringMonthlyTrend,
       separationMonthlyTrend,
+      loanByUnit,
 
       // Planned vs Actual
       manpowerPlanVsActual: [

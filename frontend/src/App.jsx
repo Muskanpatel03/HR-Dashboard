@@ -115,6 +115,11 @@ export default function App() {
         : null,
 
       ...MODULES.filter((m) => {
+        // Operation Matrix is accessed through the company tabs on Dashboard.
+        if (m.key === 'operationMatrix') {
+          return false;
+        }
+
         // Hiring and Separation are inside RecruitmentHub
         if (
           m.key === 'hiring' ||
@@ -512,7 +517,7 @@ export default function App() {
         <div className="p-5">
 
           {active === 'dashboard' && (
-            <Dashboard onNavigate={handleNavigation} />
+            <Dashboard editable={canEditModule('operationMatrix')} />
           )}
 
           {active === 'audit' && (

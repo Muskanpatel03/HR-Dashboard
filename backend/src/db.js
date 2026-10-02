@@ -69,6 +69,26 @@ async function ensureCurrentSchema() {
     'ALTER TABLE training ADD COLUMN IF NOT EXISTS number_of_people INTEGER',
     'ALTER TABLE training ADD COLUMN IF NOT EXISTS average_rating NUMERIC',
     'ALTER TABLE training ADD COLUMN IF NOT EXISTS remarks TEXT',
+    `CREATE TABLE IF NOT EXISTS operation_matrix (
+      id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+      data JSONB NOT NULL DEFAULT '{"fiscalYearEnd": 2027, "reportMonth": "2026-08", "particulars": []}'::jsonb,
+      updated_by TEXT,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`,
+    `INSERT INTO operation_matrix (id) VALUES (1) ON CONFLICT (id) DO NOTHING`,
+    `CREATE TABLE IF NOT EXISTS operation_matrix_by_industry (
+      industry TEXT PRIMARY KEY,
+      data JSONB NOT NULL DEFAULT '{"fiscalYearEnd": 2027, "reportMonth": "2026-08", "particulars": []}'::jsonb,
+      updated_by TEXT,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`,
+    `INSERT INTO operation_matrix_by_industry (industry, data, updated_by, updated_at)
+     SELECT 'Automat Industries (Site 4)', data, updated_by, updated_at
+     FROM operation_matrix WHERE id = 1
+     ON CONFLICT (industry) DO NOTHING`,
+    `INSERT INTO operation_matrix_by_industry (industry)
+     VALUES ('Smith3'), ('Automat Irrigation'), ('HO')
+     ON CONFLICT (industry) DO NOTHING`,
   ];
 
   for (const migration of migrations) {

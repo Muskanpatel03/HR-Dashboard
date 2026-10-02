@@ -123,7 +123,7 @@ const DEFAULT_ROLES = {
 const ALL_MODULE_KEYS = [
   'dashboard', 'manpower', 'recruitment', 'hiring', 'separation',
   'loanSummary', 'retirement', 'electricity', 'canteen', 'healthcheck',
-  'engagement', 'training', 'attendance', 'usersmgmt', 'audit', 'roles',
+  'engagement', 'training', 'attendance', 'operationMatrix', 'usersmgmt', 'audit', 'roles',
 ];
 
 // Roles whose permissions can NEVER be edited via the Access Control UI —

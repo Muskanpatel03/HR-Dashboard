@@ -5,6 +5,7 @@ import {
 } from 'recharts';
 import api from '../api';
 import KpiCard from './KpiCard';
+import OperationMatrix from './OperationMatrix';
 import { C, FONT_HEAD, fmtMoney } from '../config';
 
 
@@ -61,7 +62,7 @@ function PieCard({ title, data }) {
   );
 }
 
-export default function Dashboard({ onNavigate }) {
+function LegacyDashboard({ onNavigate }) {
   const [range, setRange] = useState('all');
   const [year, setYear] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
@@ -94,65 +95,65 @@ export default function Dashboard({ onNavigate }) {
 
     const k = d.kpis;
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center gap-1.5">
-        {RANGES.map((r) => (
-          <button
-            key={r.key}
-            onClick={() => changeRange(r.key)}
-            className="px-3 py-1.5 text-xs rounded"
-            style={{
-              background: !year && !selectedDate && range === r.key ? C.steel : C.card,
-              color: !year && !selectedDate && range === r.key ? '#fff' : C.ink2,
-              border: `1px solid ${!year && !selectedDate && range === r.key ? C.steel : C.line}`,
-            }}
-          >
-            {r.label}
-          </button>
-        ))}
+    <div className="dashboard-layout">
+      <section className="dashboard-filters" aria-label="Dashboard filters">
+        <div className="dashboard-filter-group">
+          <div className="dashboard-filter-label">Reporting period</div>
+          <div className="dashboard-range-options">
+            {RANGES.map((r) => (
+              <button
+                key={r.key}
+                type="button"
+                onClick={() => changeRange(r.key)}
+                className="dashboard-range-button"
+                aria-pressed={!year && !selectedDate && range === r.key}
+                style={{
+                  background: !year && !selectedDate && range === r.key ? C.steel : C.card,
+                  color: !year && !selectedDate && range === r.key ? '#fff' : C.ink2,
+                  borderColor: !year && !selectedDate && range === r.key ? C.steel : C.line,
+                }}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
-       <span style={{ color: C.ink2, fontSize: 12 }} className="ml-1">or a specific year:</span>
-        <input
-          type="number"
-          value={year}
-          onChange={(e) => { setYear(e.target.value); setSelectedDate(''); }}
-          placeholder="e.g. 2019"
-          min="2000"
-          max="2100"
-          className="px-2.5 py-1.5 text-xs rounded"
-          style={{
-            width: 90,
-            background: year ? C.steel : C.card,
-            color: year ? '#fff' : C.ink,
-            border: `1px solid ${year ? C.steel : C.line}`,
-          }}
-        />
-        {year && (
-          <button onClick={() => setYear('')} className="text-xs underline" style={{ color: C.ink2 }}>
-            clear
-          </button>
-        )}
+        <div className="dashboard-filter-group dashboard-custom-filters">
+          <label className="dashboard-filter-field">
+            <span className="dashboard-filter-label">Year</span>
+            <input
+              type="number"
+              value={year}
+              onChange={(e) => { setYear(e.target.value); setSelectedDate(''); }}
+              placeholder="e.g. 2019"
+              min="2000"
+              max="2100"
+              className="dashboard-filter-input"
+            />
+          </label>
+          <label className="dashboard-filter-field">
+            <span className="dashboard-filter-label">Exact date</span>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => { setSelectedDate(e.target.value); setYear(''); }}
+              className="dashboard-filter-input"
+            />
+          </label>
+          {(year || selectedDate) && (
+            <button
+              type="button"
+              onClick={() => { setYear(''); setSelectedDate(''); }}
+              className="dashboard-clear-filter"
+            >
+              Clear custom filter
+            </button>
+          )}
+        </div>
+      </section>
 
-        <span style={{ color: C.ink2, fontSize: 12 }} className="ml-1">or an exact date:</span>
-        <input
-          type="date"
-          value={selectedDate}
-          onChange={(e) => { setSelectedDate(e.target.value); setYear(''); }}
-          className="px-2.5 py-1.5 text-xs rounded"
-          style={{
-            background: selectedDate ? C.steel : C.card,
-            color: selectedDate ? '#fff' : C.ink,
-            border: `1px solid ${selectedDate ? C.steel : C.line}`,
-          }}
-        />
-        {selectedDate && (
-          <button onClick={() => setSelectedDate('')} className="text-xs underline" style={{ color: C.ink2 }}>
-            clear
-          </button>
-        )}
-      </div>
-
-            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))' }}>
+      <div className="dashboard-kpi-grid">
         {d.permissions.manpower && <KpiCard label="Total Manpower" value={k.totalManpower} sub={`${k.directManpower} direct · ${k.indirectManpower} indirect`} />}
         {d.permissions.manpower && (
           <KpiCard
@@ -181,7 +182,7 @@ export default function Dashboard({ onNavigate }) {
         {d.permissions.healthcheck && <KpiCard label="Health Check Coupons Used" value={`${k.healthcheckUsedPct}%`} sub={`${k.healthcheckAvailable} of ${k.healthcheckPurchased} left`} accent={C.amber} />}
       </div>
 
-      <div className="grid gap-4" style={{ gridTemplateColumns: '1.3fr 1fr' }}>
+      <div className="dashboard-chart-grid">
         {d.permissions.manpower && (
           <div style={DASHBOARD_PANEL_STYLE} className="p-4 rounded">
             <div style={{ fontFamily: FONT_HEAD, fontSize: 15, color: C.ink }} className="mb-3">Manpower by location</div>
@@ -223,10 +224,27 @@ export default function Dashboard({ onNavigate }) {
             </ResponsiveContainer>
           </div>
         )}
+        {d.permissions.loanSummary && d.loanByUnit?.length > 0 && (
+          <div style={DASHBOARD_PANEL_STYLE} className="p-4 rounded">
+            <div style={{ fontFamily: FONT_HEAD, fontSize: 15, color: C.ink }} className="mb-3">Loan position by unit</div>
+            <ResponsiveContainer width="100%" height={230}>
+              <BarChart data={d.loanByUnit} margin={{ left: 8, right: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={C.line} />
+                <XAxis dataKey="unit" tick={{ fontSize: 10.5, fill: C.ink2 }} />
+                <YAxis tick={{ fontSize: 11, fill: C.ink2 }} />
+                <Tooltip formatter={(value) => [`₹${Number(value || 0).toLocaleString('en-IN')} Lac`]} />
+                <Legend wrapperStyle={{ fontSize: 11.5 }} />
+                <Bar dataKey="budget" name="Budget" fill={C.steel} radius={[3, 3, 0, 0]} />
+                <Bar dataKey="taken" name="Taken" fill={C.amber} radius={[3, 3, 0, 0]} />
+                <Bar dataKey="outstanding" name="Outstanding" fill={C.rust} radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
 
       {(d.permissions.recruitment || d.permissions.hiring || d.permissions.separation) && (
-        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
+        <div className="dashboard-chart-grid">
           {d.permissions.recruitment && d.recruitmentMonthlyTrend?.length > 0 && (
             <div style={DASHBOARD_PANEL_STYLE} className="p-4 rounded">
               <div style={{ fontFamily: FONT_HEAD, fontSize: 15, color: C.ink }} className="mb-3">Recruitment by month</div>
@@ -275,7 +293,7 @@ export default function Dashboard({ onNavigate }) {
       )}
 
       {d.permissions.manpower && (
-        <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 1fr' }}>
+        <div className="dashboard-chart-grid">
           {d.manpowerMonthlyTrend?.length > 0 && (
             <div style={DASHBOARD_PANEL_STYLE} className="p-4 rounded">
               <div style={{ fontFamily: FONT_HEAD, fontSize: 15, color: C.ink }} className="mb-3">Manpower trend — Planned vs Actual</div>
@@ -387,11 +405,7 @@ export default function Dashboard({ onNavigate }) {
 
                 return (
                   <div
-                    className="grid gap-3"
-                    style={{
-                      gridTemplateColumns:
-                        'repeat(auto-fit, minmax(160px, 1fr))',
-                    }}
+                    className="dashboard-kpi-grid dashboard-daily-kpis"
                   >
                     <KpiCard
                       label="Total Manpower"
@@ -533,12 +547,49 @@ export default function Dashboard({ onNavigate }) {
         </div>
       )}
 
-      <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
+      <div className="dashboard-chart-grid">
         {d.permissions.manpower && <PieCard title="Manpower split" data={d.pies.manpowerSplit} />}
         
         {d.permissions.electricity && <PieCard title="Electricity source" data={d.pies.electricitySource} />}
         {d.permissions.recruitment && <PieCard title="Recruitment outcome" data={d.pies.recruitmentOutcome} />}
       </div>
+    </div>
+  );
+}
+
+const COMPANIES = [
+  { id: 'Automat Industries (Site 4)', label: 'Automat Industries (Site 4)' },
+  { id: 'Automat Irrigation', label: 'Automat Irrigation' },
+  { id: 'Smith3', label: 'Smith' },
+  { id: 'HO', label: 'HO Head Office' },
+];
+
+export default function Dashboard({ editable }) {
+  const [selectedCompany, setSelectedCompany] = useState(COMPANIES[0]);
+
+  return (
+    <div className="dashboard-layout">
+      <nav className="industry-dashboard-selector" aria-label="Select company" role="tablist">
+        {COMPANIES.map((company, index) => (
+          <button
+            key={company.id}
+            type="button"
+            role="tab"
+            aria-selected={selectedCompany.id === company.id}
+            onClick={() => setSelectedCompany(company)}
+            className={`industry-dashboard-option${selectedCompany.id === company.id ? ' is-active' : ''}`}
+          >
+            <span className="industry-dashboard-number">0{index + 1}</span>
+            <span>{company.label}</span>
+          </button>
+        ))}
+      </nav>
+      <OperationMatrix
+        key={selectedCompany.id}
+        industry={selectedCompany.id}
+        label={selectedCompany.label}
+        editable={editable}
+      />
     </div>
   );
 }
