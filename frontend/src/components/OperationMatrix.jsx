@@ -9,7 +9,6 @@ const INITIAL_DATA = {
   particulars: [],
 };
 
-<<<<<<< HEAD
 function fiscalYearLabel(year) {
   const normalized = Number(year);
   if (!Number.isFinite(normalized)) return String(year);
@@ -83,12 +82,11 @@ function makeColumns(fiscalYearEnd, reportMonth, particulars) {
     });
   });
 
->>>>>>> 71429c1 (update table)
+ 71429c1 (update table)
   const monthDate = new Date(`${reportMonth}-01T12:00:00`);
   const monthLabel = Number.isNaN(monthDate.getTime())
     ? reportMonth
     : monthDate.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }).replace(' ', '-');
-<<<<<<< HEAD
   const yearLabel = Number.isNaN(monthDate.getTime())
     ? reportMonth.slice(0, 4)
     : monthDate.getFullYear();
@@ -128,7 +126,7 @@ function makeColumns(fiscalYearEnd, reportMonth, particulars) {
     { key: `actual-${fiscalYearEnd}`, label: 'Actual', group: `FY ${fiscalYearEnd - 1}-${String(fiscalYearEnd).slice(-2)}` },
     { key: `revisedTarget-${fiscalYearEnd}`, label: 'Revised', group: `FY ${fiscalYearEnd - 1}-${String(fiscalYearEnd).slice(-2)}` },
     { key: `month-${reportMonth}`, label: monthLabel },
->>>>>>> 71429c1 (update table)
+71429c1 (update table)
     { key: `ytd-${reportMonth}`, label: 'YTD' },
   ];
 }
@@ -169,7 +167,6 @@ export default function OperationMatrix({ industry, label = industry, editable }
   }, [industry]);
 
   const columns = useMemo(
-<<<<<<< HEAD
     () => makeColumns(data.fiscalYearEnd, data.reportMonth, data.particulars, yearFilter === 'current' ? data.fiscalYearEnd : yearFilter),
     [data.fiscalYearEnd, data.reportMonth, data.particulars, yearFilter]
   );
@@ -196,7 +193,7 @@ export default function OperationMatrix({ industry, label = industry, editable }
     'revisedTarget',
   ].includes(column.key.split('-')[0]));
   const monthYearColumns = columns.filter((column) => ['month', 'ytd'].includes(column.key.split('-')[0]));
->>>>>>> 71429c1 (update table)
+71429c1 (update table)
   const visibleRows = useMemo(() => {
     const term = search.trim().toLocaleLowerCase();
     if (!term) return data.particulars;
