@@ -88,8 +88,8 @@ function makeColumns(fiscalYearEnd, reportMonth, particulars, yearFilter) {
 
     if (year === fiscalYearEnd || hasCurrentMetrics) {
       return [
-        { key: `actual-${year}`, label: 'Actual', group: fiscalYearLabel(year) },
-        { key: `target-${year}`, label: 'Target', group: fiscalYearLabel(year) },
+        { key: `actual-${year}`, label: 'Actual / Target', group: fiscalYearLabel(year) },
+        { key: `target-${year}`, label: 'Actual / Target', group: fiscalYearLabel(year) },
         { key: `revisedTarget-${year}`, label: 'Revised Target', group: fiscalYearLabel(year) },
       ];
     }
