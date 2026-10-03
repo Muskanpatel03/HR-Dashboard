@@ -10,11 +10,14 @@ const INITIAL_DATA = {
 };
 
 function makeColumns(fiscalYearEnd, reportMonth) {
-  const pastYears = [fiscalYearEnd - 3, fiscalYearEnd - 2, fiscalYearEnd - 1];
+  const pastYears = [fiscalYearEnd - 4, fiscalYearEnd - 3, fiscalYearEnd - 2, fiscalYearEnd - 1];
   const monthDate = new Date(`${reportMonth}-01T12:00:00`);
   const monthLabel = Number.isNaN(monthDate.getTime())
     ? reportMonth
     : monthDate.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }).replace(' ', '-');
+  const yearLabel = Number.isNaN(monthDate.getTime())
+    ? reportMonth.slice(0, 4)
+    : monthDate.getFullYear();
 
   return [
     ...pastYears.map((year) => ({
@@ -24,8 +27,9 @@ function makeColumns(fiscalYearEnd, reportMonth) {
     { key: `actual-${fiscalYearEnd}`, label: 'Actual', group: `FY ${fiscalYearEnd - 1}-${String(fiscalYearEnd).slice(-2)}` },
     { key: `target-${fiscalYearEnd}`, label: 'Target', group: `FY ${fiscalYearEnd - 1}-${String(fiscalYearEnd).slice(-2)}` },
     { key: `revisedTarget-${fiscalYearEnd}`, label: 'Revised Target', group: `FY ${fiscalYearEnd - 1}-${String(fiscalYearEnd).slice(-2)}` },
-    { key: `month-${reportMonth}`, label: monthLabel },
-    { key: `ytd-${reportMonth}`, label: 'YTD data' },
+    { key: `month-${reportMonth}`, label: 'Month' },
+    { key: `year-${reportMonth}`, label: 'Year', value: yearLabel },
+    { key: `ytd-${reportMonth}`, label: 'YTD' },
   ];
 }
 
@@ -143,7 +147,7 @@ export default function OperationMatrix({ industry, label = industry, editable }
 
       <div className="operation-matrix-toolbar">
         <label className="operation-matrix-setting">
-          <span>Fiscal year ending</span>
+          <span>Year / Session</span>
           <select
             value={data.fiscalYearEnd}
             disabled={!editable}
@@ -192,14 +196,13 @@ export default function OperationMatrix({ industry, label = industry, editable }
             <tr>
               <th rowSpan={2} className="operation-matrix-serial-head">S. No.</th>
               <th rowSpan={2} className="operation-matrix-particular-head">Particulars</th>
-              {columns.slice(0, 3).map((column) => <th key={column.key} rowSpan={2}>{column.label}</th>)}
+              {columns.slice(0, 4).map((column) => <th key={column.key} rowSpan={2}>{column.label}</th>)}
               <th colSpan={3}>{activeFy}</th>
-              <th rowSpan={2}>{columns[6].label}</th>
-              <th rowSpan={2}>{columns[7].label}</th>
+              {columns.slice(7, 10).map((column) => <th key={column.key} rowSpan={2}>{column.label}</th>)}
               {editable && <th rowSpan={2} aria-label="Row actions" />}
             </tr>
             <tr>
-              {columns.slice(3, 6).map((column) => <th key={column.key}>{column.label}</th>)}
+              {columns.slice(4, 7).map((column) => <th key={column.key}>{column.label}</th>)}
             </tr>
           </thead>
           <tbody>
