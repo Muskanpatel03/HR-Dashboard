@@ -9,6 +9,7 @@ const INITIAL_DATA = {
   particulars: [],
 };
 
+<<<<<<< HEAD
 function fiscalYearLabel(year) {
   const normalized = Number(year);
   if (!Number.isFinite(normalized)) return String(year);
@@ -70,10 +71,24 @@ function makeColumns(fiscalYearEnd, reportMonth, particulars, yearFilter) {
   const yearsToShow = yearFilter === 'all'
     ? fiscalYears
     : fiscalYears.filter((year) => year === activeYear);
+=======
+function makeColumns(fiscalYearEnd, reportMonth, particulars) {
+  const pastYears = new Set(
+    Array.from({ length: 4 }, (_, index) => fiscalYearEnd - 4 + index)
+  );
+  particulars.forEach((row) => {
+    Object.keys(row.values || {}).forEach((key) => {
+      const match = /^fy-(\d{4})$/.exec(key);
+      if (match) pastYears.add(Number(match[1]));
+    });
+  });
+
+>>>>>>> 71429c1 (update table)
   const monthDate = new Date(`${reportMonth}-01T12:00:00`);
   const monthLabel = Number.isNaN(monthDate.getTime())
     ? reportMonth
     : monthDate.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }).replace(' ', '-');
+<<<<<<< HEAD
   const yearLabel = Number.isNaN(monthDate.getTime())
     ? reportMonth.slice(0, 4)
     : monthDate.getFullYear();
@@ -101,6 +116,19 @@ function makeColumns(fiscalYearEnd, reportMonth, particulars, yearFilter) {
     ...fiscalColumns,
     { key: `month-${reportMonth}`, label: 'Month' },
     { key: `year-${reportMonth}`, label: 'Year', value: yearLabel },
+=======
+  return [
+    ...[...pastYears]
+      .filter((year) => year >= fiscalYearEnd - 4 && year < fiscalYearEnd - 1)
+      .sort((left, right) => left - right)
+      .map((year) => ({
+        key: `fy-${year}`,
+        label: `FY ${year - 1}-${String(year).slice(-2)}`,
+      })),
+    { key: `actual-${fiscalYearEnd}`, label: 'Actual', group: `FY ${fiscalYearEnd - 1}-${String(fiscalYearEnd).slice(-2)}` },
+    { key: `revisedTarget-${fiscalYearEnd}`, label: 'Revised', group: `FY ${fiscalYearEnd - 1}-${String(fiscalYearEnd).slice(-2)}` },
+    { key: `month-${reportMonth}`, label: monthLabel },
+>>>>>>> 71429c1 (update table)
     { key: `ytd-${reportMonth}`, label: 'YTD' },
   ];
 }
@@ -141,6 +169,7 @@ export default function OperationMatrix({ industry, label = industry, editable }
   }, [industry]);
 
   const columns = useMemo(
+<<<<<<< HEAD
     () => makeColumns(data.fiscalYearEnd, data.reportMonth, data.particulars, yearFilter === 'current' ? data.fiscalYearEnd : yearFilter),
     [data.fiscalYearEnd, data.reportMonth, data.particulars, yearFilter]
   );
@@ -157,6 +186,17 @@ export default function OperationMatrix({ industry, label = industry, editable }
     return groups;
   }, []);
   const monthYearColumns = columns.filter((column) => ['month', 'year', 'ytd'].includes(column.key.split('-')[0]));
+=======
+    () => makeColumns(data.fiscalYearEnd, data.reportMonth, data.particulars),
+    [data.fiscalYearEnd, data.reportMonth, data.particulars]
+  );
+  const historicalColumns = columns.filter((column) => column.key.startsWith('fy-'));
+  const currentPeriodColumns = columns.filter((column) => [
+    'actual',
+    'revisedTarget',
+  ].includes(column.key.split('-')[0]));
+  const monthYearColumns = columns.filter((column) => ['month', 'ytd'].includes(column.key.split('-')[0]));
+>>>>>>> 71429c1 (update table)
   const visibleRows = useMemo(() => {
     const term = search.trim().toLocaleLowerCase();
     if (!term) return data.particulars;
