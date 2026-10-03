@@ -96,19 +96,6 @@ button:not(:disabled):active {
   text-transform: uppercase;
 }
 
-.company-selector-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 32px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: #e7f0f5;
-  color: #264b66;
-  font-size: 11px;
-  font-weight: 700;
-}
-
 .company-selector-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -119,7 +106,7 @@ button:not(:disabled):active {
   position: relative;
   display: grid;
   gap: 20px;
-  min-height: 148px;
+  min-height: 110px;
   padding: 14px;
   border: 1px solid #d4dee8;
   border-radius: 16px;
@@ -151,59 +138,19 @@ button:not(:disabled):active {
   background: var(--company-accent);
 }
 
-.company-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.company-card-index {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--company-accent) 14%, white);
-  color: var(--company-accent);
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.company-card-badge {
-  display: inline-flex;
-  align-items: center;
-  height: 24px;
-  padding: 0 8px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--company-accent) 12%, white);
-  color: var(--company-accent);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
 .company-card-body {
   display: grid;
-  gap: 6px;
-  align-content: end;
+  align-content: center;
+  height: 100%;
 }
 
 .company-card-body h3 {
   margin: 0;
   color: #20394e;
   font-family: 'Barlow Semi Condensed', 'Arial Narrow', sans-serif;
-  font-size: 22px;
+  font-size: 21px;
   font-weight: 600;
-}
-
-.company-card-body p {
-  margin: 0;
-  color: #6b6f76;
-  font-size: 12px;
+  line-height: 1.2;
 }
 
 .company-selector-detail {

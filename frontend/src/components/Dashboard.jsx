@@ -575,11 +575,10 @@ export default function Dashboard({ editable }) {
             <div className="company-selector-kicker">Company portfolio</div>
             <h2>Select a company</h2>
           </div>
-          <div className="company-selector-pill">{COMPANIES.length} units</div>
         </div>
 
         <div className="company-selector-grid">
-          {COMPANIES.map((company, index) => {
+          {COMPANIES.map((company) => {
             const isActive = selectedCompany.id === company.id;
 
             return (
@@ -590,13 +589,8 @@ export default function Dashboard({ editable }) {
                 className={`company-selector-card${isActive ? ' is-active' : ''}`}
                 style={{ '--company-accent': company.accent }}
               >
-                <div className="company-card-header">
-                  <span className="company-card-index">0{index + 1}</span>
-                  <span className="company-card-badge">{company.shortLabel}</span>
-                </div>
                 <div className="company-card-body">
                   <h3>{company.label}</h3>
-                  <p>Open operation matrix</p>
                 </div>
               </button>
             );
@@ -611,7 +605,6 @@ export default function Dashboard({ editable }) {
         </div>
         <div className="company-selector-detail-meta">
           <span>Operation matrix</span>
-          <span>{selectedCompany.shortLabel}</span>
         </div>
       </div>
 

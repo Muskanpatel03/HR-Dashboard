@@ -71,6 +71,13 @@ export default function OperationMatrix({ industry, label = industry, editable }
     () => makeColumns(data.fiscalYearEnd, data.reportMonth),
     [data.fiscalYearEnd, data.reportMonth]
   );
+  const historicalColumns = columns.filter((column) => column.key.startsWith('fy-'));
+  const currentPeriodColumns = columns.filter((column) => [
+    'actual',
+    'target',
+    'revisedTarget',
+  ].includes(column.key.split('-')[0]));
+  const monthYearColumns = columns.filter((column) => ['month', 'year', 'ytd'].includes(column.key.split('-')[0]));
   const visibleRows = useMemo(() => {
     const term = search.trim().toLocaleLowerCase();
     if (!term) return data.particulars;
@@ -196,13 +203,13 @@ export default function OperationMatrix({ industry, label = industry, editable }
             <tr>
               <th rowSpan={2} className="operation-matrix-serial-head">S. No.</th>
               <th rowSpan={2} className="operation-matrix-particular-head">Particulars</th>
-              {columns.slice(0, 4).map((column) => <th key={column.key} rowSpan={2}>{column.label}</th>)}
-              <th colSpan={3}>{activeFy}</th>
-              {columns.slice(7, 10).map((column) => <th key={column.key} rowSpan={2}>{column.label}</th>)}
+              {historicalColumns.map((column) => <th key={column.key} rowSpan={2}>{column.label}</th>)}
+              <th colSpan={currentPeriodColumns.length}>{activeFy}</th>
+              {monthYearColumns.map((column) => <th key={column.key} rowSpan={2}>{column.label}</th>)}
               {editable && <th rowSpan={2} aria-label="Row actions" />}
             </tr>
             <tr>
-              {columns.slice(4, 7).map((column) => <th key={column.key}>{column.label}</th>)}
+              {currentPeriodColumns.map((column) => <th key={column.key}>{column.label}</th>)}
             </tr>
           </thead>
           <tbody>
