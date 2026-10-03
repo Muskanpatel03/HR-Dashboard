@@ -558,10 +558,10 @@ function LegacyDashboard({ onNavigate }) {
 }
 
 const COMPANIES = [
-  { id: 'Automat Industries (Site 4)', label: 'Automat Industries (Site 4)' },
-  { id: 'Automat Irrigation', label: 'Automat Irrigation' },
-  { id: 'Smith3', label: 'Smith' },
-  { id: 'HO', label: 'HO Head Office' },
+  { id: 'Automat Industries (Site 4)', label: 'Automat Industries (Site 4)', shortLabel: 'Site 4', accent: '#214d7a' },
+  { id: 'Automat Irrigation', label: 'Automat Irrigation', shortLabel: 'Irrigation', accent: '#2f6a60' },
+  { id: 'Smith3', label: 'Smith', shortLabel: 'Smith', accent: '#8f5b2b' },
+  { id: 'HO', label: 'HO', shortLabel: 'Head Office', accent: '#5f5a93' },
 ];
 
 export default function Dashboard({ editable }) {
@@ -569,21 +569,52 @@ export default function Dashboard({ editable }) {
 
   return (
     <div className="dashboard-layout">
-      <nav className="industry-dashboard-selector" aria-label="Select company" role="tablist">
-        {COMPANIES.map((company, index) => (
-          <button
-            key={company.id}
-            type="button"
-            role="tab"
-            aria-selected={selectedCompany.id === company.id}
-            onClick={() => setSelectedCompany(company)}
-            className={`industry-dashboard-option${selectedCompany.id === company.id ? ' is-active' : ''}`}
-          >
-            <span className="industry-dashboard-number">0{index + 1}</span>
-            <span>{company.label}</span>
-          </button>
-        ))}
-      </nav>
+      <section className="company-selector-shell" aria-label="Select company">
+        <div className="company-selector-header">
+          <div>
+            <div className="company-selector-kicker">Company portfolio</div>
+            <h2>Select a company</h2>
+          </div>
+          <div className="company-selector-pill">{COMPANIES.length} units</div>
+        </div>
+
+        <div className="company-selector-grid">
+          {COMPANIES.map((company, index) => {
+            const isActive = selectedCompany.id === company.id;
+
+            return (
+              <button
+                key={company.id}
+                type="button"
+                onClick={() => setSelectedCompany(company)}
+                className={`company-selector-card${isActive ? ' is-active' : ''}`}
+                style={{ '--company-accent': company.accent }}
+              >
+                <div className="company-card-header">
+                  <span className="company-card-index">0{index + 1}</span>
+                  <span className="company-card-badge">{company.shortLabel}</span>
+                </div>
+                <div className="company-card-body">
+                  <h3>{company.label}</h3>
+                  <p>Open operation matrix</p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <div className="company-selector-detail" aria-live="polite">
+        <div>
+          <div className="company-selector-kicker">Selected company</div>
+          <h3>{selectedCompany.label}</h3>
+        </div>
+        <div className="company-selector-detail-meta">
+          <span>Operation matrix</span>
+          <span>{selectedCompany.shortLabel}</span>
+        </div>
+      </div>
+
       <OperationMatrix
         key={selectedCompany.id}
         industry={selectedCompany.id}
