@@ -94,6 +94,12 @@ function LegacyDashboard({ onNavigate }) {
   if (!d) return <div style={{ color: C.ink2, fontSize: 13 }}>Loading dashboard…</div>;
 
     const k = d.kpis;
+    const dailyTableRows = (d.dailyManpowerRecords || d.manpowerDailyTrend || []).slice();
+    const getRowDate = (row) => row?.fullDate || row?.date || '';
+    const getDayValue = (row) => Number(row?.dayShift ?? row?.direct ?? row?.day_shift ?? 0);
+    const getNightValue = (row) => Number(row?.nightShift ?? row?.indirect ?? row?.night_shift ?? 0);
+    const getTotal = (row) => Number(row?.total ?? getDayValue(row) + getNightValue(row));
+
   return (
     <div className="dashboard-layout">
       <section className="dashboard-filters" aria-label="Dashboard filters">
@@ -378,10 +384,10 @@ function LegacyDashboard({ onNavigate }) {
             </div>
 
             {(() => {
-              const dailyRows = d.manpowerDailyTrend || [];
+              const dailyRows = dailyTableRows;
 
               const selectedRow = manpowerDate
-                ? dailyRows.find((x) => x.fullDate === manpowerDate)
+                ? dailyRows.find((row) => getRowDate(row) === manpowerDate)
                 : null;
 
               if (manpowerDate && !selectedRow) {
@@ -399,9 +405,7 @@ function LegacyDashboard({ onNavigate }) {
               }
 
               if (selectedRow) {
-                const total =
-                  Number(selectedRow.direct || 0) +
-                  Number(selectedRow.indirect || 0);
+                const total = getTotal(selectedRow);
 
                 return (
                   <div
@@ -414,15 +418,15 @@ function LegacyDashboard({ onNavigate }) {
                     />
 
                     <KpiCard
-                      label="Direct"
-                      value={selectedRow.direct}
+                      label="Day Shift"
+                      value={getDayValue(selectedRow)}
                       sub="Daily manpower"
                       accent={C.moss}
                     />
 
                     <KpiCard
-                      label="Indirect"
-                      value={selectedRow.indirect}
+                      label="Night Shift"
+                      value={getNightValue(selectedRow)}
                       sub="Daily manpower"
                       accent={C.rust}
                     />
@@ -440,7 +444,7 @@ function LegacyDashboard({ onNavigate }) {
                       />
 
                       <XAxis
-                        dataKey="date"
+                        dataKey={(row) => getRowDate(row).slice(5) || getRowDate(row)}
                         tick={{
                           fontSize: 11,
                           fill: C.ink2,
@@ -464,8 +468,8 @@ function LegacyDashboard({ onNavigate }) {
 
                       <Line
                         type="monotone"
-                        dataKey="direct"
-                        name="Direct"
+                        dataKey={(row) => getDayValue(row)}
+                        name="Day Shift"
                         stroke={C.moss}
                         strokeWidth={2}
                         dot={{ r: 2 }}
@@ -473,8 +477,8 @@ function LegacyDashboard({ onNavigate }) {
 
                       <Line
                         type="monotone"
-                        dataKey="indirect"
-                        name="Indirect"
+                        dataKey={(row) => getNightValue(row)}
+                        name="Night Shift"
                         stroke={C.rust}
                         strokeWidth={2}
                         dot={{ r: 2 }}
@@ -500,7 +504,7 @@ function LegacyDashboard({ onNavigate }) {
             {/* Full table of every logged day, most recent first — click a
                 row to jump the date picker (and the KPI view above) straight
                 to that day. */}
-            {(d.manpowerDailyTrend || []).length > 0 && (
+            {dailyTableRows.length > 0 && (
               <div className="mt-4" style={{ borderTop: `1px solid ${C.line}` }}>
                 <div
                   style={{ maxHeight: 260, overflowY: 'auto' }}
@@ -510,30 +514,33 @@ function LegacyDashboard({ onNavigate }) {
                     <thead style={{ position: 'sticky', top: 0, background: C.navyTint }}>
                       <tr style={{ borderBottom: `1px solid ${C.navyLine}` }}>
                         <th className="text-left px-2 py-1.5 nowrap-cell" style={{ color: C.ink, fontSize: 11.5 }}>Date</th>
-                        <th className="text-left px-2 py-1.5 nowrap-cell" style={{ color: C.ink, fontSize: 11.5 }}>Direct</th>
-                        <th className="text-left px-2 py-1.5 nowrap-cell" style={{ color: C.ink, fontSize: 11.5 }}>Indirect</th>
+                        <th className="text-left px-2 py-1.5 nowrap-cell" style={{ color: C.ink, fontSize: 11.5 }}>Day Shift</th>
+                        <th className="text-left px-2 py-1.5 nowrap-cell" style={{ color: C.ink, fontSize: 11.5 }}>Night Shift</th>
                         <th className="text-left px-2 py-1.5 nowrap-cell" style={{ color: C.ink, fontSize: 11.5 }}>Total</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {[...(d.manpowerDailyTrend || [])]
-                        .sort((a, b) => (a.fullDate < b.fullDate ? 1 : -1))
+                      {[...dailyTableRows]
+                        .sort((a, b) => ((getRowDate(b) || '').localeCompare(getRowDate(a) || '')))
                         .map((row) => {
-                          const isActive = manpowerDate === row.fullDate;
-                          const total = Number(row.direct || 0) + Number(row.indirect || 0);
+                          const rowDate = getRowDate(row);
+                          const isActive = manpowerDate === rowDate;
+                          const total = getTotal(row);
+                          const dayValue = getDayValue(row);
+                          const nightValue = getNightValue(row);
                           return (
                             <tr
-                              key={row.fullDate}
-                              onClick={() => setManpowerDate(isActive ? '' : row.fullDate)}
+                              key={rowDate || `${dayValue}-${nightValue}`}
+                              onClick={() => setManpowerDate(isActive ? '' : rowDate)}
                               style={{
                                 borderBottom: `1px solid ${C.line}`,
                                 background: isActive ? C.paper : 'transparent',
                                 cursor: 'pointer',
                               }}
                             >
-                              <td className="px-2 py-1.5 nowrap-cell" style={{ fontFamily: FONT_HEAD, color: C.ink }}>{row.fullDate}</td>
-                              <td className="px-2 py-1.5 nowrap-cell" style={{ color: C.moss }}>{row.direct}</td>
-                              <td className="px-2 py-1.5 nowrap-cell" style={{ color: C.rust }}>{row.indirect}</td>
+                              <td className="px-2 py-1.5 nowrap-cell" style={{ fontFamily: FONT_HEAD, color: C.ink }}>{rowDate}</td>
+                              <td className="px-2 py-1.5 nowrap-cell" style={{ color: C.moss }}>{dayValue}</td>
+                              <td className="px-2 py-1.5 nowrap-cell" style={{ color: C.rust }}>{nightValue}</td>
                               <td className="px-2 py-1.5 nowrap-cell" style={{ fontWeight: 600, color: C.ink }}>{total}</td>
                             </tr>
                           );

@@ -497,10 +497,12 @@ router.get('/', async (req, res) => {
         }));
 
     const dailyManpowerRecords = dailyManpower.rows.map((row) => {
+      const date = String(row.date || '').slice(0, 10);
       const dayShift = Number(row.day_shift) || 0;
       const nightShift = Number(row.night_shift) || 0;
       return {
-        date: String(row.date || '').slice(0, 10),
+        date,
+        fullDate: date,
         departmentProduction: row.department_production || '—',
         fixedManpower: Number(row.fixed_manpower) || 0,
         dayShift,

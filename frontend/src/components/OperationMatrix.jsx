@@ -9,8 +9,67 @@ const INITIAL_DATA = {
   particulars: [],
 };
 
-function makeColumns(fiscalYearEnd, reportMonth) {
-  const pastYears = [fiscalYearEnd - 4, fiscalYearEnd - 3, fiscalYearEnd - 2, fiscalYearEnd - 1];
+function fiscalYearLabel(year) {
+  const normalized = Number(year);
+  if (!Number.isFinite(normalized)) return String(year);
+  return `FY ${normalized - 1}-${String(normalized).slice(-2)}`;
+}
+
+function extractFiscalYearFromKey(key) {
+  if (typeof key !== 'string') return null;
+
+  const cleaned = key.trim();
+  const patterns = [
+    /^(?:fy|actual|target|revisedTarget)[-_]?(\d{4})$/i,
+    /^(?:fy|actual|target|revisedTarget)[-_]?(\d{4})[-/](\d{2})$/i,
+    /^(?:fy|actual|target|revisedTarget)[-_]?(\d{2})(\d{2})$/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = cleaned.match(pattern);
+    if (!match) continue;
+
+    if (match[2]) {
+      return Number(match[1]) + 1;
+    }
+
+    if (match[1] && pattern.source.includes('\\d{2}\\d{2}')) {
+      return Number(`20${match[1]}`) + 1;
+    }
+
+    if (match[1]) {
+      return Number(match[1]);
+    }
+  }
+
+  return null;
+}
+
+function detectFiscalYears(particulars, fiscalYearEnd) {
+  const years = new Set([
+    fiscalYearEnd,
+    fiscalYearEnd - 1,
+    fiscalYearEnd - 2,
+    fiscalYearEnd - 3,
+    fiscalYearEnd - 4,
+  ]);
+
+  particulars.forEach((row) => {
+    Object.keys(row.values || {}).forEach((key) => {
+      const year = extractFiscalYearFromKey(key);
+      if (Number.isInteger(year)) years.add(year);
+    });
+  });
+
+  return [...years].filter(Number.isInteger).sort((a, b) => a - b);
+}
+
+function makeColumns(fiscalYearEnd, reportMonth, particulars, yearFilter) {
+  const fiscalYears = detectFiscalYears(particulars, fiscalYearEnd);
+  const activeYear = yearFilter === 'current' ? fiscalYearEnd : Number(yearFilter);
+  const yearsToShow = yearFilter === 'all'
+    ? fiscalYears
+    : fiscalYears.filter((year) => year === activeYear);
   const monthDate = new Date(`${reportMonth}-01T12:00:00`);
   const monthLabel = Number.isNaN(monthDate.getTime())
     ? reportMonth
@@ -19,14 +78,27 @@ function makeColumns(fiscalYearEnd, reportMonth) {
     ? reportMonth.slice(0, 4)
     : monthDate.getFullYear();
 
+  const fiscalColumns = yearsToShow.flatMap((year) => {
+    const hasCurrentMetrics = particulars.some((row) =>
+      Object.keys(row.values || {}).some((key) => {
+        const parsedYear = extractFiscalYearFromKey(key);
+        return parsedYear === year && ['actual', 'target', 'revisedtarget'].includes(String(key).split('-')[0].toLowerCase());
+      })
+    );
+
+    if (year === fiscalYearEnd || hasCurrentMetrics) {
+      return [
+        { key: `actual-${year}`, label: 'Actual', group: fiscalYearLabel(year) },
+        { key: `target-${year}`, label: 'Target', group: fiscalYearLabel(year) },
+        { key: `revisedTarget-${year}`, label: 'Revised Target', group: fiscalYearLabel(year) },
+      ];
+    }
+
+    return [{ key: `fy-${year}`, label: fiscalYearLabel(year) }];
+  });
+
   return [
-    ...pastYears.map((year) => ({
-      key: `fy-${year}`,
-      label: `FY ${year - 1}-${String(year).slice(-2)}`,
-    })),
-    { key: `actual-${fiscalYearEnd}`, label: 'Actual', group: `FY ${fiscalYearEnd - 1}-${String(fiscalYearEnd).slice(-2)}` },
-    { key: `target-${fiscalYearEnd}`, label: 'Target', group: `FY ${fiscalYearEnd - 1}-${String(fiscalYearEnd).slice(-2)}` },
-    { key: `revisedTarget-${fiscalYearEnd}`, label: 'Revised Target', group: `FY ${fiscalYearEnd - 1}-${String(fiscalYearEnd).slice(-2)}` },
+    ...fiscalColumns,
     { key: `month-${reportMonth}`, label: 'Month' },
     { key: `year-${reportMonth}`, label: 'Year', value: yearLabel },
     { key: `ytd-${reportMonth}`, label: 'YTD' },
@@ -44,6 +116,7 @@ function newRow() {
 export default function OperationMatrix({ industry, label = industry, editable }) {
   const [data, setData] = useState(INITIAL_DATA);
   const [search, setSearch] = useState('');
+  const [yearFilter, setYearFilter] = useState('current');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -68,15 +141,21 @@ export default function OperationMatrix({ industry, label = industry, editable }
   }, [industry]);
 
   const columns = useMemo(
-    () => makeColumns(data.fiscalYearEnd, data.reportMonth),
-    [data.fiscalYearEnd, data.reportMonth]
+    () => makeColumns(data.fiscalYearEnd, data.reportMonth, data.particulars, yearFilter === 'current' ? data.fiscalYearEnd : yearFilter),
+    [data.fiscalYearEnd, data.reportMonth, data.particulars, yearFilter]
   );
-  const historicalColumns = columns.filter((column) => column.key.startsWith('fy-'));
-  const currentPeriodColumns = columns.filter((column) => [
-    'actual',
-    'target',
-    'revisedTarget',
-  ].includes(column.key.split('-')[0]));
+  const fiscalYears = useMemo(
+    () => detectFiscalYears(data.particulars, data.fiscalYearEnd),
+    [data.particulars, data.fiscalYearEnd]
+  );
+  const fiscalColumns = columns.filter((column) => column.group || column.key.startsWith('fy-'));
+  const fiscalHeaderGroups = fiscalColumns.reduce((groups, column) => {
+    const label = column.group || column.label;
+    const previousGroup = groups[groups.length - 1];
+    if (column.group && previousGroup?.label === label) previousGroup.columns.push(column);
+    else groups.push({ label, columns: [column], grouped: Boolean(column.group) });
+    return groups;
+  }, []);
   const monthYearColumns = columns.filter((column) => ['month', 'year', 'ytd'].includes(column.key.split('-')[0]));
   const visibleRows = useMemo(() => {
     const term = search.trim().toLocaleLowerCase();
@@ -174,6 +253,16 @@ export default function OperationMatrix({ industry, label = industry, editable }
             onChange={(event) => updateData({ reportMonth: event.target.value })}
           />
         </label>
+        <label className="operation-matrix-setting">
+          <span>Fiscal year filter</span>
+          <select value={yearFilter} onChange={(event) => setYearFilter(event.target.value)}>
+            <option value="current">Current ({fiscalYearLabel(data.fiscalYearEnd)})</option>
+            <option value="all">All years</option>
+            {fiscalYears.filter((year) => year !== data.fiscalYearEnd).map((year) => (
+              <option key={year} value={year}>{fiscalYearLabel(year)}</option>
+            ))}
+          </select>
+        </label>
         <label className="operation-matrix-search">
           <Search size={16} aria-hidden="true" />
           <input
@@ -203,13 +292,18 @@ export default function OperationMatrix({ industry, label = industry, editable }
             <tr>
               <th rowSpan={2} className="operation-matrix-serial-head">S. No.</th>
               <th rowSpan={2} className="operation-matrix-particular-head">Particulars</th>
-              {historicalColumns.map((column) => <th key={column.key} rowSpan={2}>{column.label}</th>)}
-              <th colSpan={currentPeriodColumns.length}>{activeFy}</th>
+              {fiscalHeaderGroups.map((group) => (
+                <th key={group.label} colSpan={group.columns.length} rowSpan={group.grouped ? 1 : 2}>
+                  {group.label}
+                </th>
+              ))}
               {monthYearColumns.map((column) => <th key={column.key} rowSpan={2}>{column.label}</th>)}
               {editable && <th rowSpan={2} aria-label="Row actions" />}
             </tr>
             <tr>
-              {currentPeriodColumns.map((column) => <th key={column.key}>{column.label}</th>)}
+              {fiscalHeaderGroups.filter((group) => group.grouped).flatMap((group) =>
+                group.columns.map((column) => <th key={column.key}>{column.label}</th>)
+              )}
             </tr>
           </thead>
           <tbody>
@@ -232,16 +326,23 @@ export default function OperationMatrix({ industry, label = industry, editable }
                   <td key={column.key}>
                     {editable ? (
                       <input
-                        type="text"
-                        inputMode="decimal"
-                        maxLength={1000}
+                        type="number"
+                        step="any"
                         value={row.values?.[column.key] ?? ''}
                         onChange={(event) => updateRow(row.id, {
                           values: { ...row.values, [column.key]: event.target.value },
                         })}
                         aria-label={`${row.particular || 'Particular'} ${column.label}`}
                       />
-                    ) : (row.values?.[column.key] ?? '')}
+                    ) : (
+                      <span className="operation-matrix-number">
+                        {row.values?.[column.key] === undefined || row.values?.[column.key] === ''
+                          ? ''
+                          : Number.isFinite(Number(row.values[column.key]))
+                            ? Number(row.values[column.key]).toLocaleString('en-IN')
+                            : row.values[column.key]}
+                      </span>
+                    )}
                   </td>
                 ))}
                 {editable && (
