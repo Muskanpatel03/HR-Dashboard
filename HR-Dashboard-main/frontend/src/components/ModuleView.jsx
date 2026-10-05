@@ -1,0 +1,1618 @@
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+} from "react";
+
+import {
+  Search,
+  Plus,
+  Pencil,
+  Trash2,
+  AlertCircle,
+  Download,
+} from "lucide-react";
+
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+} from "recharts";
+
+import api from "../api";
+import RecordForm from "./RecordForm";
+import PeriodSummary from "./PeriodSummary";
+
+import {
+  C,
+  FONT_BODY,
+  FONT_HEAD,
+  FONT_MONO,
+  COMPUTED,
+  CHARTS,
+} from "../config";
+
+
+// ============================================================
+// CHART COLORS
+// ============================================================
+
+const PIE_COLORS = [
+  C.steel,
+  C.amber,
+  C.moss,
+  C.rust,
+  "#8A6FB0",
+  "#4C8577",
+];
+
+
+// ============================================================
+// CHART AGGREGATION
+// ============================================================
+
+function aggregate(records, chartConf) {
+  const map = {};
+
+  records.forEach((r) => {
+    const key = r[chartConf.groupBy] || "—";
+
+    if (!map[key]) {
+      map[key] = {
+        name: key,
+      };
+
+      if (chartConf.series) {
+        chartConf.series.forEach((s) => {
+          map[key][s.key] = 0;
+        });
+      }
+    }
+
+    if (chartConf.series) {
+      chartConf.series.forEach((s) => {
+        map[key][s.key] += s.fields.reduce(
+          (sum, field) =>
+            sum + (Number(r[field]) || 0),
+          0
+        );
+      });
+    } else {
+      let value = 1;
+
+      if (chartConf.aggregate === "sum") {
+        if (Array.isArray(chartConf.valueField)) {
+          value = chartConf.valueField.reduce(
+            (sum, field) =>
+              sum + (Number(r[field]) || 0),
+            0
+          );
+        } else {
+          value =
+            Number(r[chartConf.valueField]) || 0;
+        }
+      }
+
+      map[key].value =
+        (map[key].value || 0) + value;
+    }
+  });
+
+  return Object.values(map);
+}
+
+const PERIODS = ["Monthly", "Quarterly", "Half-Yearly", "Annual"];
+
+function defaultSortFor(config) {
+  if (config.defaultSort) return config.defaultSort;
+  const firstChronologicalField = config.fields.find((field) =>
+    field.type === "month" || field.type === "date"
+  );
+  return firstChronologicalField
+    ? { field: firstChronologicalField.name, dir: "asc" }
+    : null;
+}
+
+function periodKey(monthStr, period) {
+  const [y, m] = String(monthStr || "").split("-").map(Number);
+  if (!y || !m) return { key: "0000", label: "Unspecified" };
+  if (period === "Quarterly") { const q = Math.ceil(m / 3); return { key: `${y}-Q${q}`, label: `Q${q} ${y}` }; }
+  if (period === "Half-Yearly") { const h = m <= 6 ? 1 : 2; return { key: `${y}-H${h}`, label: `H${h} ${y}` }; }
+  return { key: `${y}`, label: `${y}` };
+}
+
+// Weighted average of a per-head rate field (noSum): sum(rate*weight)/sum(weight)
+function weightedAvg(rows, f) {
+  let num = 0, den = 0;
+  rows.forEach((r) => {
+    const w = f.weightFields.reduce((s, k) => s + (Number(r[k]) || 0), 0);
+    num += (Number(r[f.name]) || 0) * w;
+    den += w;
+  });
+  return den > 0 ? Math.round((num / den) * 100) / 100 : 0;
+}
+
+// Rolls monthly rows up to quarter / half-year / year.
+// Numbers are summed; noSum rate fields are blended by headcount.
+// Rows stay separate per location/department (every non-numeric column).
+function rollupByPeriod(rows, fields, periodName, period) {
+  const sums = fields.filter((f) => f.type === "number" && !f.noSum);
+  const rates = fields.filter((f) => f.noSum && f.weightFields);
+  const dims = fields.filter((f) => f.name !== periodName && f.type !== "number" && f.type !== "password");
+  const groups = {};
+  rows.forEach((r) => {
+    const { key, label } = periodKey(r[periodName], period);
+    const gk = key + "::" + dims.map((f) => r[f.name] ?? "").join("|");
+    if (!groups[gk]) {
+      groups[gk] = { id: gk, _key: key, _src: [], [periodName]: label };
+      dims.forEach((f) => { groups[gk][f.name] = r[f.name]; });
+      sums.forEach((f) => { groups[gk][f.name] = 0; });
+    }
+    const g = groups[gk];
+    g._src.push(r);
+    sums.forEach((f) => { g[f.name] += Number(r[f.name]) || 0; });
+  });
+  return Object.values(groups)
+    .map((g) => { rates.forEach((f) => { g[f.name] = weightedAvg(g._src, f); }); return g; })
+    .sort((a, b) => a._key.localeCompare(b._key));
+}
+// ============================================================
+// CSV ESCAPE
+// ============================================================
+
+function csvEscape(value) {
+  const stringValue = String(value ?? "");
+
+  return /[",\n]/.test(stringValue)
+    ? `"${stringValue.replace(/"/g, '""')}"`
+    : stringValue;
+}
+
+
+// ============================================================
+// DATE / MONTH HELPERS
+//
+// Converts:
+// 1968-07-01  (or 1968-07-01T00:00:00.000Z)
+//
+// Into:
+// 01-07-1968
+// ============================================================
+
+const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const monthKeyOf = (v) => (v ? String(v).slice(0, 7) : "");
+const monthLabel = (key) => {
+  const [y, m] = key.split("-");
+  return `${MONTH_LABELS[Number(m) - 1]} ${y}`;
+};
+
+function formatDate(value) {
+  if (!value) return "—";
+  const m = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+
+  const day = String(
+    date.getUTCDate()
+  ).padStart(2, "0");
+
+  const month = String(
+    date.getUTCMonth() + 1
+  ).padStart(2, "0");
+
+  const year = date.getUTCFullYear();
+
+  return `${day}-${month}-${year}`;
+}
+
+
+// ============================================================
+// TABLE VALUE FORMATTER
+// ============================================================
+
+function formatCellValue(value, type) {
+  if (
+    value === undefined ||
+    value === null ||
+    value === ""
+  ) {
+    return "—";
+  }
+
+  if (type === "date") {
+    return formatDate(value);
+  }
+
+  if (type === "number") {
+    return Number(value).toLocaleString(
+      "en-IN"
+    );
+  }
+
+  return String(value);
+}
+
+
+// ============================================================
+// CSV DOWNLOAD
+// ============================================================
+
+function downloadCSV(
+  moduleKey,
+  visibleFields,
+  computedFields,
+  rows
+) {
+  const headers = [
+    ...visibleFields.map(
+      (field) => field.label
+    ),
+    ...computedFields.map(
+      (field) => field.label
+    ),
+  ];
+
+  const lines = [
+    headers.map(csvEscape).join(","),
+  ];
+
+  rows.forEach((record) => {
+    const values = [
+      ...visibleFields.map((field) => {
+        const value =
+          field.type === "date"
+            ? formatDate(record[field.name])
+            : record[field.name];
+
+        return csvEscape(value);
+      }),
+
+      ...computedFields.map((field) =>
+        csvEscape(field.compute(record))
+      ),
+    ];
+
+    lines.push(values.join(","));
+  });
+
+  const blob = new Blob(
+    [lines.join("\n")],
+    {
+      type: "text/csv;charset=utf-8;",
+    }
+  );
+
+  const url =
+    URL.createObjectURL(blob);
+
+  const link =
+    document.createElement("a");
+
+  link.href = url;
+
+  link.download =
+    `${moduleKey}-export-${new Date()
+      .toISOString()
+      .slice(0, 10)}.csv`;
+
+  document.body.appendChild(link);
+
+  link.click();
+
+  link.remove();
+
+  URL.revokeObjectURL(url);
+}
+
+
+// ============================================================
+// MODULE CHART
+// ============================================================
+
+function ModuleChart({
+  config,
+  records,
+}) {
+  const chartConf =
+    CHARTS[config.key];
+
+  const data = useMemo(
+    () =>
+      chartConf
+        ? aggregate(
+            records,
+            chartConf
+          )
+        : [],
+    [chartConf, records]
+  );
+
+  if (
+    !chartConf ||
+    records.length === 0
+  ) {
+    return null;
+  }
+
+  const total = data.reduce(
+    (sum, item) =>
+      sum + (item.value || 0),
+    0
+  );
+
+  return (
+    <div
+      style={{
+        background: C.card,
+        border: `1px solid ${C.line}`,
+      }}
+      className="p-4 rounded"
+    >
+      <div
+        style={{
+          fontFamily: FONT_HEAD,
+          fontSize: 15,
+          color: C.ink,
+        }}
+        className="mb-3"
+      >
+        {chartConf.title}
+      </div>
+
+      <div
+        style={{
+          position: "relative",
+        }}
+      >
+        <ResponsiveContainer
+          width="100%"
+          height={280}
+        >
+          {chartConf.type === "pie" ? (
+            <PieChart
+              margin={{
+                top: 28,
+                right: 10,
+                bottom: 0,
+                left: 10,
+              }}
+            >
+              <Pie
+                data={data}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="46%"
+                innerRadius={42}
+                outerRadius={68}
+                paddingAngle={2}
+                label={({ percent }) =>
+                  `${(
+                    percent * 100
+                  ).toFixed(0)}%`
+                }
+                labelLine={{
+                  stroke: C.ink2,
+                  strokeWidth: 1,
+                }}
+              >
+                {data.map(
+                  (_, index) => (
+                    <Cell
+                      key={index}
+                      fill={
+                        PIE_COLORS[
+                          index %
+                            PIE_COLORS.length
+                        ]
+                      }
+                    />
+                  )
+                )}
+              </Pie>
+
+              <Tooltip />
+
+              <Legend
+                wrapperStyle={{
+                  fontSize: 11,
+                  paddingTop: 8,
+                }}
+                layout="horizontal"
+                verticalAlign="bottom"
+              />
+            </PieChart>
+          ) : (
+            <BarChart data={data}>
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke={C.line}
+              />
+
+              <XAxis
+                dataKey="name"
+                tick={{
+                  fontSize: 11,
+                  fill: C.ink2,
+                }}
+              />
+
+              <YAxis
+                tick={{
+                  fontSize: 11,
+                  fill: C.ink2,
+                }}
+                allowDecimals={false}
+              />
+
+              <Tooltip />
+
+              {chartConf.series ? (
+                <>
+                  <Legend
+                    wrapperStyle={{
+                      fontSize: 11,
+                    }}
+                  />
+
+                  {chartConf.series.map(
+                    (series, index) => (
+                      <Bar
+                        key={series.key}
+                        dataKey={series.key}
+                        name={series.label}
+                        fill={
+                          PIE_COLORS[
+                            index %
+                              PIE_COLORS.length
+                          ]
+                        }
+                        radius={[
+                          3,
+                          3,
+                          0,
+                          0,
+                        ]}
+                      />
+                    )
+                  )}
+                </>
+              ) : (
+                <Bar
+                  dataKey="value"
+                  fill={C.steel}
+                  radius={[
+                    3,
+                    3,
+                    0,
+                    0,
+                  ]}
+                />
+              )}
+            </BarChart>
+          )}
+        </ResponsiveContainer>
+
+        {chartConf.type === "pie" && (
+          <div
+            style={{
+              position: "absolute",
+              top: "calc(46% + 14px)",
+              left: "50%",
+              transform:
+                "translate(-50%, -50%)",
+              textAlign: "center",
+              pointerEvents: "none",
+            }}
+          >
+            <div
+              style={{
+                fontFamily: FONT_MONO,
+                fontSize: 20,
+                color: C.ink,
+              }}
+            >
+              {total}
+            </div>
+
+            <div
+              style={{
+                fontSize: 10,
+                color: C.ink2,
+              }}
+            >
+              total
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+// ============================================================
+// MAIN MODULE VIEW
+// ============================================================
+
+export default function ModuleView({
+  config,
+  editable,
+  recordFilter,
+  defaultValues = {},
+}) {
+  const [records, setRecords] =
+    useState([]);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState("");
+
+  const [showForm, setShowForm] =
+    useState(false);
+
+  const [editingId, setEditingId] =
+    useState(null);
+
+  const [formValues, setFormValues] =
+    useState({});
+  const [period, setPeriod] = useState("Monthly");
+  const [search, setSearch] =
+    useState("");
+
+  // Sorting + month filter (both optional per module via config)
+  const [sort, setSort] =
+    useState(defaultSortFor(config));
+
+  const [monthFilter, setMonthFilter] =
+    useState("all");
+  const [selectedDate, setSelectedDate] = useState("");
+
+  useEffect(() => {
+    setSort(defaultSortFor(config));
+    setMonthFilter("all");
+    setSelectedDate("");
+  }, [config.key]);
+
+  const toggleSort = (field) =>
+    setSort((s) =>
+      s && s.field === field
+        ? {
+            field,
+            dir: s.dir === "asc" ? "desc" : "asc",
+          }
+        : { field, dir: "asc" }
+    );
+
+
+  // ==========================================================
+  // LOAD RECORDS
+  // ==========================================================
+
+  const load = useCallback(
+    async () => {
+      setLoading(true);
+      setError("");
+
+      try {
+        const { data } =
+          await api.get(
+            `/${config.key}`
+          );
+
+        setRecords(
+          Array.isArray(data.records)
+            ? data.records
+            : []
+        );
+      } catch (err) {
+        setError(
+          err.response?.data?.error ||
+            "Failed to load records"
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [config.key]
+  );
+
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+
+  // ==========================================================
+  // NEW RECORD
+  // ==========================================================
+
+  const openNew = () => {
+    setFormValues({
+      ...defaultValues,
+      ...(config.key === "dailyManpower" && selectedDate ? { date: selectedDate } : {}),
+    });
+    setEditingId(null);
+    setShowForm(true);
+  };
+
+
+  // ==========================================================
+  // EDIT RECORD
+  // ==========================================================
+
+  const openEdit = (record) => {
+    setFormValues({
+      ...record,
+    });
+
+    setEditingId(record.id);
+    setShowForm(true);
+  };
+
+
+  // ==========================================================
+  // CLOSE FORM
+  // ==========================================================
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingId(null);
+    setFormValues({});
+  };
+
+
+  // ==========================================================
+  // SAVE RECORD
+  // ==========================================================
+
+  const submit = async () => {
+    try {
+      if (editingId) {
+        await api.put(
+          `/${config.key}/${editingId}`,
+          formValues
+        );
+      } else {
+        await api.post(
+          `/${config.key}`,
+          formValues
+        );
+      }
+
+      closeForm();
+
+      await load();
+    } catch (err) {
+      alert(
+        err.response?.data?.error ||
+          "Save failed"
+      );
+    }
+  };
+
+
+  // ==========================================================
+  // DELETE RECORD
+  // ==========================================================
+
+  const remove = async (id) => {
+    const confirmed =
+      window.confirm(
+        "Delete this record? This cannot be undone."
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await api.delete(
+        `/${config.key}/${id}`
+      );
+
+      await load();
+    } catch (err) {
+      alert(
+        err.response?.data?.error ||
+          "Delete failed"
+      );
+    }
+  };
+
+
+  // ==========================================================
+  // MONTH FILTER OPTIONS
+  // (only when the module config sets monthFilterField)
+  // ==========================================================
+
+  const monthField = config.monthFilterField;
+
+  const monthOptions = useMemo(() => {
+    if (!monthField) return [];
+
+    return [
+      ...new Set(
+        records
+          .map((r) => monthKeyOf(r[monthField]))
+          .filter(Boolean)
+      ),
+    ].sort();
+  }, [records, monthField]);
+
+  const dailyManpowerDates = useMemo(() => {
+    if (config.key !== "dailyManpower") return [];
+
+    const countsByDate = new Map();
+    records.forEach((record) => {
+      const date = String(record.date || "").slice(0, 10);
+      if (date) countsByDate.set(date, (countsByDate.get(date) || 0) + 1);
+    });
+
+    return [...countsByDate]
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }, [config.key, records]);
+
+
+  // ==========================================================
+  // MONTH FILTER + SEARCH + SORT
+  // ==========================================================
+
+  const filtered = useMemo(() => {
+    const query =
+      search.trim().toLowerCase();
+
+    let rows = records.filter(
+      (record) => {
+        if (recordFilter && !recordFilter(record)) {
+          return false;
+        }
+
+        if (
+          config.key === "dailyManpower" &&
+          selectedDate &&
+          String(record.date || "").slice(0, 10) !== selectedDate
+        ) {
+          return false;
+        }
+
+        // Month filter
+        if (
+          monthField &&
+          monthFilter !== "all" &&
+          monthKeyOf(record[monthField]) !==
+            monthFilter
+        ) {
+          return false;
+        }
+
+        // Search
+        if (!query) {
+          return true;
+        }
+
+        return config.fields.some(
+          (field) => {
+            const rawValue =
+              record[field.name];
+
+            const value =
+              field.type === "date"
+                ? formatDate(rawValue)
+                : String(
+                    rawValue ?? ""
+                  );
+
+            return value
+              .toLowerCase()
+              .includes(query);
+          }
+        );
+      }
+    );
+
+    // Sort
+    if (sort) {
+      const { field, dir } = sort;
+
+      const type = config.fields.find(
+        (f) => f.name === field
+      )?.type;
+
+      const blank = (v) =>
+        v === null ||
+        v === undefined ||
+        v === "";
+
+      rows = [...rows].sort((a, b) => {
+        const av = a[field];
+        const bv = b[field];
+
+        if (blank(av) && blank(bv)) return 0;
+        if (blank(av)) return 1; // blanks always last
+        if (blank(bv)) return -1;
+
+        const cmp =
+          type === "number"
+            ? Number(av) - Number(bv)
+            : type === "month"
+              ? String(av).localeCompare(String(bv))
+            : String(av).localeCompare(
+                String(bv),
+                undefined,
+                { numeric: true }
+              );
+
+        return dir === "desc" ? -cmp : cmp;
+      });
+    }
+
+    return rows;
+  }, [
+    records,
+    search,
+    sort,
+    monthFilter,
+    monthField,
+    config.fields,
+    config.key,
+    recordFilter,
+    selectedDate,
+  ]);
+
+
+  // ==========================================================
+  // FIELDS
+  // ==========================================================
+
+  const visibleFields =
+    config.fields.filter(
+      (field) =>
+        field.type !== "password"
+    );
+
+  const computedFields =
+    COMPUTED[config.key] || [];
+
+  const periodField = config.fields.find((f) => f.type === "month");
+  const displayRows = useMemo(
+    () =>
+      periodField && period !== "Monthly"
+        ? rollupByPeriod(filtered, config.fields, periodField.name, period)
+        : filtered,
+    [filtered, config.fields, periodField, period],
+  );
+  // Rolled-up rows aren't single DB records, so edit/delete only in Monthly view
+  const canEditRows = editable && (!periodField || period === "Monthly");
+  // ==========================================================
+  // COLUMN GROUPS
+  // ==========================================================
+
+  const groups = useMemo(() => {
+    if (!config.columnGroups) {
+      return [
+        {
+          title: null,
+          fields: visibleFields,
+        },
+      ];
+    }
+
+    return config.columnGroups.map(
+      (group) => ({
+        title: group.title,
+
+        fields: group.fields
+          .map((fieldName) =>
+            visibleFields.find(
+              (field) =>
+                field.name ===
+                fieldName
+            )
+          )
+          .filter(Boolean),
+      })
+    );
+  }, [
+    config.columnGroups,
+    visibleFields,
+  ]);
+
+
+  // ==========================================================
+  // RENDER
+  // ==========================================================
+
+  return (
+    <div className="space-y-4">
+
+      {/* ====================================================
+          CHART
+      ==================================================== */}
+
+      <ModuleChart
+        config={config}
+        records={records}
+      />
+
+
+      {/* ====================================================
+          PERIOD SUMMARY
+      ==================================================== */}
+
+      <PeriodSummary
+        config={config}
+        records={records}
+      />
+
+
+      {/* ====================================================
+          SEARCH + ACTIONS
+      ==================================================== */}
+
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+
+        <div className="relative">
+
+          <Search
+            size={14}
+            style={{
+              color: C.ink2,
+            }}
+            className="absolute left-2.5 top-2.5"
+          />
+
+          <input
+            value={search}
+            onChange={(event) =>
+              setSearch(
+                event.target.value
+              )
+            }
+            placeholder="Search records…"
+            className="pl-8 pr-3 py-2 text-sm rounded"
+            style={{
+              background: C.card,
+              border: `1px solid ${C.line}`,
+              width: 240,
+            }}
+          />
+
+        </div>
+
+
+        <div className="flex items-center gap-2">
+
+          {config.key === "dailyManpower" && (
+            <label className="flex items-center gap-2 text-sm" style={{ color: C.ink2 }}>
+              <span>Date</span>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(event) => setSelectedDate(event.target.value)}
+                className="px-2.5 py-2 text-sm rounded"
+                style={{ background: C.card, border: `1px solid ${C.line}`, color: C.ink }}
+              />
+              {selectedDate && (
+                <button type="button" onClick={() => setSelectedDate("")} className="text-xs underline">
+                  Clear
+                </button>
+              )}
+            </label>
+          )}
+
+          {/* Month filter (only for modules that enable it) */}
+
+          {monthField && (
+            <select
+              value={monthFilter}
+              onChange={(event) =>
+                setMonthFilter(
+                  event.target.value
+                )
+              }
+              className="px-2.5 py-2 text-sm rounded"
+              style={{
+                background: C.card,
+                border: `1px solid ${C.line}`,
+              }}
+            >
+              <option value="all">
+                All months
+              </option>
+
+              {monthOptions.map(
+                (month) => (
+                  <option
+                    key={month}
+                    value={month}
+                  >
+                    {monthLabel(month)}
+                  </option>
+                )
+              )}
+            </select>
+          )}
+
+
+          <span
+            style={{
+              color: C.ink2,
+              fontSize: 12.5,
+            }}
+          >
+            {filtered.length} record
+            {filtered.length !== 1
+              ? "s"
+              : ""}
+          </span>
+
+
+          {/* Export CSV */}
+
+          <button
+            onClick={() =>
+              downloadCSV(config.key, visibleFields, computedFields, displayRows)
+            }
+            disabled={
+              filtered.length === 0
+            }
+            className="flex items-center gap-1.5 px-3 py-2 text-sm rounded"
+            style={{
+              border: `1px solid ${C.line}`,
+              color:
+                filtered.length === 0
+                  ? C.ink2
+                  : C.ink,
+              opacity:
+                filtered.length === 0
+                  ? 0.5
+                  : 1,
+              cursor:
+                filtered.length === 0
+                  ? "not-allowed"
+                  : "pointer",
+            }}
+          >
+            <Download size={14} />
+
+            Export CSV
+          </button>
+
+
+          {/* Add record */}
+
+          {editable && (
+            <button
+              onClick={openNew}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm rounded"
+              style={{
+                background: C.steel,
+                color: "#fff",
+              }}
+            >
+              <Plus size={14} />
+
+              Add record
+            </button>
+          )}
+
+        </div>
+      </div>
+
+      {config.key === "dailyManpower" && dailyManpowerDates.length > 0 && (
+        <div className="space-y-2" aria-label="Daily manpower dates">
+          <div className="text-xs" style={{ color: C.ink2 }}>
+            {selectedDate ? `Records for ${formatDate(selectedDate)}` : "Select a date to view its records"}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {dailyManpowerDates.map(({ date, count }) => {
+              const isSelected = selectedDate === date;
+              return (
+                <button
+                  key={date}
+                  type="button"
+                  onClick={() => setSelectedDate(isSelected ? "" : date)}
+                  aria-pressed={isSelected}
+                  aria-label={`${formatDate(date)}, ${count} records`}
+                  className="px-3 py-1.5 text-sm rounded"
+                  style={{
+                    background: isSelected ? C.steel : C.card,
+                    color: isSelected ? "#fff" : C.ink,
+                    border: `1px solid ${isSelected ? C.steel : C.line}`,
+                  }}
+                >
+                  {formatDate(date)} <span style={{ opacity: 0.75 }}>({count})</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+
+      {/* ====================================================
+          VIEW ONLY NOTICE
+      ==================================================== */}
+
+      {!editable && (
+        <div
+          className="flex items-center gap-1.5 px-3 py-2 rounded text-xs"
+          style={{
+            background: "#F0EEE7",
+            color: C.ink2,
+          }}
+        >
+          <AlertCircle size={13} />
+
+          Your role has view-only
+          access to this module.
+        </div>
+      )}
+
+
+      {/* ====================================================
+          ERROR
+      ==================================================== */}
+
+      {error && (
+        <div
+          style={{
+            color: C.rust,
+            fontSize: 13,
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+
+      {/* ====================================================
+          RECORD FORM
+      ==================================================== */}
+
+      {showForm && (
+        <RecordForm
+          config={config}
+          values={formValues}
+          setValues={setFormValues}
+          onCancel={closeForm}
+          onSubmit={submit}
+          isEdit={!!editingId}
+        />
+      )}
+
+
+      {/* ====================================================
+          TABLES
+      ==================================================== */}
+
+      <div className="space-y-4">
+
+        {groups.map(
+          (group, groupIndex) => {
+            const isLast =
+              groupIndex ===
+              groups.length - 1;
+
+            const groupColSpan =
+              group.fields.length +
+              (config.showSerialNumber ? 1 : 0) +
+              (isLast
+                ? computedFields.length
+                : 0) +
+              (editable ? 1 : 0);
+
+            return (
+              <div
+                key={groupIndex}
+                style={{
+                  background: C.card,
+                  border: `1px solid ${C.line}`,
+                  maxHeight: "70vh",
+                }}
+                className="rounded overflow-auto"
+              >
+
+                {/* Group heading */}
+
+                {group.title && (
+                  <div
+                    style={{
+                      fontFamily:
+                        FONT_HEAD,
+                      fontSize: 13.5,
+                      color: C.ink,
+                      borderBottom: `1px solid ${C.line}`,
+                    }}
+                    className="px-3 py-2"
+                  >
+                    {group.title}
+                  </div>
+                )}
+
+
+                <table
+                  className="text-sm spreadsheet-table"
+                  style={{
+                    width: "100%",
+                    minWidth: "max-content",
+                  }}
+                >
+
+                  {/* ==================================================
+                      TABLE HEADER
+                  ================================================== */}
+
+                  <thead style={{ position: "sticky", top: 0, zIndex: 1, background: C.navyTint }}>
+                    <tr
+                      style={{
+                        background: C.navyTint,
+                        borderBottom: `1px solid ${C.navyLine}`,
+                      }}
+                    >
+
+                      {config.showSerialNumber && (
+                        <th className="text-left px-3 py-2 font-medium nowrap-cell" style={{ color: C.ink, fontSize: 11.5 }}>S.No.</th>
+                      )}
+
+                      {group.fields.map((field) => (
+                        <React.Fragment key={field.name}>
+                          <th
+                            onClick={() => toggleSort(field.name)}
+                            title="Click to sort"
+                            style={{
+                              color: C.ink,
+                              fontSize: 11.5,
+                              cursor: "pointer",
+                              userSelect: "none",
+                              minWidth: config.wrapHeaders
+                                ? field.type !== "number" ? 120 : 100
+                                : undefined,
+                            }}
+                            className={`text-left px-3 py-2 font-medium ${
+                              config.wrapHeaders && field.type !== "number"
+                                ? "whitespace-normal break-words leading-tight align-bottom"
+                                : "nowrap-cell align-bottom"
+                            }`}
+                          >
+                            {field.label}
+                            {sort?.field === field.name
+                              ? sort.dir === "asc" ? " ▲" : " ▼"
+                              : ""}
+                          </th>
+                          {isLast && config.computedAfterField === field.name && computedFields.map((computed) => (
+                            <th key={computed.name} style={{ color: C.steel, fontSize: 11.5, minWidth: 110 }} className="text-left px-3 py-2 font-medium whitespace-normal break-words leading-tight align-bottom">
+                              {computed.label}
+                            </th>
+                          ))}
+                        </React.Fragment>
+                      ))}
+
+
+                      {/* Computed headers */}
+
+                      {isLast && !config.computedAfterField &&
+                        computedFields.map(
+                          (computed) => (
+                            <th
+                              key={
+                                computed.name
+                              }
+                              style={{
+                                color:
+                                  C.steel,
+                                fontSize:
+                                  11.5,
+                                minWidth: 110,
+                              }}
+                              className="text-left px-3 py-2 font-medium whitespace-normal break-words leading-tight align-bottom"
+                            >
+                              {
+                                computed.label
+                              }
+                            </th>
+                          )
+                        )}
+
+
+                      {/* Actions header */}
+
+                      {editable && (
+                        <th
+                          className="px-3 py-2"
+                          style={{
+                            width: 90,
+                          }}
+                        />
+                      )}
+
+                    </tr>
+                  </thead>
+
+
+                  {/* ==================================================
+                      TABLE BODY
+                  ================================================== */}
+
+                  <tbody>
+
+                    {/* Loading */}
+
+                    {loading && (
+                      <tr>
+                        <td
+                          colSpan={
+                            groupColSpan
+                          }
+                          className="px-3 py-8 text-center"
+                          style={{
+                            color:
+                              C.ink2,
+                            fontSize:
+                              13,
+                          }}
+                        >
+                          Loading…
+                        </td>
+                      </tr>
+                    )}
+
+
+                    {/* Empty */}
+
+                    {!loading &&
+                      filtered.length ===
+                        0 && (
+                        <tr>
+                          <td
+                            colSpan={
+                              groupColSpan
+                            }
+                            className="px-3 py-8 text-center"
+                            style={{
+                              color:
+                                C.ink2,
+                              fontSize:
+                                13,
+                            }}
+                          >
+                            No records yet.
+                          </td>
+                        </tr>
+                      )}
+
+
+                    {/* Records */}
+
+                    {!loading &&
+                      filtered.map(
+                        (record, rowIndex) => (
+                          <tr
+                            key={
+                              record.id
+                            }
+                            className="spreadsheet-row"
+                            style={{
+                              borderBottom: `1px solid ${C.line}`,
+                            }}
+                          >
+
+                            {config.showSerialNumber && (
+                              <td className="px-3 py-2 nowrap-cell" style={{ color: C.ink2 }}>{rowIndex + 1}</td>
+                            )}
+
+                            {/* Normal fields */}
+
+                            {group.fields.map((f) => (
+                              <React.Fragment key={f.name}>
+                                <td
+                                  className={`px-3 py-2 ${config.wrapHeaders && f.type !== "number" ? "whitespace-normal break-words" : "nowrap-cell"}`}
+                                  style={{
+                                    fontFamily: f.type === "number" ? FONT_MONO : FONT_BODY,
+                                    minWidth: config.wrapHeaders && f.type !== "number" ? 120 : undefined,
+                                  }}
+                                >
+                                  {f.type === "date"
+                                    ? formatDate(record[f.name])
+                                    : record[f.name] || "—"}
+                                </td>
+                                {isLast && config.computedAfterField === f.name && computedFields.map((computed) => (
+                                  <td key={computed.name} className="px-3 py-2 nowrap-cell" style={{ fontFamily: FONT_MONO, color: C.steel, minWidth: 110 }}>
+                                    {computed.compute(record)}
+                                  </td>
+                                ))}
+                              </React.Fragment>
+                            ))}
+
+
+                            {/* Computed fields */}
+
+                            {isLast && !config.computedAfterField &&
+                              computedFields.map(
+                                (
+                                  computed
+                                ) => (
+                                  <td
+                                    key={
+                                      computed.name
+                                    }
+                                    className="px-3 py-2 nowrap-cell"
+                                    style={{
+                                      fontFamily:
+                                        FONT_MONO,
+                                      color:
+                                        C.steel,
+                                      minWidth: 110,
+                                    }}
+                                  >
+                                    {computed.compute(
+                                      record
+                                    )}
+                                  </td>
+                                )
+                              )}
+
+
+                            {/* Actions */}
+
+                            {editable && (
+                              <td className="px-3 py-2">
+                                <div className="flex gap-2">
+
+                                  {/* Edit */}
+
+                                  <button
+                                    onClick={() =>
+                                      openEdit(
+                                        record
+                                      )
+                                    }
+                                    style={{
+                                      color:
+                                        C.steel,
+                                    }}
+                                    title="Edit"
+                                  >
+                                    <Pencil
+                                      size={
+                                        14
+                                      }
+                                    />
+                                  </button>
+
+
+                                  {/* Delete */}
+
+                                  <button
+                                    onClick={() =>
+                                      remove(
+                                        record.id
+                                      )
+                                    }
+                                    style={{
+                                      color:
+                                        C.rust,
+                                    }}
+                                    title="Delete"
+                                  >
+                                    <Trash2
+                                      size={
+                                        14
+                                      }
+                                    />
+                                  </button>
+
+                                </div>
+                              </td>
+                            )}
+
+                          </tr>
+                        )
+                      )}
+
+
+                    {/* ==================================================
+                        TOTALS
+                    ================================================== */}
+
+                    {config.showTotals &&
+                      filtered.length >
+                        0 && (
+                        <tr
+                          style={{
+                            background:
+                              C.paper,
+                            fontWeight: 600,
+                          }}
+                        >
+
+                          {config.showSerialNumber && <td className="px-3 py-2" />}
+
+                          {group.fields.map((field, fieldIndex) => (
+                            <React.Fragment key={field.name}>
+                              <td
+                                className={`px-3 py-2 ${config.wrapHeaders && field.type !== "number" ? "whitespace-normal break-words" : "nowrap-cell"}`}
+                                style={{ fontFamily: field.type === "number" ? FONT_MONO : FONT_BODY, color: C.ink }}
+                              >
+                                {fieldIndex === 0
+                                  ? "Total"
+                                  : field.type === "number"
+                                    ? filtered.reduce((sum, record) => sum + (Number(record[field.name]) || 0), 0).toLocaleString("en-IN")
+                                    : ""}
+                              </td>
+                              {isLast && config.computedAfterField === field.name && computedFields.map((computed) => (
+                                <td key={computed.name} className="px-3 py-2 nowrap-cell" style={{ fontFamily: FONT_MONO, color: C.steel }}>
+                                  {computed.total ? computed.total(filtered) : ""}
+                                </td>
+                              ))}
+                            </React.Fragment>
+                          ))}
+
+
+                          {/* Computed totals */}
+
+                          {isLast && !config.computedAfterField &&
+                            computedFields.map(
+                              (computed) => (
+                                <td
+                                  key={
+                                    computed.name
+                                  }
+                                  className="px-3 py-2 nowrap-cell"
+                                  style={{
+                                    fontFamily:
+                                      FONT_MONO,
+                                    color:
+                                      C.steel,
+                                  }}
+                                >
+                                  {computed.total
+                                    ? computed.total(
+                                        filtered
+                                      )
+                                    : ""}
+                                </td>
+                              )
+                            )}
+
+
+                          {/* Action column */}
+
+                          {editable && (
+                            <td className="px-3 py-2" />
+                          )}
+
+                        </tr>
+                      )}
+
+                  </tbody>
+                </table>
+
+              </div>
+            );
+          }
+        )}
+
+      </div>
+
+    </div>
+  );
+}
