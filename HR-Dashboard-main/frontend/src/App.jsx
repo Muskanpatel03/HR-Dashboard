@@ -9,6 +9,8 @@ import RecruitmentHub from './components/RecruitmentHub';
 import TrainingHub from './components/TrainingHub';
 import AuditView from './components/AuditView';
 import AccessControl from './components/AccessControl';
+import CompanySelector from './components/CompanySelector';
+import api from './api';
 
 import {
   C,
@@ -16,6 +18,7 @@ import {
   FONT_BODY,
   MODULES,
   MODULE_MAP,
+  COMPANY_OPTIONS,
   ROLES,
 } from './config';
 
@@ -45,6 +48,30 @@ export default function App() {
     return localStorage.getItem('automat_active') || 'dashboard';
   });
 
+  const [companyId, setCompanyId] = useState(() =>
+    localStorage.getItem('automat_company') || COMPANY_OPTIONS[0].id
+  );
+
+  useEffect(() => {
+    if (!user || !localStorage.getItem('automat_token')) return undefined;
+    let cancelled = false;
+    api.get('/auth/me')
+      .then(({ data }) => {
+        if (cancelled) return;
+        setUser(data.user);
+        localStorage.setItem('automat_user', JSON.stringify(data.user));
+      })
+      .catch((error) => {
+        if (error.response?.status === 401 && !cancelled) setUser(null);
+      });
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
+  const handleCompanyChange = (nextCompanyId) => {
+    setCompanyId(nextCompanyId);
+    localStorage.setItem('automat_company', nextCompanyId);
+  };
+
   // ==================================================
   // PERMISSIONS
   // IMPORTANT: calculated even when user is null
@@ -60,6 +87,26 @@ export default function App() {
     // cached localStorage user from before this feature existed).
     return user.roleAccess || ROLES[user.role] || ROLES.Management;
   }, [user]);
+
+  const allowedCompanyIds = useMemo(
+    () => perms?.companies || COMPANY_OPTIONS.map((company) => company.id),
+    [perms]
+  );
+  const allowedCompanies = useMemo(
+    () => COMPANY_OPTIONS.filter((company) => allowedCompanyIds.includes(company.id)),
+    [allowedCompanyIds]
+  );
+
+  useEffect(() => {
+    const canSelectAll = allowedCompanyIds.length === COMPANY_OPTIONS.length;
+    if (companyId === 'all' && canSelectAll) return;
+    if (companyId !== 'all' && allowedCompanyIds.includes(companyId)) return;
+
+    const fallback = allowedCompanyIds[0] || '';
+    setCompanyId(fallback);
+    if (fallback) localStorage.setItem('automat_company', fallback);
+    else localStorage.removeItem('automat_company');
+  }, [companyId, allowedCompanyIds]);
 
   // ==================================================
   // VISIBLE MODULES
@@ -526,6 +573,9 @@ export default function App() {
             <Dashboard
               editable={canEditModule('operationMatrix')}
               canViewMatrix={canViewModule('operationMatrix') || canSeeDashboard}
+              companyId={companyId}
+              onCompanyChange={handleCompanyChange}
+              allowedCompanies={allowedCompanies}
             />
           )}
 
@@ -551,17 +601,23 @@ export default function App() {
               canEditModule={
                 canEditModule
               }
+              companyId={companyId}
+              onCompanyChange={handleCompanyChange}
+              allowedCompanies={allowedCompanies}
             />
           )}
 
           {active === 'training' && (
-            <TrainingHub canEditModule={canEditModule} />
+            <TrainingHub canEditModule={canEditModule} companyId={companyId} onCompanyChange={handleCompanyChange} allowedCompanies={allowedCompanies} />
           )}
 
           {active === 'manpower' && (
             <ManpowerHub
               visibleModuleKeys={visibleModuleKeys}
               canEditModule={canEditModule}
+              companyId={companyId}
+              onCompanyChange={handleCompanyChange}
+              allowedCompanies={allowedCompanies}
             />
           )}
 
@@ -572,12 +628,18 @@ export default function App() {
             active !== 'training' &&
             active !== 'manpower' &&
             MODULE_MAP[active] && (
-              <ModuleView
-                config={MODULE_MAP[active]}
-                editable={
-                  canEditModule(active)
-                }
-              />
+              <>
+                {active !== 'usersmgmt' && (
+                  <div className="mb-4">
+                    <CompanySelector value={companyId} onChange={handleCompanyChange} companies={allowedCompanies} />
+                  </div>
+                )}
+                <ModuleView
+                  config={MODULE_MAP[active]}
+                  editable={canEditModule(active)}
+                  companyId={companyId}
+                />
+              </>
             )}
 
         </div>

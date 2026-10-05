@@ -32,6 +32,13 @@ export const FONT_HEAD = "'Barlow Semi Condensed', 'Arial Narrow', sans-serif";
 export const FONT_BODY = "'Inter', system-ui, sans-serif";
 export const FONT_MONO = "'IBM Plex Mono', 'Courier New', monospace";
 
+export const COMPANY_OPTIONS = [
+  { id: 'Automat Industries (Site 4)', label: 'Automat Industries (Site 4)', shortLabel: 'Site 4', accent: 'hsl(207, 42%, 53%)' },
+  { id: 'Automat Irrigation', label: 'Automat Irrigation', shortLabel: 'Irrigation', accent: 'hsl(184, 42%, 43%)' },
+  { id: 'Smith3', label: 'Smith', shortLabel: 'Smith', accent: 'hsl(31, 65%, 48%)' },
+  { id: 'HO', label: 'HO', shortLabel: 'Head Office', accent: 'hsl(145, 32%, 43%)' },
+];
+
 
 export const RECRUITMENT_STAGES = [
   'Requirement', 'Sourcing', 'Screening', 'Shortlisted', 'Interview Scheduled',
@@ -304,6 +311,17 @@ export const MODULES = [
   ]},
 ];
 
+const companyField = {
+  name: 'company',
+  label: 'Company',
+  type: 'select',
+  options: COMPANY_OPTIONS.map(({ id, label }) => ({ value: id, label })),
+};
+
+MODULES.forEach((module) => {
+  if (module.key !== 'usersmgmt') module.fields.unshift(companyField);
+});
+
 export const DAILY_MANPOWER_CONFIG = {
   key: 'dailyManpower',
   label: 'Daily Manpower',
@@ -321,6 +339,8 @@ export const DAILY_MANPOWER_CONFIG = {
     { name: 'doubleShift', label: 'Double Shift', type: 'number' },
   ],
 };
+
+DAILY_MANPOWER_CONFIG.fields.unshift(companyField);
 
 export const MODULE_MAP = Object.fromEntries(MODULES.map((m) => [m.key, m]));
 export const ALL_KEYS = MODULES.map((m) => m.key);

@@ -14,6 +14,10 @@ pool.on('error', (err) => {
 
 async function ensureCurrentSchema() {
   const migrations = [
+    `ALTER TABLE IF EXISTS role_permissions
+     ADD COLUMN IF NOT EXISTS company_access JSONB NOT NULL
+     DEFAULT '["Automat Industries (Site 4)", "Automat Irrigation", "Smith3", "HO"]'::jsonb`,
+    'ALTER TABLE IF EXISTS audit_log ADD COLUMN IF NOT EXISTS company TEXT',
     `CREATE TABLE IF NOT EXISTS daily_manpower (
       id SERIAL PRIMARY KEY,
       date DATE,
@@ -69,6 +73,45 @@ async function ensureCurrentSchema() {
     'ALTER TABLE training ADD COLUMN IF NOT EXISTS number_of_people INTEGER',
     'ALTER TABLE training ADD COLUMN IF NOT EXISTS average_rating NUMERIC',
     'ALTER TABLE training ADD COLUMN IF NOT EXISTS remarks TEXT',
+    'ALTER TABLE IF EXISTS manpower ADD COLUMN IF NOT EXISTS planned_cost_per_person NUMERIC',
+    'ALTER TABLE IF EXISTS manpower ADD COLUMN IF NOT EXISTS actual_cost_per_person NUMERIC',
+    'ALTER TABLE IF EXISTS manpower ADD COLUMN IF NOT EXISTS entry_date DATE',
+    'ALTER TABLE IF EXISTS retirement ADD COLUMN IF NOT EXISTS designation TEXT',
+    'ALTER TABLE IF EXISTS retirement ADD COLUMN IF NOT EXISTS criticality TEXT',
+    'ALTER TABLE IF EXISTS retirement ADD COLUMN IF NOT EXISTS date_of_birth DATE',
+    'ALTER TABLE IF EXISTS retirement ADD COLUMN IF NOT EXISTS last_working_day DATE',
+    `CREATE TABLE IF NOT EXISTS loan_summary (
+      id SERIAL PRIMARY KEY,
+      unit TEXT,
+      budget_personal NUMERIC,
+      budget_home NUMERIC,
+      available_personal NUMERIC,
+      available_home NUMERIC,
+      taken_personal NUMERIC,
+      taken_home NUMERIC,
+      recovered_fy2526 NUMERIC,
+      taken_fy2526 NUMERIC,
+      taken_fy2425 NUMERIC,
+      outstanding_till_jul26 NUMERIC,
+      company TEXT,
+      created_at TIMESTAMPTZ DEFAULT now(),
+      updated_at TIMESTAMPTZ DEFAULT now()
+    )`,
+    'ALTER TABLE loan_summary ADD COLUMN IF NOT EXISTS unit TEXT',
+    'ALTER TABLE loan_summary ADD COLUMN IF NOT EXISTS budget_personal NUMERIC',
+    'ALTER TABLE loan_summary ADD COLUMN IF NOT EXISTS budget_home NUMERIC',
+    'ALTER TABLE loan_summary ADD COLUMN IF NOT EXISTS available_personal NUMERIC',
+    'ALTER TABLE loan_summary ADD COLUMN IF NOT EXISTS available_home NUMERIC',
+    'ALTER TABLE loan_summary ADD COLUMN IF NOT EXISTS taken_personal NUMERIC',
+    'ALTER TABLE loan_summary ADD COLUMN IF NOT EXISTS taken_home NUMERIC',
+    'ALTER TABLE loan_summary ADD COLUMN IF NOT EXISTS recovered_fy2526 NUMERIC',
+    'ALTER TABLE loan_summary ADD COLUMN IF NOT EXISTS taken_fy2526 NUMERIC',
+    'ALTER TABLE loan_summary ADD COLUMN IF NOT EXISTS taken_fy2425 NUMERIC',
+    'ALTER TABLE loan_summary ADD COLUMN IF NOT EXISTS outstanding_till_jul26 NUMERIC',
+    'ALTER TABLE loan_summary ADD COLUMN IF NOT EXISTS company TEXT',
+    'ALTER TABLE loan_summary ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now()',
+    'ALTER TABLE loan_summary ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now()',
+    'ALTER TABLE training ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now()',
     `CREATE TABLE IF NOT EXISTS operation_matrix (
       id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
       data JSONB NOT NULL DEFAULT '{"fiscalYearEnd": 2027, "reportMonth": "2026-08", "particulars": []}'::jsonb,
@@ -90,6 +133,15 @@ async function ensureCurrentSchema() {
      VALUES ('Smith3'), ('Automat Irrigation'), ('HO')
      ON CONFLICT (industry) DO NOTHING`,
   ];
+
+  const companyTables = [
+    'manpower', 'daily_manpower', 'recruitment', 'hiring', 'separation',
+    'loan_summary', 'retirement', 'electricity', 'canteen', 'healthcheck',
+    'engagement', 'training', 'attendance',
+  ];
+  companyTables.forEach((table) => {
+    migrations.push(`ALTER TABLE IF EXISTS ${table} ADD COLUMN IF NOT EXISTS company TEXT`);
+  });
 
   for (const migration of migrations) {
     await pool.query(migration);

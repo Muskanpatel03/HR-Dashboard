@@ -554,6 +554,7 @@ export default function ModuleView({
   editable,
   recordFilter,
   defaultValues = {},
+  companyId,
 }) {
   const [records, setRecords] =
     useState([]);
@@ -646,6 +647,7 @@ export default function ModuleView({
   const openNew = () => {
     setFormValues({
       ...defaultValues,
+      ...(companyId && companyId !== 'all' ? { company: companyId } : {}),
       ...(config.key === "dailyManpower" && selectedDate ? { date: selectedDate } : {}),
     });
     setEditingId(null);
@@ -785,6 +787,10 @@ export default function ModuleView({
           return false;
         }
 
+        if (config.key !== "usersmgmt" && companyId && companyId !== 'all' && record.company !== companyId) {
+          return false;
+        }
+
         if (
           config.key === "dailyManpower" &&
           selectedDate &&
@@ -874,6 +880,7 @@ export default function ModuleView({
     config.fields,
     config.key,
     recordFilter,
+    companyId,
     selectedDate,
   ]);
 

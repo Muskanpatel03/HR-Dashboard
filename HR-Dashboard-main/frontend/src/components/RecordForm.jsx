@@ -26,7 +26,11 @@ export default function RecordForm({ config, values, setValues, onCancel, onSubm
                 style={{ border: `1px solid ${C.line}` }}
               >
                 <option value="">Select…</option>
-                {f.options.map((o) => <option key={o} value={o}>{o}</option>)}
+                {f.options.map((option) => {
+                  const optionValue = typeof option === 'object' ? option.value : option;
+                  const optionLabel = typeof option === 'object' ? option.label : option;
+                  return <option key={optionValue} value={optionValue}>{optionLabel}</option>;
+                })}
               </select>
             ) : f.type === 'month' ? (
               <input

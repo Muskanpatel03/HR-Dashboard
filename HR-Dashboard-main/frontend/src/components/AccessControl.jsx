@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Check, Save, AlertCircle } from 'lucide-react';
 import api from '../api';
-import { C, FONT_HEAD, MODULE_MAP } from '../config';
+import { C, COMPANY_OPTIONS, FONT_HEAD, MODULE_MAP } from '../config';
 
 // Friendly labels for module keys that aren't in the record MODULES config.
 const EXTRA_LABELS = {
@@ -82,11 +82,35 @@ export default function AccessControl() {
     });
   }
 
+  function toggleCompany(role, companyId) {
+    if (protectedRoles.includes(role)) return;
+    setData((prev) => {
+      const current = prev.roles[role];
+      const companies = current.companies || prev.allCompanies;
+      return {
+        ...prev,
+        roles: {
+          ...prev.roles,
+          [role]: {
+            ...current,
+            companies: companies.includes(companyId)
+              ? companies.filter((company) => company !== companyId)
+              : [...companies, companyId],
+          },
+        },
+      };
+    });
+  }
+
   function save(role) {
     const perm = data.roles[role];
     setSavingRole(role);
     setSavedRole(null);
-    api.put(`/roles/${encodeURIComponent(role)}`, { modules: perm.modules, edit: perm.edit })
+    api.put(`/roles/${encodeURIComponent(role)}`, {
+      modules: perm.modules,
+      edit: perm.edit,
+      companies: perm.companies || data.allCompanies,
+    })
       .then(() => { setSavedRole(role); setTimeout(() => setSavedRole(null), 2000); })
       .catch((e) => setError(e?.response?.data?.error || `Failed to save ${role}`))
       .finally(() => setSavingRole(null));
@@ -119,6 +143,7 @@ export default function AccessControl() {
         const isProtected = protectedRoles.includes(role);
         const viewList = perm.modules === 'all' ? allModules : perm.modules;
         const editList = perm.edit === 'all' ? allModules : perm.edit;
+        const companyList = perm.companies || data.allCompanies || COMPANY_OPTIONS.map((company) => company.id);
 
         return (
           <div key={role} style={{ background: C.card, border: `1px solid ${C.line}` }} className="rounded p-4">
@@ -136,7 +161,7 @@ export default function AccessControl() {
                   </span>
                 )}
                 <span style={{ fontSize: 11, color: C.ink2 }} className="font-normal">
-                  {perm.modules === 'all' ? 'All modules' : `${viewList.length} modules`} · {openRole === role ? 'Collapse' : 'Expand'}
+                  {perm.modules === 'all' ? 'All modules' : `${viewList.length} modules`} · {companyList.length} companies · {openRole === role ? 'Collapse' : 'Expand'}
                 </span>
               </button>
               {!isProtected && (
@@ -154,6 +179,23 @@ export default function AccessControl() {
 
             {openRole === role && (
             <div className="overflow-x-auto">
+              <fieldset className="mb-4">
+                <legend style={{ color: C.ink, fontSize: 12, fontWeight: 600 }} className="mb-2">Company access</legend>
+                <div className="flex flex-wrap gap-x-5 gap-y-2">
+                  {COMPANY_OPTIONS.map((company) => (
+                    <label key={company.id} className="flex items-center gap-1.5" style={{ color: C.ink2, fontSize: 12 }}>
+                      <input
+                        type="checkbox"
+                        checked={companyList.includes(company.id)}
+                        disabled={isProtected}
+                        aria-label={`${isProtected ? 'Allow' : companyList.includes(company.id) ? 'Allow' : 'Deny'} ${role} access to ${company.label}`}
+                        onChange={() => toggleCompany(role, company.id)}
+                      />
+                      {company.label}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
               <table className="text-sm" style={{ minWidth: 560 }}>
                 <thead>
                   <tr>

@@ -9,6 +9,7 @@ const {
   getRoleMatrix,
   setRolePermissions,
   ALL_MODULE_KEYS,
+  ALL_COMPANY_IDS,
   PROTECTED_ROLES,
   ASSIGNABLE_ROLES,
 } = require('../config/roles');
@@ -27,6 +28,7 @@ router.get('/', requireAdmin, (req, res) => {
   res.json({
     roles: getRoleMatrix(),
     allModules: ALL_MODULE_KEYS,
+    allCompanies: ALL_COMPANY_IDS,
     protectedRoles: PROTECTED_ROLES,
     assignableRoles: ASSIGNABLE_ROLES,
   });
@@ -34,10 +36,10 @@ router.get('/', requireAdmin, (req, res) => {
 
 router.put('/:role', requireAdmin, async (req, res) => {
   const { role } = req.params;
-  const { modules, edit } = req.body || {};
+  const { modules, edit, companies } = req.body || {};
 
   try {
-    const updated = await setRolePermissions(role, { modules, edit });
+    const updated = await setRolePermissions(role, { modules, edit, companies });
     res.json({ role, ...updated });
   } catch (e) {
     res.status(400).json({ error: e.message });

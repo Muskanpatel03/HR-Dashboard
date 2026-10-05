@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import ModuleView from './ModuleView';
+import CompanySelector from './CompanySelector';
 import { C, MODULE_MAP } from '../config';
 
 const SECTIONS = [
@@ -7,12 +8,13 @@ const SECTIONS = [
   { key: 'Technical (Site 4)', label: 'Technical (Site 4)' },
 ];
 
-export default function TrainingHub({ canEditModule }) {
+export default function TrainingHub({ canEditModule, companyId, onCompanyChange, allowedCompanies }) {
   const [active, setActive] = useState(SECTIONS[0].key);
   const section = SECTIONS.find((item) => item.key === active);
 
   return (
     <div className="space-y-4">
+      <CompanySelector value={companyId} onChange={onCompanyChange} companies={allowedCompanies} />
       <div className="flex gap-1.5">
         {SECTIONS.map((item) => (
           <button
@@ -35,6 +37,7 @@ export default function TrainingHub({ canEditModule }) {
         editable={canEditModule('training')}
         recordFilter={(record) => record.section === section.key}
         defaultValues={{ section: section.key }}
+        companyId={companyId}
       />
     </div>
   );

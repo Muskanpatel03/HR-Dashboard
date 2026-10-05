@@ -1,7 +1,7 @@
 const express = require('express');
 const { pool } = require('../db');
 const { authenticate } = require('../middleware/auth');
-const { canView } = require('../config/roles');
+const { canView, getRoleCompanies, ALL_COMPANY_IDS } = require('../config/roles');
 
 const router = express.Router();
 router.use(authenticate);
@@ -127,10 +127,21 @@ router.get('/', async (req, res) => {
     attendance: canView(req.user.role, 'attendance'),
   };
 
-  const q = (allowed, sql) =>
-    allowed
-      ? pool.query(sql)
-      : Promise.resolve({ rows: [] });
+  const roleCompanies = getRoleCompanies(req.user.role);
+  const q = (allowed, sql) => {
+    if (!allowed) return Promise.resolve({ rows: [] });
+    if (roleCompanies.length === ALL_COMPANY_IDS.length) return pool.query(sql);
+
+    const insertion = /\b(GROUP BY|ORDER BY|LIMIT)\b/i.exec(sql);
+    const insertAt = insertion ? insertion.index : sql.length;
+    const before = sql.slice(0, insertAt);
+    const after = sql.slice(insertAt);
+    const companyCondition = 'company = ANY($1::text[])';
+    const scopedBefore = /\bWHERE\b/i.test(before)
+      ? `${before.trimEnd()} AND ${companyCondition}\n`
+      : `${before.trimEnd()} WHERE ${companyCondition}\n`;
+    return pool.query(`${scopedBefore}${after}`, [roleCompanies]);
+  };
 
   try {
     const [

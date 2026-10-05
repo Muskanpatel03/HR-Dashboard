@@ -23,7 +23,7 @@ function makeColumns(fiscalYearEnd, reportMonth) {
   const currentYear = fiscalYearLabel(fiscalYearEnd);
 
   return [
-    ...[fiscalYearEnd - 1, fiscalYearEnd - 2, fiscalYearEnd - 3].map((year) => ({
+    ...[fiscalYearEnd - 3, fiscalYearEnd - 2, fiscalYearEnd - 1].map((year) => ({
       key: `fy-${year}`,
       label: fiscalYearLabel(year),
     })),
@@ -110,12 +110,19 @@ export default function OperationMatrix({ industry, label = industry, editable }
     });
   }
 
-  async function save() {
+  async function save(nextData = data) {
+    const incompleteRow = nextData.particulars.find((row) => !String(row.particular || '').trim());
+    if (incompleteRow) {
+      setError('Enter a particular name for each row, or remove rows that are not needed, before saving.');
+      document.getElementById(`matrix-particular-${incompleteRow.id}`)?.focus();
+      return;
+    }
+
     setSaving(true);
     setError('');
     setSavedMessage('');
     try {
-      const response = await api.put('/operation-matrix', { industry, data });
+      const response = await api.put('/operation-matrix', { industry, data: nextData });
       setData(response.data.data);
       setLastSaved({ by: response.data.updated_by, at: response.data.updated_at });
       setDirty(false);
@@ -125,6 +132,15 @@ export default function OperationMatrix({ industry, label = industry, editable }
     } finally {
       setSaving(false);
     }
+  }
+
+  async function removeRow(rowId) {
+    const nextData = {
+      ...data,
+      particulars: data.particulars.filter((row) => row.id !== rowId),
+    };
+    updateData({ particulars: nextData.particulars });
+    await save(nextData);
   }
 
   if (loading) {
@@ -168,7 +184,7 @@ export default function OperationMatrix({ industry, label = industry, editable }
           <span>Year / Session</span>
           <select
             value={data.fiscalYearEnd}
-            disabled={!editable}
+            disabled={!editable || saving}
             onChange={(event) => updateData({ fiscalYearEnd: Number(event.target.value) })}
           >
             {Array.from({ length: 101 }, (_, index) => 2100 - index).map((year) => (
@@ -181,7 +197,7 @@ export default function OperationMatrix({ industry, label = industry, editable }
           <input
             type="month"
             value={data.reportMonth}
-            disabled={!editable}
+            disabled={!editable || saving}
             onChange={(event) => updateData({ reportMonth: event.target.value })}
           />
         </label>
@@ -209,6 +225,7 @@ export default function OperationMatrix({ industry, label = industry, editable }
           <button
             type="button"
             className="operation-matrix-add"
+            disabled={saving}
             onClick={() => updateData({ particulars: [...data.particulars, newRow()] })}
           >
             <Plus size={16} /> <span>Add particular</span>
@@ -245,11 +262,14 @@ export default function OperationMatrix({ industry, label = industry, editable }
                 <td className="operation-matrix-particular-cell">
                   {editable ? (
                     <input
+                      id={`matrix-particular-${row.id}`}
                       type="text"
                       maxLength={200}
                       value={row.particular}
+                      disabled={saving}
                       onChange={(event) => updateRow(row.id, { particular: event.target.value })}
                       aria-label="Particular name"
+                      aria-required="true"
                       placeholder="Enter particular"
                     />
                   ) : row.particular}
@@ -261,6 +281,7 @@ export default function OperationMatrix({ industry, label = industry, editable }
                         type="number"
                         step="any"
                         value={row.values?.[column.key] ?? ''}
+                        disabled={saving}
                         onChange={(event) => updateRow(row.id, {
                           values: { ...row.values, [column.key]: event.target.value },
                         })}
@@ -281,7 +302,8 @@ export default function OperationMatrix({ industry, label = industry, editable }
                   <td className="operation-matrix-row-action">
                     <button
                       type="button"
-                      onClick={() => updateData({ particulars: data.particulars.filter((item) => item.id !== row.id) })}
+                      disabled={saving}
+                      onClick={() => removeRow(row.id)}
                       title={`Remove ${row.particular || 'particular'}`}
                       aria-label={`Remove ${row.particular || 'particular'}`}
                     >

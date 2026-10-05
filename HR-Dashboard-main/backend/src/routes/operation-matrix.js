@@ -1,7 +1,7 @@
 const express = require('express');
 const { pool } = require('../db');
 const { authenticate } = require('../middleware/auth');
-const { canView, canEdit } = require('../config/roles');
+const { canView, canEdit, canAccessCompany } = require('../config/roles');
 
 const router = express.Router();
 router.use(authenticate);
@@ -46,6 +46,9 @@ router.get('/', async (req, res) => {
   if (!INDUSTRIES.includes(industry)) {
     return res.status(400).json({ error: 'Invalid industry' });
   }
+  if (!canAccessCompany(req.user.role, industry)) {
+    return res.status(403).json({ error: 'Not permitted to access this company' });
+  }
 
   try {
     const { rows } = await pool.query(
@@ -68,6 +71,9 @@ router.put('/', async (req, res) => {
   if (!INDUSTRIES.includes(industry) || !validMatrix(data)) {
     return res.status(400).json({ error: 'Invalid Operation Matrix data' });
   }
+  if (!canAccessCompany(req.user.role, industry)) {
+    return res.status(403).json({ error: 'Not permitted to access this company' });
+  }
 
   const client = await pool.connect();
   try {
@@ -81,8 +87,8 @@ router.put('/', async (req, res) => {
       [industry, JSON.stringify(data), req.user.name]
     );
     await client.query(
-      'INSERT INTO audit_log (user_name, role, module, action, detail) VALUES ($1, $2, $3, $4, $5)',
-      [req.user.name, req.user.role, 'operationMatrix', 'Updated', `Updated ${industry}: ${data.particulars.length} particulars`]
+      'INSERT INTO audit_log (user_name, role, module, action, detail, company) VALUES ($1, $2, $3, $4, $5, $6)',
+      [req.user.name, req.user.role, 'operationMatrix', 'Updated', `Updated ${industry}: ${data.particulars.length} particulars`, industry]
     );
     await client.query('COMMIT');
     res.json(result.rows[0]);

@@ -7,7 +7,7 @@ import {
 import api from '../api';
 import KpiCard from './KpiCard';
 import OperationMatrix from './OperationMatrix';
-import { C, FONT_HEAD, fmtMoney } from '../config';
+import { C, COMPANY_OPTIONS, FONT_HEAD, fmtMoney } from '../config';
 
 
 const RANGES = [
@@ -565,15 +565,9 @@ function LegacyDashboard({ onNavigate }) {
   );
 }
 
-const COMPANIES = [
-  { id: 'Automat Industries (Site 4)', label: 'Automat Industries (Site 4)', shortLabel: 'Site 4', accent: C.steel },
-  { id: 'Automat Irrigation', label: 'Automat Irrigation', shortLabel: 'Irrigation', accent: C.steel },
-  { id: 'Smith3', label: 'Smith', shortLabel: 'Smith', accent: C.steel },
-  { id: 'HO', label: 'HO', shortLabel: 'Head Office', accent: C.steel },
-];
-
-export default function Dashboard({ editable, canViewMatrix }) {
-  const [selectedCompany, setSelectedCompany] = useState(COMPANIES[0]);
+export default function Dashboard({ editable, canViewMatrix, companyId, onCompanyChange, allowedCompanies = COMPANY_OPTIONS }) {
+  const selectedCompany = COMPANY_OPTIONS.find((company) => company.id === companyId);
+  const canSelectAll = allowedCompanies.length === COMPANY_OPTIONS.length;
 
   return (
     <div className="dashboard-layout">
@@ -585,18 +579,27 @@ export default function Dashboard({ editable, canViewMatrix }) {
                 <div className="company-selector-kicker">Company portfolio</div>
                 <h2>Select a company</h2>
               </div>
-              <span className="company-selector-count">{COMPANIES.length} companies</span>
+              <span className="company-selector-count">{allowedCompanies.length} companies available</span>
             </div>
 
+              {canSelectAll && <button
+              type="button"
+              onClick={() => onCompanyChange('all')}
+              className="dashboard-clear-filter"
+              aria-pressed={companyId === 'all'}
+            >
+              All companies
+            </button>}
+
             <div className="company-selector-grid">
-              {COMPANIES.map((company, index) => {
-                const isActive = selectedCompany.id === company.id;
+              {allowedCompanies.map((company, index) => {
+                  const isActive = companyId === company.id;
 
                 return (
                   <button
                     key={company.id}
                     type="button"
-                    onClick={() => setSelectedCompany(company)}
+                    onClick={() => onCompanyChange(company.id)}
                     className={`company-selector-card${isActive ? ' is-active' : ''}`}
                     style={{ '--company-accent': company.accent }}
                     aria-pressed={isActive}
@@ -616,7 +619,7 @@ export default function Dashboard({ editable, canViewMatrix }) {
             </div>
           </section>
 
-          <div className="company-selector-detail" aria-live="polite">
+          {selectedCompany && <div className="company-selector-detail" aria-live="polite">
             <div>
               <div className="company-selector-kicker">Selected company</div>
               <h3>{selectedCompany.label}</h3>
@@ -624,14 +627,14 @@ export default function Dashboard({ editable, canViewMatrix }) {
             <div className="company-selector-detail-meta">
               <span>Operation matrix</span>
             </div>
-          </div>
+          </div>}
 
-          <OperationMatrix
+          {selectedCompany ? <OperationMatrix
             key={selectedCompany.id}
             industry={selectedCompany.id}
             label={selectedCompany.label}
             editable={editable}
-          />
+          /> : <div className="company-selector-detail">Select one company to open its Operation Matrix.</div>}
         </>
       )}
     </div>

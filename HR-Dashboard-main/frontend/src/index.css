@@ -164,7 +164,7 @@ button:not(:disabled):active {
   inset: 0 auto 0 0;
   width: 3px;
   border-radius: 8px 0 0 8px;
-  background: #b6cbd9;
+  background: var(--company-accent);
 }
 
 .company-selector-card:focus-visible {
@@ -191,18 +191,19 @@ button:not(:disabled):active {
   width: 42px;
   height: 42px;
   place-items: center;
-  border: 1px solid rgba(32, 57, 78, 0.14);
+  border: 1px solid var(--company-accent);
   border-radius: 6px;
-  background: rgba(32, 57, 78, 0.06);
-  color: #20394e;
+  background: var(--company-accent);
+  color: #fff;
   font-family: 'IBM Plex Mono', 'Courier New', monospace;
   font-size: 12px;
   font-weight: 500;
 }
 
 .company-selector-card.is-active .company-card-mark {
-  border-color: rgba(32, 57, 78, 0.2);
-  background: rgba(32, 57, 78, 0.08);
+  border-color: var(--company-accent);
+  background: var(--company-accent);
+  color: #fff;
 }
 
 .company-card-topline {

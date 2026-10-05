@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import ModuleView from './ModuleView';
+import CompanySelector from './CompanySelector';
 import { C, DAILY_MANPOWER_CONFIG, MODULE_MAP } from '../config';
 
 const TABS = [
@@ -10,6 +11,9 @@ const TABS = [
 export default function ManpowerHub({
   visibleModuleKeys,
   canEditModule,
+  companyId,
+  onCompanyChange,
+  allowedCompanies,
 }) {
   const [active, setActive] = useState('total');
 
@@ -17,6 +21,7 @@ export default function ManpowerHub({
 
   return (
     <div className="space-y-4">
+      <CompanySelector value={companyId} onChange={onCompanyChange} companies={allowedCompanies} />
 
       {/* Header / Tabs */}
       <div className="flex flex-wrap items-center gap-3">
@@ -49,6 +54,7 @@ export default function ManpowerHub({
       <ModuleView
         config={active === 'daily' ? DAILY_MANPOWER_CONFIG : MODULE_MAP.manpower}
         editable={canEditModule('manpower')}
+        companyId={companyId}
       />
 
     </div>

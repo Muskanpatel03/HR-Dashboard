@@ -20,6 +20,13 @@
 // canView/canEdit check reflects the change immediately, no restart needed).
 const { pool } = require('../db');
 
+const ALL_COMPANY_IDS = [
+  'Automat Industries (Site 4)',
+  'Automat Irrigation',
+  'Smith3',
+  'HO',
+];
+
 // Must match frontend/src/config.js's DESIGNATIONS list exactly (case is
 // normalized to upper here, same as the frontend's DESIGNATIONS_DISPLAY,
 // since that's the literal string stored in users.role once a user is
@@ -160,6 +167,16 @@ function canEdit(role, moduleKey) {
   return perm.edit === 'all' || (Array.isArray(perm.edit) && perm.edit.includes(moduleKey));
 }
 
+function canAccessCompany(role, company) {
+  const perm = STATE[role];
+  return Boolean(perm && getRoleCompanies(role).includes(company));
+}
+
+function getRoleCompanies(role) {
+  const companies = STATE[role]?.companies;
+  return Array.isArray(companies) ? companies : [...ALL_COMPANY_IDS];
+}
+
 // Returns the full live permission matrix, e.g. for the Access Control page
 // and for embedding a user's own effective access in login/me responses.
 function getRoleMatrix() {
@@ -167,7 +184,8 @@ function getRoleMatrix() {
 }
 
 function getRoleAccess(role) {
-  return STATE[role] || { modules: [], edit: [] };
+  const permissions = STATE[role] || { modules: [], edit: [] };
+  return { ...permissions, companies: getRoleCompanies(role) };
 }
 
 // Loads persisted permissions from the DB into STATE at startup. If a role
@@ -175,9 +193,15 @@ function getRoleAccess(role) {
 // it from DEFAULT_ROLES so behaviour is unchanged until an admin edits it.
 async function loadRolesFromDb() {
   try {
-    const { rows } = await pool.query('SELECT role, modules, edit FROM role_permissions');
+    const { rows } = await pool.query('SELECT role, modules, edit, company_access FROM role_permissions');
     const fromDb = {};
-    rows.forEach((r) => { fromDb[r.role] = { modules: r.modules, edit: r.edit }; });
+    rows.forEach((r) => {
+      fromDb[r.role] = {
+        modules: r.modules,
+        edit: r.edit,
+        companies: Array.isArray(r.company_access) ? r.company_access : [...ALL_COMPANY_IDS],
+      };
+    });
 
     const merged = {};
     const missing = [];
@@ -185,7 +209,7 @@ async function loadRolesFromDb() {
       if (fromDb[role]) {
         merged[role] = fromDb[role];
       } else {
-        merged[role] = DEFAULT_ROLES[role];
+        merged[role] = { ...DEFAULT_ROLES[role], companies: [...ALL_COMPANY_IDS] };
         missing.push(role);
       }
     });
@@ -195,9 +219,9 @@ async function loadRolesFromDb() {
     // Seed any missing rows so future edits persist correctly.
     for (const role of missing) {
       await pool.query(
-        `INSERT INTO role_permissions (role, modules, edit) VALUES ($1, $2, $3)
+        `INSERT INTO role_permissions (role, modules, edit, company_access) VALUES ($1, $2, $3, $4)
          ON CONFLICT (role) DO NOTHING`,
-        [role, JSON.stringify(DEFAULT_ROLES[role].modules), JSON.stringify(DEFAULT_ROLES[role].edit)]
+        [role, JSON.stringify(DEFAULT_ROLES[role].modules), JSON.stringify(DEFAULT_ROLES[role].edit), JSON.stringify(ALL_COMPANY_IDS)]
       );
     }
   } catch (e) {
@@ -211,7 +235,7 @@ async function loadRolesFromDb() {
 
 // Persists + applies an edit to one role's permissions. Throws on an invalid
 // role/module so the route layer can turn that into a 400.
-async function setRolePermissions(role, { modules, edit }) {
+async function setRolePermissions(role, { modules, edit, companies }) {
   if (!DEFAULT_ROLES[role]) throw new Error(`Unknown role: ${role}`);
   if (PROTECTED_ROLES.includes(role)) throw new Error(`${role} permissions cannot be changed`);
 
@@ -229,13 +253,18 @@ async function setRolePermissions(role, { modules, edit }) {
   // admin sets here for another role — strip them defensively.
   if (Array.isArray(cleanEdit)) cleanEdit = cleanEdit.filter((m) => m !== 'usersmgmt' && m !== 'roles');
 
+  if (!Array.isArray(companies)) throw new Error('companies must be an array');
+  const invalidCompanies = companies.filter((company) => !ALL_COMPANY_IDS.includes(company));
+  if (invalidCompanies.length) throw new Error(`Unknown company access value(s): ${invalidCompanies.join(', ')}`);
+  const cleanCompanies = [...new Set(companies)];
+
   await pool.query(
-    `INSERT INTO role_permissions (role, modules, edit, updated_at) VALUES ($1, $2, $3, now())
-     ON CONFLICT (role) DO UPDATE SET modules = $2, edit = $3, updated_at = now()`,
-    [role, JSON.stringify(cleanModules), JSON.stringify(cleanEdit)]
+    `INSERT INTO role_permissions (role, modules, edit, company_access, updated_at) VALUES ($1, $2, $3, $4, now())
+     ON CONFLICT (role) DO UPDATE SET modules = $2, edit = $3, company_access = $4, updated_at = now()`,
+    [role, JSON.stringify(cleanModules), JSON.stringify(cleanEdit), JSON.stringify(cleanCompanies)]
   );
 
-  STATE[role] = { modules: cleanModules, edit: cleanEdit };
+  STATE[role] = { modules: cleanModules, edit: cleanEdit, companies: cleanCompanies };
   return STATE[role];
 }
 
@@ -243,10 +272,13 @@ module.exports = {
   ROLES: DEFAULT_ROLES, // kept for anything importing the static shape/fallback
   DESIGNATIONS,
   ALL_MODULE_KEYS,
+  ALL_COMPANY_IDS,
   PROTECTED_ROLES,
   ASSIGNABLE_ROLES,
   canView,
   canEdit,
+  canAccessCompany,
+  getRoleCompanies,
   getRoleMatrix,
   getRoleAccess,
   loadRolesFromDb,

@@ -30,8 +30,12 @@ CREATE TABLE IF NOT EXISTS role_permissions (
   role TEXT PRIMARY KEY,
   modules JSONB NOT NULL DEFAULT '[]'::jsonb,
   edit JSONB NOT NULL DEFAULT '[]'::jsonb,
+  company_access JSONB NOT NULL DEFAULT '["Automat Industries (Site 4)", "Automat Irrigation", "Smith3", "HO"]'::jsonb,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE role_permissions ADD COLUMN IF NOT EXISTS company_access JSONB NOT NULL
+  DEFAULT '["Automat Industries (Site 4)", "Automat Irrigation", "Smith3", "HO"]'::jsonb;
 
 CREATE TABLE IF NOT EXISTS operation_matrix (
   id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
@@ -150,13 +154,51 @@ CREATE TABLE IF NOT EXISTS separation (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS loan_summary (
+  id SERIAL PRIMARY KEY,
+  unit TEXT,
+  budget_personal NUMERIC,
+  budget_home NUMERIC,
+  available_personal NUMERIC,
+  available_home NUMERIC,
+  taken_personal NUMERIC,
+  taken_home NUMERIC,
+  recovered_fy2526 NUMERIC,
+  taken_fy2526 NUMERIC,
+  taken_fy2425 NUMERIC,
+  outstanding_till_jul26 NUMERIC,
+  company TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE loan_summary ADD COLUMN IF NOT EXISTS unit TEXT;
+ALTER TABLE loan_summary ADD COLUMN IF NOT EXISTS budget_personal NUMERIC;
+ALTER TABLE loan_summary ADD COLUMN IF NOT EXISTS budget_home NUMERIC;
+ALTER TABLE loan_summary ADD COLUMN IF NOT EXISTS available_personal NUMERIC;
+ALTER TABLE loan_summary ADD COLUMN IF NOT EXISTS available_home NUMERIC;
+ALTER TABLE loan_summary ADD COLUMN IF NOT EXISTS taken_personal NUMERIC;
+ALTER TABLE loan_summary ADD COLUMN IF NOT EXISTS taken_home NUMERIC;
+ALTER TABLE loan_summary ADD COLUMN IF NOT EXISTS recovered_fy2526 NUMERIC;
+ALTER TABLE loan_summary ADD COLUMN IF NOT EXISTS taken_fy2526 NUMERIC;
+ALTER TABLE loan_summary ADD COLUMN IF NOT EXISTS taken_fy2425 NUMERIC;
+ALTER TABLE loan_summary ADD COLUMN IF NOT EXISTS outstanding_till_jul26 NUMERIC;
+ALTER TABLE loan_summary ADD COLUMN IF NOT EXISTS company TEXT;
+ALTER TABLE loan_summary ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now();
+ALTER TABLE loan_summary ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+
 CREATE TABLE IF NOT EXISTS retirement (
   id SERIAL PRIMARY KEY,
   employee_name TEXT,
   employee_id TEXT,
+  designation TEXT,
   department TEXT,
   location TEXT,
+  criticality TEXT,
+  date_of_birth DATE,
+  last_working_day DATE,
   retirement_date DATE,
+  company TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -240,7 +282,9 @@ CREATE TABLE IF NOT EXISTS training (
   number_of_people INTEGER,
   average_rating NUMERIC,
   remarks TEXT,
-  created_at TIMESTAMPTZ DEFAULT now()
+  company TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS audit_log (
@@ -250,8 +294,11 @@ CREATE TABLE IF NOT EXISTS audit_log (
   role TEXT,
   module TEXT,
   action TEXT,
-  detail TEXT
+  detail TEXT,
+  company TEXT
 );
+
+ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS company TEXT;
 
 -- Manpower: ensure the columns the app actually uses exist (safe to re-run).
 -- planned_direct_count / planned_indirect_count hold the Plan vs Actual comparison
@@ -272,6 +319,10 @@ CREATE INDEX IF NOT EXISTS idx_audit_time ON audit_log (time DESC);
 CREATE INDEX IF NOT EXISTS idx_recruitment_status ON recruitment (status);
 CREATE INDEX IF NOT EXISTS idx_manpower_month ON manpower (month);
 ALTER TABLE manpower ADD COLUMN IF NOT EXISTS entry_date DATE;
+ALTER TABLE IF EXISTS retirement ADD COLUMN IF NOT EXISTS designation TEXT;
+ALTER TABLE IF EXISTS retirement ADD COLUMN IF NOT EXISTS criticality TEXT;
+ALTER TABLE IF EXISTS retirement ADD COLUMN IF NOT EXISTS date_of_birth DATE;
+ALTER TABLE IF EXISTS retirement ADD COLUMN IF NOT EXISTS last_working_day DATE;
 
 ALTER TABLE recruitment ADD COLUMN IF NOT EXISTS opening_position TEXT;
 ALTER TABLE recruitment ADD COLUMN IF NOT EXISTS month TEXT;
@@ -297,3 +348,17 @@ ALTER TABLE training ADD COLUMN IF NOT EXISTS trainer TEXT;
 ALTER TABLE training ADD COLUMN IF NOT EXISTS number_of_people INTEGER;
 ALTER TABLE training ADD COLUMN IF NOT EXISTS average_rating NUMERIC;
 ALTER TABLE training ADD COLUMN IF NOT EXISTS remarks TEXT;
+
+ALTER TABLE IF EXISTS manpower ADD COLUMN IF NOT EXISTS company TEXT;
+ALTER TABLE IF EXISTS daily_manpower ADD COLUMN IF NOT EXISTS company TEXT;
+ALTER TABLE IF EXISTS recruitment ADD COLUMN IF NOT EXISTS company TEXT;
+ALTER TABLE IF EXISTS hiring ADD COLUMN IF NOT EXISTS company TEXT;
+ALTER TABLE IF EXISTS separation ADD COLUMN IF NOT EXISTS company TEXT;
+ALTER TABLE IF EXISTS loan_summary ADD COLUMN IF NOT EXISTS company TEXT;
+ALTER TABLE IF EXISTS retirement ADD COLUMN IF NOT EXISTS company TEXT;
+ALTER TABLE IF EXISTS electricity ADD COLUMN IF NOT EXISTS company TEXT;
+ALTER TABLE IF EXISTS canteen ADD COLUMN IF NOT EXISTS company TEXT;
+ALTER TABLE IF EXISTS healthcheck ADD COLUMN IF NOT EXISTS company TEXT;
+ALTER TABLE IF EXISTS engagement ADD COLUMN IF NOT EXISTS company TEXT;
+ALTER TABLE IF EXISTS training ADD COLUMN IF NOT EXISTS company TEXT;
+ALTER TABLE IF EXISTS attendance ADD COLUMN IF NOT EXISTS company TEXT;
