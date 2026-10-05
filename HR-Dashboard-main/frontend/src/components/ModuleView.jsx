@@ -591,6 +591,10 @@ export default function ModuleView({
     setSelectedDate("");
   }, [config.key]);
 
+  useEffect(() => {
+    setSelectedDate("");
+  }, [companyId]);
+
   const toggleSort = (field) =>
     setSort((s) =>
       s && s.field === field
@@ -763,6 +767,7 @@ export default function ModuleView({
 
     const countsByDate = new Map();
     records.forEach((record) => {
+      if (companyId && companyId !== 'all' && record.company !== companyId) return;
       const date = String(record.date || "").slice(0, 10);
       if (date) countsByDate.set(date, (countsByDate.get(date) || 0) + 1);
     });
@@ -770,7 +775,7 @@ export default function ModuleView({
     return [...countsByDate]
       .map(([date, count]) => ({ date, count }))
       .sort((a, b) => b.date.localeCompare(a.date));
-  }, [config.key, records]);
+  }, [config.key, records, companyId]);
 
 
   // ==========================================================
@@ -1125,33 +1130,39 @@ export default function ModuleView({
       </div>
 
       {config.key === "dailyManpower" && dailyManpowerDates.length > 0 && (
-        <div className="space-y-2" aria-label="Daily manpower dates">
-          <div className="text-xs" style={{ color: C.ink2 }}>
-            {selectedDate ? `Records for ${formatDate(selectedDate)}` : "Select a date to view its records"}
+        <section className="daily-manpower-date-panel" aria-label="Daily manpower dates">
+          <div className="daily-manpower-date-heading">
+            <div>
+              <div className="daily-manpower-date-title">Daily records</div>
+              <div className="daily-manpower-date-caption" aria-live="polite">
+                {selectedDate ? `Showing ${filtered.length} records for ${formatDate(selectedDate)}` : "Choose a date to see all of that day's records"}
+              </div>
+            </div>
+            {selectedDate && (
+              <button type="button" onClick={() => setSelectedDate("")} className="daily-manpower-all-dates">
+                All dates
+              </button>
+            )}
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="daily-manpower-date-grid">
             {dailyManpowerDates.map(({ date, count }) => {
               const isSelected = selectedDate === date;
               return (
                 <button
                   key={date}
                   type="button"
-                  onClick={() => setSelectedDate(isSelected ? "" : date)}
+                  onClick={() => setSelectedDate(date)}
                   aria-pressed={isSelected}
                   aria-label={`${formatDate(date)}, ${count} records`}
-                  className="px-3 py-1.5 text-sm rounded"
-                  style={{
-                    background: isSelected ? C.steel : C.card,
-                    color: isSelected ? "#fff" : C.ink,
-                    border: `1px solid ${isSelected ? C.steel : C.line}`,
-                  }}
+                  className={`daily-manpower-date-button${isSelected ? ' is-selected' : ''}`}
                 >
-                  {formatDate(date)} <span style={{ opacity: 0.75 }}>({count})</span>
+                  <span>{formatDate(date)}</span>
+                  <span className="daily-manpower-date-count">{count} {count === 1 ? 'row' : 'rows'}</span>
                 </button>
               );
             })}
           </div>
-        </div>
+        </section>
       )}
 
 
@@ -1230,12 +1241,10 @@ export default function ModuleView({
             return (
               <div
                 key={groupIndex}
+                className="module-table-wrap"
                 style={{
-                  background: C.card,
-                  border: `1px solid ${C.line}`,
                   maxHeight: "70vh",
                 }}
-                className="rounded overflow-auto"
               >
 
                 {/* Group heading */}
@@ -1257,23 +1266,16 @@ export default function ModuleView({
 
 
                 <table
-                  className="text-sm spreadsheet-table"
-                  style={{
-                    width: "100%",
-                    minWidth: "max-content",
-                  }}
+                  className="module-record-table spreadsheet-table text-sm"
                 >
 
                   {/* ==================================================
                       TABLE HEADER
                   ================================================== */}
 
-                  <thead style={{ position: "sticky", top: 0, zIndex: 1, background: C.navyTint }}>
+                  <thead>
                     <tr
-                      style={{
-                        background: C.navyTint,
-                        borderBottom: `1px solid ${C.navyLine}`,
-                      }}
+                      className="module-record-table-heading"
                     >
 
                       {config.showSerialNumber && (

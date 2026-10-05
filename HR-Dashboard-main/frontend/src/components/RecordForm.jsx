@@ -7,22 +7,22 @@ export default function RecordForm({ config, values, setValues, onCancel, onSubm
   const computedFields = COMPUTED[config.key] || [];
 
   return (
-    <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="p-4 rounded">
+    <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="record-entry-form p-4 rounded">
       <div className="flex items-center justify-between mb-3">
         <div style={{ fontFamily: FONT_HEAD, fontSize: 15, color: C.ink }}>
           {isEdit ? 'Edit record' : `New ${config.label.toLowerCase()} record`}
         </div>
         <button onClick={onCancel}><X size={16} style={{ color: C.ink2 }} /></button>
       </div>
-      <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' }}>
+      <div className="record-entry-grid grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' }}>
         {config.fields.map((f) => (
-          <div key={f.name}>
-            <label style={{ color: C.ink2, fontSize: 11.5 }}>{f.label}</label>
+          <div key={f.name} className="record-entry-field">
+            <label className="record-entry-label" style={{ color: C.ink2, fontSize: 11.5 }}>{f.label}</label>
             {f.type === 'select' ? (
               <select
                 value={values[f.name] || ''}
                 onChange={(e) => set(f.name, e.target.value)}
-                className="w-full mt-1 px-2.5 py-1.5 text-sm rounded"
+                className="record-entry-control w-full mt-1 px-2.5 py-1.5 text-sm rounded"
                 style={{ border: `1px solid ${C.line}` }}
               >
                 <option value="">Select…</option>
@@ -37,7 +37,7 @@ export default function RecordForm({ config, values, setValues, onCancel, onSubm
                 type="month"
                 value={values[f.name] || ''}
                 onChange={(e) => set(f.name, e.target.value)}
-                className="w-full mt-1 px-2.5 py-1.5 text-sm rounded"
+                className="record-entry-control w-full mt-1 px-2.5 py-1.5 text-sm rounded"
                 style={{ border: `1px solid ${C.line}` }}
               />
             ) : (
@@ -46,7 +46,7 @@ export default function RecordForm({ config, values, setValues, onCancel, onSubm
                 value={values[f.name] ?? ''}
                 onChange={(e) => set(f.name, e.target.value)}
                 autoComplete={f.type === 'password' ? 'new-password' : 'off'}
-                className="w-full mt-1 px-2.5 py-1.5 text-sm rounded"
+                className="record-entry-control w-full mt-1 px-2.5 py-1.5 text-sm rounded"
                 style={{ border: `1px solid ${C.line}` }}
               />
             )}

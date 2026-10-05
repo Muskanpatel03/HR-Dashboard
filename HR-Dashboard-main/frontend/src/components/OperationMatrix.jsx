@@ -168,7 +168,7 @@ export default function OperationMatrix({ industry, label = industry, editable }
         {editable && (
           <button
             type="button"
-            onClick={save}
+            onClick={() => save()}
             disabled={saving || !dirty}
             className="operation-matrix-save"
             title={dirty ? 'Save Operation Matrix' : 'No unsaved changes'}
