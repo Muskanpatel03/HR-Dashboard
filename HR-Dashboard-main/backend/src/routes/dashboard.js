@@ -128,9 +128,17 @@ router.get('/', async (req, res) => {
   };
 
   const roleCompanies = getRoleCompanies(req.user.role);
+  const requestedCompany = typeof req.query.company === 'string' ? req.query.company : '';
+  if (requestedCompany && !ALL_COMPANY_IDS.includes(requestedCompany)) {
+    return res.status(400).json({ error: 'Invalid company' });
+  }
+  if (requestedCompany && !roleCompanies.includes(requestedCompany)) {
+    return res.status(403).json({ error: 'Not permitted to access this company' });
+  }
+  const companiesToQuery = requestedCompany ? [requestedCompany] : roleCompanies;
   const q = (allowed, sql) => {
     if (!allowed) return Promise.resolve({ rows: [] });
-    if (roleCompanies.length === ALL_COMPANY_IDS.length) return pool.query(sql);
+    if (!requestedCompany && companiesToQuery.length === ALL_COMPANY_IDS.length) return pool.query(sql);
 
     const insertion = /\b(GROUP BY|ORDER BY|LIMIT)\b/i.exec(sql);
     const insertAt = insertion ? insertion.index : sql.length;
@@ -140,7 +148,7 @@ router.get('/', async (req, res) => {
     const scopedBefore = /\bWHERE\b/i.test(before)
       ? `${before.trimEnd()} AND ${companyCondition}\n`
       : `${before.trimEnd()} WHERE ${companyCondition}\n`;
-    return pool.query(`${scopedBefore}${after}`, [roleCompanies]);
+    return pool.query(`${scopedBefore}${after}`, [companiesToQuery]);
   };
 
   try {

@@ -36,6 +36,11 @@ function canReadCompany(role, company) {
   return ALL_COMPANY_IDS.includes(company) && canAccessCompany(role, company);
 }
 
+function canManageRecordCompany(role, company) {
+  return (role === 'Administrator' && (company === null || company === undefined || company === '')) ||
+    canReadCompany(role, company);
+}
+
 function normalizeValue(val, type) {
   if (val === undefined || val === null || val === '') return null;
   if (type === 'number') {
@@ -221,7 +226,7 @@ router.put('/:module/:id', async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Record not found' });
     }
-    if (isCompanyScoped(moduleKey) && !canReadCompany(req.user.role, before.rows[0].company)) {
+    if (isCompanyScoped(moduleKey) && !canManageRecordCompany(req.user.role, before.rows[0].company)) {
       await client.query('ROLLBACK');
       return res.status(403).json({ error: 'Not permitted to access this company' });
     }
@@ -274,7 +279,7 @@ router.delete('/:module/:id', async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Record not found' });
     }
-    if (isCompanyScoped(moduleKey) && !canReadCompany(req.user.role, existing.rows[0].company)) {
+    if (isCompanyScoped(moduleKey) && !canManageRecordCompany(req.user.role, existing.rows[0].company)) {
       await client.query('ROLLBACK');
       return res.status(403).json({ error: 'Not permitted to access this company' });
     }

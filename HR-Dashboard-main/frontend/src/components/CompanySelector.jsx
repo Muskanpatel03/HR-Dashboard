@@ -1,9 +1,9 @@
 import React from 'react';
 import { C, COMPANY_OPTIONS } from '../config';
 
-export default function CompanySelector({ value, onChange, companies = COMPANY_OPTIONS }) {
+export default function CompanySelector({ value, onChange, companies = COMPANY_OPTIONS, includeAll = true }) {
   const options = [
-    ...(companies.length === COMPANY_OPTIONS.length ? [{ id: 'all', shortLabel: 'All companies' }] : []),
+    ...(includeAll && companies.length === COMPANY_OPTIONS.length ? [{ id: 'all', shortLabel: 'All companies' }] : []),
     ...companies,
   ];
 

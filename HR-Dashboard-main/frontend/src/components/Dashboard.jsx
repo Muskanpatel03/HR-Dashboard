@@ -63,7 +63,7 @@ function PieCard({ title, data }) {
   );
 }
 
-function LegacyDashboard({ onNavigate }) {
+function LegacyDashboard({ onNavigate, companyId }) {
   const [range, setRange] = useState('all');
   const [year, setYear] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
@@ -77,11 +77,12 @@ function LegacyDashboard({ onNavigate }) {
         range: r,
         year: y || undefined,
         date: dt || undefined,
+        company: companyId && companyId !== 'all' ? companyId : undefined,
       },
     })
       .then((res) => setD(res.data))
       .catch((err) => setError(err.response?.data?.error || 'Failed to load dashboard'));
-  }, []);
+  }, [companyId]);
 
   useEffect(() => { load(range, year, selectedDate); }, [range, year, selectedDate, load]);
 
@@ -562,6 +563,175 @@ function LegacyDashboard({ onNavigate }) {
         {d.permissions.recruitment && <PieCard title="Recruitment outcome" data={d.pies.recruitmentOutcome} />}
       </div>
     </div>
+  );
+}
+
+export function DashboardSummary({ allowedCompanies }) {
+  const [summaries, setSummaries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError('');
+
+    Promise.all(allowedCompanies.map(async (company) => {
+      const [summaryResponse, matrixResponse] = await Promise.all([
+        api.get('/dashboard', { params: { company: company.id } }),
+        api.get('/operation-matrix', { params: { industry: company.id } }),
+      ]);
+      return {
+        company,
+        summary: summaryResponse.data,
+        matrix: matrixResponse.data?.data,
+      };
+    }))
+      .then((results) => {
+        if (!cancelled) setSummaries(results);
+      })
+      .catch((requestError) => {
+        if (!cancelled) setError(requestError.response?.data?.error || 'Failed to load company summaries');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [allowedCompanies]);
+
+  if (loading) return <div style={{ color: C.ink2, fontSize: 13 }}>Loading company summaries...</div>;
+  if (error) return <div role="alert" style={{ color: C.rust, fontSize: 13 }}>{error}</div>;
+
+  const sectionRows = [
+    {
+      key: 'operationMatrix',
+      label: 'Operation Matrix',
+      permission: 'operationMatrix',
+      value: (summary) => `${Number(summary.matrix?.particulars?.length || 0).toLocaleString('en-IN')} particulars`,
+    },
+    {
+      key: 'manpower',
+      label: 'Manpower',
+      permission: 'manpower',
+      value: (summary) => `Actual ${Number(summary.kpis?.totalManpower || 0).toLocaleString('en-IN')} · Plan ${Number(summary.kpis?.plannedManpower || 0).toLocaleString('en-IN')}`,
+    },
+    {
+      key: 'dailyManpower',
+      label: 'Daily Manpower',
+      permission: 'manpower',
+      value: (summary) => {
+        const latest = summary.dailyManpowerRecords?.[0];
+        return latest ? `${latest.total.toLocaleString('en-IN')} present · ${latest.date}` : 'No daily entries';
+      },
+    },
+    {
+      key: 'recruitment',
+      label: 'Recruitment',
+      permission: 'recruitment',
+      value: (summary) => `${Number(summary.kpis?.openPositions || 0).toLocaleString('en-IN')} open · ${Number(summary.kpis?.candidatesInPipeline || 0).toLocaleString('en-IN')} in pipeline`,
+    },
+    {
+      key: 'hiring',
+      label: 'Hiring',
+      permission: 'hiring',
+      value: (summary) => `${Number(summary.kpis?.newJoiners || 0).toLocaleString('en-IN')} new joiners`,
+    },
+    {
+      key: 'separation',
+      label: 'Separation',
+      permission: 'separation',
+      value: (summary) => `${Number(summary.kpis?.separations || 0).toLocaleString('en-IN')} separations`,
+    },
+    {
+      key: 'attendance',
+      label: 'Attendance',
+      permission: 'attendance',
+      value: (summary) => `${Number(summary.kpis?.absenteeism || 0).toLocaleString('en-IN')}% absenteeism`,
+    },
+    {
+      key: 'retirement',
+      label: 'Retirement',
+      permission: 'retirement',
+      value: (summary) => `${Number(summary.kpis?.futureRetirements || 0).toLocaleString('en-IN')} upcoming · ${Number(summary.kpis?.alreadyRetired || 0).toLocaleString('en-IN')} retired`,
+    },
+    {
+      key: 'loanSummary',
+      label: 'Loan Summary',
+      permission: 'loanSummary',
+      value: (summary) => {
+        const outstanding = (summary.loanByUnit || []).reduce((total, unit) => total + (Number(unit.outstanding) || 0), 0);
+        return `${fmtMoney(outstanding)} outstanding`;
+      },
+    },
+    {
+      key: 'electricity',
+      label: 'Electricity',
+      permission: 'electricity',
+      value: (summary) => `${fmtMoney(summary.kpis?.electricityCost)} · ${Number(summary.kpis?.solarShare || 0).toLocaleString('en-IN')}% solar`,
+    },
+    {
+      key: 'canteen',
+      label: 'Canteen',
+      permission: 'canteen',
+      value: (summary) => fmtMoney(summary.kpis?.canteenCost),
+    },
+    {
+      key: 'healthcheck',
+      label: 'Health Check',
+      permission: 'healthcheck',
+      value: (summary) => `${Number(summary.kpis?.healthcheckUsed || 0).toLocaleString('en-IN')} used · ${Number(summary.kpis?.healthcheckUsedPct || 0).toLocaleString('en-IN')}%`,
+    },
+    {
+      key: 'engagement',
+      label: 'Engagement',
+      permission: 'engagement',
+      value: (summary) => `${Number(summary.kpis?.engagementCount || 0).toLocaleString('en-IN')} activities · ${Number(summary.kpis?.avgParticipation || 0).toLocaleString('en-IN')}% participation`,
+    },
+    {
+      key: 'training',
+      label: 'Training',
+      permission: 'training',
+      value: (summary) => `${Number(summary.kpis?.trainingsCount || 0).toLocaleString('en-IN')} trainings`,
+    },
+  ].filter((section) => section.key === 'operationMatrix' || summaries.some(({ summary }) => summary.permissions?.[section.permission]));
+
+  return (
+    <section className="company-summary" aria-labelledby="company-summary-title">
+      <header className="company-summary-heading">
+        <div>
+          <div className="company-selector-kicker">Company portfolio</div>
+          <h2 id="company-summary-title">Section Summary</h2>
+        </div>
+        <span className="company-summary-count">{sectionRows.length} sections · {summaries.length} companies</span>
+      </header>
+      <div className="company-summary-table-wrap">
+        <table className="company-summary-table" aria-label="Section summary by company">
+        <thead>
+          <tr>
+            <th scope="col">Section</th>
+            {summaries.map(({ company }) => <th key={company.id} scope="col">{company.label}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {sectionRows.map((section) => (
+            <tr key={section.key}>
+              <th scope="row">{section.label}</th>
+              {summaries.map(({ company, summary, matrix }) => (
+                <td key={company.id}>
+                  {section.key === 'operationMatrix'
+                    ? section.value({ matrix })
+                    : summary.permissions?.[section.permission]
+                      ? section.value(summary)
+                      : '—'}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      </div>
+    </section>
   );
 }
 

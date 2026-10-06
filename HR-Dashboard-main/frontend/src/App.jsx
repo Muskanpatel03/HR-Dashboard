@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { LayoutGrid, History, LogOut, Shield } from 'lucide-react';
+import { BarChart3, LayoutGrid, History, LogOut, Shield } from 'lucide-react';
 
 import Login from './components/Login';
-import Dashboard from './components/Dashboard';
+import Dashboard, { DashboardSummary } from './components/Dashboard';
 import ModuleView from './components/ModuleView';
 import ManpowerHub from './components/ManpowerHub';
 import RecruitmentHub from './components/RecruitmentHub';
@@ -158,6 +158,14 @@ export default function App() {
             key: 'dashboard',
             label: 'Dashboard',
             icon: LayoutGrid,
+          }
+        : null,
+
+      canSeeDashboard
+        ? {
+            key: 'summary',
+            label: 'Summary',
+            icon: BarChart3,
           }
         : null,
 
@@ -339,6 +347,8 @@ export default function App() {
   const activeLabel =
     active === 'dashboard'
       ? 'Human Resource Dashboard'
+      : active === 'summary'
+        ? 'HR Summary'
       : active === 'audit'
         ? 'Audit Trail'
         : active === 'roles'
@@ -583,6 +593,12 @@ export default function App() {
             <div role="alert" className="dashboard-access-denied">
               You do not have permission to view the Dashboard. Contact an Administrator to request access.
             </div>
+          )}
+
+          {active === 'summary' && canSeeDashboard && (
+            <DashboardSummary
+              allowedCompanies={allowedCompanies}
+            />
           )}
 
           {active === 'audit' && (
