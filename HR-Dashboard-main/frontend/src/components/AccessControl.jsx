@@ -106,7 +106,8 @@ export default function AccessControl() {
     const perm = data.roles[role];
     setSavingRole(role);
     setSavedRole(null);
-    api.put(`/roles/${encodeURIComponent(role)}`, {
+    api.put('/roles', {
+      role,
       modules: perm.modules,
       edit: perm.edit,
       companies: perm.companies || data.allCompanies,
@@ -117,14 +118,14 @@ export default function AccessControl() {
   }
 
   return (
-    <div className="space-y-6">
-      <div style={{ color: C.ink2, fontSize: 13 }}>
+    <div className="space-y-6" style={{ maxWidth: 1240, margin: '0 auto', padding: '8px 12px 28px' }}>
+      <div style={{ color: C.ink2, fontSize: 13, lineHeight: 1.6 }}>
         <strong>View</strong> controls who can see each module. <strong>Edit / Change</strong> controls who can add or change its data. Turning View off also removes Edit.
         Save a role to apply its access changes across the app.
       </div>
 
-     {error && (
-        <div style={{ color: C.rust, fontSize: 13 }} className="flex items-center gap-2">
+      {error && (
+        <div style={{ color: C.rust, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }} className="flex items-center gap-2">
           <AlertCircle size={16} /> {error}
         </div>
       )}
@@ -135,7 +136,13 @@ export default function AccessControl() {
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         className="w-full px-3 py-2 text-sm rounded"
-        style={{ border: `1px solid ${C.line}` }}
+        style={{
+          border: `1px solid ${C.line}`,
+          background: 'rgba(17,29,42,0.85)',
+          color: '#edf5ff',
+          borderRadius: 10,
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05)',
+        }}
       />
 
       {roleNames.map((role) => {
@@ -146,21 +153,45 @@ export default function AccessControl() {
         const companyList = perm.companies || data.allCompanies || COMPANY_OPTIONS.map((company) => company.id);
 
         return (
-          <div key={role} style={{ background: C.card, border: `1px solid ${C.line}` }} className="rounded p-4">
+          <div
+            key={role}
+            style={{
+              background: 'linear-gradient(180deg, rgba(17,29,42,0.96), rgba(11,19,28,0.99))',
+              border: '1px solid rgba(142,197,255,0.18)',
+              borderRadius: 16,
+              padding: 16,
+              boxShadow: '0 18px 32px rgba(2, 8, 14, 0.35)',
+            }}
+          >
             <div className="flex items-center justify-between mb-3 gap-3">
               <button
                 type="button"
-                className="access-role-toggle"
+                className="access-role-toggle w-full"
                 aria-expanded={openRole === role}
                 onClick={() => setOpenRole(openRole === role ? null : role)}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  padding: '10px 12px',
+                  borderRadius: 12,
+                  border: '1px solid rgba(142,197,255,0.14)',
+                  background: 'rgba(13, 22, 31, 0.9)',
+                  color: '#edf5ff',
+                  textAlign: 'left',
+                }}
               >
-                <span style={{ fontFamily: FONT_HEAD, fontSize: 15, color: C.ink }}>{role}</span>
-                {isProtected && (
-                  <span style={{ fontSize: 11, color: C.ink2 }} className="font-normal">
-                    Full access (protected)
-                  </span>
-                )}
-                <span style={{ fontSize: 11, color: C.ink2 }} className="font-normal">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
+                  <span style={{ fontFamily: FONT_HEAD, fontSize: 15, color: '#edf5ff' }}>{role}</span>
+                  {isProtected && (
+                    <span style={{ fontSize: 11, color: '#9bb4c9' }} className="font-normal">
+                      Full access (protected)
+                    </span>
+                  )}
+                </div>
+                <span style={{ fontSize: 11, color: '#9bb4c9' }} className="font-normal">
                   {perm.modules === 'all' ? 'All modules' : `${viewList.length} modules`} · {companyList.length} companies · {openRole === role ? 'Collapse' : 'Expand'}
                 </span>
               </button>
@@ -168,8 +199,17 @@ export default function AccessControl() {
                 <button
                   onClick={() => save(role)}
                   disabled={savingRole === role}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs"
-                  style={{ background: savedRole === role ? C.moss : C.steel, color: '#fff', opacity: savingRole === role ? 0.6 : 1 }}
+                  className="flex items-center justify-center gap-1.5 rounded text-xs font-medium"
+                  style={{
+                    background: savedRole === role ? 'linear-gradient(180deg, #2d8c63, #246b52)' : 'linear-gradient(180deg, #3e5c73, #2d4a61)',
+                    color: '#fff',
+                    opacity: savingRole === role ? 0.6 : 1,
+                    minWidth: 96,
+                    minHeight: 38,
+                    padding: '0 14px',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    boxShadow: '0 8px 18px rgba(24, 52, 73, 0.38)',
+                  }}
                 >
                   {savedRole === role ? <Check size={13} /> : <Save size={13} />}
                   {savingRole === role ? 'Saving…' : savedRole === role ? 'Saved' : 'Save'}
@@ -178,65 +218,67 @@ export default function AccessControl() {
             </div>
 
             {openRole === role && (
-            <div className="overflow-x-auto">
-              <fieldset className="mb-4">
-                <legend style={{ color: C.ink, fontSize: 12, fontWeight: 600 }} className="mb-2">Company access</legend>
-                <div className="flex flex-wrap gap-x-5 gap-y-2">
-                  {COMPANY_OPTIONS.map((company) => (
-                    <label key={company.id} className="flex items-center gap-1.5" style={{ color: C.ink2, fontSize: 12 }}>
-                      <input
-                        type="checkbox"
-                        checked={companyList.includes(company.id)}
-                        disabled={isProtected}
-                        aria-label={`${isProtected ? 'Allow' : companyList.includes(company.id) ? 'Allow' : 'Deny'} ${role} access to ${company.label}`}
-                        onChange={() => toggleCompany(role, company.id)}
-                      />
-                      {company.label}
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-              <table className="text-sm" style={{ minWidth: 560 }}>
-                <thead>
-                  <tr>
-                    <th style={{ color: C.ink, fontSize: 11, background: C.navyTint }} className="text-left pr-3 pb-1 font-medium">Module</th>
-                    <th style={{ color: C.ink, fontSize: 11, background: C.navyTint }} className="text-center px-3 pb-1 font-medium">View</th>
-                    <th style={{ color: C.ink, fontSize: 11, background: C.navyTint }} className="text-center px-3 pb-1 font-medium">Edit / Change</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {allModules.map((m) => {
-                    const canView = perm.modules === 'all' || viewList.includes(m);
-                    const canEdit = perm.edit === 'all' || editList.includes(m);
-                    const editLocked = ALWAYS_ADMIN_EDIT.includes(m);
-                    return (
-                      <tr key={m} style={{ borderTop: `1px solid ${C.line}` }}>
-                        <td className="pr-3 py-1.5" style={{ color: C.ink }}>{labelFor(m)}</td>
-                        <td className="text-center px-3 py-1.5">
-                          <input
-                            type="checkbox"
-                            checked={canView}
-                            disabled={isProtected}
-                            aria-label={`${canView ? 'Allow' : 'Deny'} ${role} to view ${labelFor(m)}`}
-                            onChange={() => toggle(role, 'modules', m)}
-                          />
-                        </td>
-                        <td className="text-center px-3 py-1.5">
-                          <input
-                            type="checkbox"
-                            checked={editLocked ? isProtected : canEdit}
-                            disabled={isProtected || editLocked || !canView}
-                            title={editLocked ? 'Administrator-only, always' : !canView ? 'Grant View first' : ''}
-                            aria-label={`${canEdit ? 'Allow' : 'Deny'} ${role} to edit ${labelFor(m)}`}
-                            onChange={() => toggle(role, 'edit', m)}
-                          />
-                        </td>
+              <div className="overflow-x-auto" style={{ borderTop: '1px solid rgba(142,197,255,0.12)', paddingTop: 14 }}>
+                <fieldset className="mb-4" style={{ border: '1px solid rgba(142,197,255,0.12)', borderRadius: 12, padding: '12px 14px' }}>
+                  <legend style={{ color: '#edf5ff', fontSize: 12, fontWeight: 600, padding: '0 6px' }}>Company access</legend>
+                  <div className="flex flex-wrap justify-center gap-x-5 gap-y-2">
+                    {COMPANY_OPTIONS.map((company) => (
+                      <label key={company.id} className="flex items-center gap-1.5" style={{ color: '#cfe1f2', fontSize: 12 }}>
+                        <input
+                          type="checkbox"
+                          checked={companyList.includes(company.id)}
+                          disabled={isProtected}
+                          aria-label={`${isProtected ? 'Allow' : companyList.includes(company.id) ? 'Allow' : 'Deny'} ${role} access to ${company.label}`}
+                          onChange={() => toggleCompany(role, company.id)}
+                        />
+                        {company.label}
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                  <table className="text-sm" style={{ minWidth: 560, width: '100%', maxWidth: 760, borderCollapse: 'collapse', tableLayout: 'fixed', textAlign: 'center' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ color: '#edf5ff', fontSize: 11, background: 'rgba(30,48,63,0.95)', padding: '10px 12px', textAlign: 'center' }} className="pb-1 font-medium">Module</th>
+                        <th style={{ color: '#edf5ff', fontSize: 11, background: 'rgba(30,48,63,0.95)', padding: '10px 12px', textAlign: 'center' }} className="px-3 pb-1 font-medium">View</th>
+                        <th style={{ color: '#edf5ff', fontSize: 11, background: 'rgba(30,48,63,0.95)', padding: '10px 12px', textAlign: 'center' }} className="px-3 pb-1 font-medium">Edit / Change</th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    </thead>
+                    <tbody>
+                      {allModules.map((m) => {
+                        const canView = perm.modules === 'all' || viewList.includes(m);
+                        const canEdit = perm.edit === 'all' || editList.includes(m);
+                        const editLocked = ALWAYS_ADMIN_EDIT.includes(m);
+                        return (
+                          <tr key={m} style={{ borderTop: '1px solid rgba(142,197,255,0.12)' }}>
+                            <td className="pr-3 py-1.5" style={{ color: '#edf5ff', textAlign: 'left', padding: '10px 12px', verticalAlign: 'middle' }}>{labelFor(m)}</td>
+                            <td className="px-3 py-1.5" style={{ textAlign: 'center', padding: '10px 12px', verticalAlign: 'middle' }}>
+                              <input
+                                type="checkbox"
+                                checked={canView}
+                                disabled={isProtected}
+                                aria-label={`${canView ? 'Allow' : 'Deny'} ${role} to view ${labelFor(m)}`}
+                                onChange={() => toggle(role, 'modules', m)}
+                              />
+                            </td>
+                            <td className="px-3 py-1.5" style={{ textAlign: 'center', padding: '10px 12px', verticalAlign: 'middle' }}>
+                              <input
+                                type="checkbox"
+                                checked={editLocked ? isProtected : canEdit}
+                                disabled={isProtected || editLocked || !canView}
+                                title={editLocked ? 'Administrator-only, always' : !canView ? 'Grant View first' : ''}
+                                aria-label={`${canEdit ? 'Allow' : 'Deny'} ${role} to edit ${labelFor(m)}`}
+                                onChange={() => toggle(role, 'edit', m)}
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             )}
           </div>
         );

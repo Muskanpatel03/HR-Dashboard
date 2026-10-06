@@ -52,6 +52,13 @@ export default function App() {
     localStorage.getItem('automat_company') || COMPANY_OPTIONS[0].id
   );
 
+  const [theme] = useState('light');
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', 'light');
+    localStorage.setItem('automat_theme', 'light');
+  }, []);
+
   useEffect(() => {
     if (!user || !localStorage.getItem('automat_token')) return undefined;
     let cancelled = false;
@@ -367,6 +374,40 @@ export default function App() {
     return <Login onLogin={handleLogin} />;
   }
 
+  const palette = theme === 'dark'
+    ? {
+        appBg: '#091420',
+        panel: '#111d2a',
+        panelAlt: '#162535',
+        border: '#243949',
+        text: '#edf5ff',
+        textMuted: '#9bb4c9',
+        header: '#0f1b2a',
+        sidebar: '#0b1724',
+        sidebarHover: '#152b3d',
+        sidebarActive: '#1a3550',
+        sidebarText: '#dfeaf7',
+        sidebarMuted: '#9bb4c9',
+        accent: '#8ec5ff',
+        accentSoft: '#1d3850',
+      }
+    : {
+        appBg: '#f5f3ee',
+        panel: '#ffffff',
+        panelAlt: '#e4edf3',
+        border: '#d7e0e5',
+        text: '#20394e',
+        textMuted: '#6b6f76',
+        header: '#e4edf3',
+        sidebar: '#20394e',
+        sidebarHover: '#34536a',
+        sidebarActive: '#3b607d',
+        sidebarText: '#eaf0f4',
+        sidebarMuted: '#b6cbd9',
+        accent: '#4c7d6a',
+        accentSoft: '#eaf5ef',
+      };
+
   // ==================================================
   // MAIN APP
   // ==================================================
@@ -375,7 +416,8 @@ export default function App() {
     <div
       style={{
         fontFamily: FONT_BODY,
-        background: C.paper,
+        background: palette.appBg,
+        color: palette.text,
         height: '100vh',
         display: 'flex',
         overflow: 'hidden',
@@ -388,9 +430,9 @@ export default function App() {
 
       <aside
         style={{
-          background: C.navy,
-          borderRight: `1px solid ${C.navyBorder}`,
-          '--sidebar-hover': C.navyHover,
+          background: palette.sidebar,
+          borderRight: `1px solid ${palette.border}`,
+          '--sidebar-hover': palette.sidebarHover,
           height: '100vh',
         }}
         className="shrink-0 flex flex-col w-16 md:w-56"
@@ -401,7 +443,7 @@ export default function App() {
         <div
           className="flex items-center gap-2 px-3 py-4 border-b"
           style={{
-            borderColor: C.navyBorder,
+            borderColor: palette.border,
           }}
         >
           <img
@@ -430,7 +472,7 @@ export default function App() {
 
             <div
               style={{
-                color: C.navyMuted,
+                color: palette.sidebarMuted,
                 fontSize: 10.5,
               }}
             >
@@ -457,16 +499,16 @@ export default function App() {
                 className="sidebar-nav-item w-full flex items-center gap-3 px-3 py-2.5 text-left"
                 style={{
                   background: isActive
-                    ? C.navyActive
+                    ? palette.sidebarActive
                     : undefined,
 
                   borderLeft: isActive
-                    ? `3px solid ${C.navyHighlight}`
+                    ? `3px solid ${palette.accent}`
                     : '3px solid transparent',
 
                   color: isActive
                     ? '#FFFFFF'
-                    : C.navyText,
+                    : palette.sidebarText,
                 }}
               >
                 <Icon
@@ -501,7 +543,7 @@ export default function App() {
 
           <div
             style={{
-              color: C.navyHighlight,
+              color: palette.accent,
               fontSize: 11,
             }}
           >
@@ -513,7 +555,7 @@ export default function App() {
             onClick={logout}
             className="mt-2 flex items-center gap-1.5 text-xs"
             style={{
-              color: C.navyMuted,
+              color: palette.sidebarMuted,
               cursor: 'pointer',
             }}
           >
@@ -539,45 +581,50 @@ export default function App() {
 
         <header
           style={{
-            background: C.navyTint,
-            borderBottom: `1px solid ${C.navyLine}`,
+            background: palette.header,
+            borderBottom: `1px solid ${palette.border}`,
             position: 'sticky',
             top: 0,
             zIndex: 10,
           }}
           className="px-5 py-3"
         >
-          <div
-            style={{
-              fontFamily: FONT_HEAD,
-              fontSize: 20,
-              color: C.ink,
-            }}
-          >
-            {activeLabel}
-          </div>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div
+                style={{
+                  fontFamily: FONT_HEAD,
+                  fontSize: 20,
+                  color: palette.text,
+                }}
+              >
+                {activeLabel}
+              </div>
 
-          <div
-            style={{
-              fontSize: 12,
-              color: C.ink2,
-            }}
-          >
-            {new Date().toLocaleDateString(
-              'en-IN',
-              {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              }
-            )}
+              <div
+                style={{
+                  fontSize: 12,
+                  color: palette.textMuted,
+                }}
+              >
+                {new Date().toLocaleDateString(
+                  'en-IN',
+                  {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                  }
+                )}
+              </div>
+            </div>
+
           </div>
         </header>
 
         {/* PAGE CONTENT */}
 
-        <div className="p-5">
+        <div className="p-5 w-full" style={{ maxWidth: 1500, margin: '0 auto' }}>
 
           {active === 'dashboard' && canSeeDashboard && (
             <Dashboard

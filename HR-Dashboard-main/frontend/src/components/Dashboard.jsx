@@ -603,6 +603,95 @@ export function DashboardSummary({ allowedCompanies }) {
   if (loading) return <div style={{ color: C.ink2, fontSize: 13 }}>Loading company summaries...</div>;
   if (error) return <div role="alert" style={{ color: C.rust, fontSize: 13 }}>{error}</div>;
 
+  const averageMetric = (metric) => {
+    const values = summaries
+      .map(({ summary }) => Number(summary?.kpis?.[metric]) || 0)
+      .filter((value) => Number.isFinite(value));
+    return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+  };
+
+  const weightedMetric = (metric, weightMetric) => {
+    const totalWeight = summaries.reduce((sum, { summary }) => sum + (Number(summary?.kpis?.[weightMetric]) || 0), 0);
+    if (!totalWeight) return 0;
+
+    const weightedTotal = summaries.reduce((sum, { summary }) => {
+      const value = Number(summary?.kpis?.[metric]) || 0;
+      const weight = Number(summary?.kpis?.[weightMetric]) || 0;
+      return sum + (value * weight);
+    }, 0);
+
+    return weightedTotal / totalWeight;
+  };
+
+  const allCompanyData = summaries.length ? (() => {
+    const allPermissions = {};
+    const allKpis = {};
+    const loanByUnitMap = new Map();
+    const allMatrices = [];
+
+    summaries.forEach(({ summary, matrix }) => {
+      Object.entries(summary?.permissions || {}).forEach(([key, value]) => {
+        if (value) allPermissions[key] = true;
+      });
+
+      Object.entries(summary?.kpis || {}).forEach(([key, value]) => {
+        if (typeof value === 'number') {
+          allKpis[key] = (Number(allKpis[key]) || 0) + value;
+        }
+      });
+
+      (summary?.loanByUnit || []).forEach((unit) => {
+        const key = unit.unit || '—';
+        const existing = loanByUnitMap.get(key) || { unit: key, budget: 0, taken: 0, outstanding: 0 };
+        loanByUnitMap.set(key, {
+          ...existing,
+          budget: (Number(existing.budget) || 0) + (Number(unit.budget) || 0),
+          taken: (Number(existing.taken) || 0) + (Number(unit.taken) || 0),
+          outstanding: (Number(existing.outstanding) || 0) + (Number(unit.outstanding) || 0),
+        });
+      });
+
+      if (Array.isArray(matrix?.particulars)) {
+        allMatrices.push(...matrix.particulars);
+      }
+    });
+
+    const latestDailyRecord = summaries
+      .map(({ summary }) => summary?.dailyManpowerRecords?.[0])
+      .filter(Boolean)
+      .reduce((max, current) => {
+        if (!max || (current.date || '') > (max.date || '')) return current;
+        return max;
+      }, null);
+
+    const latestDailyTotal = summaries
+      .map(({ summary }) => Number(summary?.dailyManpowerRecords?.[0]?.total) || 0)
+      .reduce((sum, value) => sum + value, 0);
+
+    return {
+      company: { id: 'all', label: 'All companies' },
+      summary: {
+        permissions: allPermissions,
+        kpis: {
+          ...allKpis,
+          absenteeism: averageMetric('absenteeism'),
+          avgParticipation: averageMetric('avgParticipation'),
+          solarShare: weightedMetric('solarShare', 'electricityCost'),
+          healthcheckUsedPct: allKpis.healthcheckPurchased
+            ? ((Number(allKpis.healthcheckUsed) || 0) / (Number(allKpis.healthcheckPurchased) || 1)) * 100
+            : 0,
+        },
+        loanByUnit: Array.from(loanByUnitMap.values()),
+        dailyManpowerRecords: latestDailyRecord
+          ? [{ total: latestDailyTotal, date: latestDailyRecord.date }]
+          : [],
+      },
+      matrix: { particulars: allMatrices },
+    };
+  })() : null;
+
+  const companyColumns = allCompanyData ? [...summaries, allCompanyData] : summaries;
+
   const sectionRows = [
     {
       key: 'operationMatrix',
@@ -710,14 +799,14 @@ export function DashboardSummary({ allowedCompanies }) {
         <thead>
           <tr>
             <th scope="col">Section</th>
-            {summaries.map(({ company }) => <th key={company.id} scope="col">{company.label}</th>)}
+            {companyColumns.map(({ company }) => <th key={company.id} scope="col">{company.label}</th>)}
           </tr>
         </thead>
         <tbody>
           {sectionRows.map((section) => (
             <tr key={section.key}>
               <th scope="row">{section.label}</th>
-              {summaries.map(({ company, summary, matrix }) => (
+              {companyColumns.map(({ company, summary, matrix }) => (
                 <td key={company.id}>
                   {section.key === 'operationMatrix'
                     ? section.value({ matrix })

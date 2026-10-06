@@ -34,8 +34,29 @@ router.get('/', requireAdmin, (req, res) => {
   });
 });
 
+function normalizeRoleName(role) {
+  if (typeof role !== 'string') return '';
+  return decodeURIComponent(role.trim());
+}
+
+router.put('/', requireAdmin, async (req, res) => {
+  const { role, modules, edit, companies } = req.body || {};
+  const cleanRole = normalizeRoleName(role);
+
+  if (!cleanRole) {
+    return res.status(400).json({ error: 'Role is required' });
+  }
+
+  try {
+    const updated = await setRolePermissions(cleanRole, { modules, edit, companies });
+    res.json({ role: cleanRole, ...updated });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 router.put('/:role', requireAdmin, async (req, res) => {
-  const { role } = req.params;
+  const role = normalizeRoleName(req.params.role);
   const { modules, edit, companies } = req.body || {};
 
   try {
