@@ -721,6 +721,12 @@ export function DashboardSummary({ allowedCompanies }) {
       value: (summary) => `${Number(summary.kpis?.openPositions || 0).toLocaleString('en-IN')} open · ${Number(summary.kpis?.candidatesInPipeline || 0).toLocaleString('en-IN')} in pipeline`,
     },
     {
+      key: 'openPositions',
+      label: 'Open Position Recruitment',
+      permission: 'recruitment',
+      value: (summary) => Number(summary.kpis?.openPositions || 0).toLocaleString('en-IN'),
+    },
+    {
       key: 'hiring',
       label: 'Hiring',
       permission: 'hiring',
