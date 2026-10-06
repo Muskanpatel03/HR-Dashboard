@@ -126,6 +126,7 @@ export default function ManpowerHub({
         config={active === 'daily' ? DAILY_MANPOWER_CONFIG : MODULE_MAP.manpower}
         editable={canEditModule('manpower')}
         companyId={companyId}
+        onRecordsChange={setDailyRecords}
       />
 
     </div>

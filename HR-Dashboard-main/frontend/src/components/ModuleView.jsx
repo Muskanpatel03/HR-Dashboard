@@ -39,6 +39,7 @@ import {
   FONT_MONO,
   COMPUTED,
   CHARTS,
+  COMPANY_OPTIONS,
 } from "../config";
 
 
@@ -60,11 +61,19 @@ const PIE_COLORS = [
 // CHART AGGREGATION
 // ============================================================
 
-function aggregate(records, chartConf) {
+function companyChartLabel(companyId) {
+  const company = COMPANY_OPTIONS.find((option) => option.id === companyId);
+  if (!company) return companyId || "Unknown company";
+  return company.id === "HO" ? "HO / Corporate" : company.label;
+}
+
+function aggregate(records, chartConf, byCompany = false) {
   const map = {};
 
-  records.forEach((r) => {
-    const key = r[chartConf.groupBy] || "—";
+  records.forEach((record) => {
+    const category = record[chartConf.groupBy] || "—";
+    const company = companyChartLabel(record.company);
+    const key = byCompany ? company || "Unknown company" : category;
 
     if (!map[key]) {
       map[key] = {
@@ -82,7 +91,7 @@ function aggregate(records, chartConf) {
       chartConf.series.forEach((s) => {
         map[key][s.key] += s.fields.reduce(
           (sum, field) =>
-            sum + (Number(r[field]) || 0),
+            sum + (Number(record[field]) || 0),
           0
         );
       });
@@ -93,12 +102,12 @@ function aggregate(records, chartConf) {
         if (Array.isArray(chartConf.valueField)) {
           value = chartConf.valueField.reduce(
             (sum, field) =>
-              sum + (Number(r[field]) || 0),
+              sum + (Number(record[field]) || 0),
             0
           );
         } else {
           value =
-            Number(r[chartConf.valueField]) || 0;
+            Number(record[chartConf.valueField]) || 0;
         }
       }
 
@@ -107,7 +116,11 @@ function aggregate(records, chartConf) {
     }
   });
 
-  return Object.values(map);
+  const values = Object.values(map);
+  const companyOrder = new Map(COMPANY_OPTIONS.map((company, index) => [companyChartLabel(company.id), index]));
+  return byCompany
+    ? values.sort((a, b) => (companyOrder.get(a.name) ?? Infinity) - (companyOrder.get(b.name) ?? Infinity))
+    : values;
 }
 
 const PERIODS = ["Monthly", "Quarterly", "Half-Yearly", "Annual"];
@@ -194,6 +207,37 @@ const monthLabel = (key) => {
   const [y, m] = key.split("-");
   return `${MONTH_LABELS[Number(m) - 1]} ${y}`;
 };
+const LOAN_HEADING_STORAGE_KEY = "loan-summary-heading-periods";
+const DEFAULT_LOAN_HEADING_SETTINGS = {
+  budgetYear: 2026,
+  recoveryYear: 2025,
+  historicalYear: 2024,
+  corpusMonth: "2026-08",
+  outstandingMonth: "2026-07",
+};
+
+function readLoanHeadingSettings() {
+  try {
+    return {
+      ...DEFAULT_LOAN_HEADING_SETTINGS,
+      ...JSON.parse(localStorage.getItem(LOAN_HEADING_STORAGE_KEY) || "{}"),
+    };
+  } catch {
+    return DEFAULT_LOAN_HEADING_SETTINGS;
+  }
+}
+
+function fiscalYearLabel(year) {
+  const start = Number(year);
+  return `FY${String(start).slice(-2)}-${String(start + 1).slice(-2)}`;
+}
+
+function monthHeading(month) {
+  const [year, monthNumber] = String(month).split("-").map(Number);
+  return year && monthNumber >= 1 && monthNumber <= 12
+    ? `${MONTH_LABELS[monthNumber - 1]}-${String(year).slice(-2)}`
+    : "—";
+}
 
 function formatDate(value) {
   if (!value) return "—";
@@ -326,19 +370,22 @@ function downloadCSV(
 function ModuleChart({
   config,
   records,
+  companyId,
 }) {
   const chartConf =
     CHARTS[config.key];
+  const byCompany = companyId === "all" && records.some((record) => record.company);
 
   const data = useMemo(
     () =>
       chartConf
         ? aggregate(
             records,
-            chartConf
+            chartConf,
+            byCompany
           )
         : [],
-    [chartConf, records]
+    [chartConf, records, byCompany]
   );
 
   if (
@@ -370,7 +417,9 @@ function ModuleChart({
         }}
         className="mb-3"
       >
-        {chartConf.title}
+        {byCompany
+          ? `${config.key === "loanSummary" ? "Outstanding (₹ Lac)" : chartConf.title.replace(/\s+by\s+.*$/i, "")} by company`
+          : chartConf.title}
       </div>
 
       <div
@@ -555,6 +604,7 @@ export default function ModuleView({
   recordFilter,
   defaultValues = {},
   companyId,
+  onRecordsChange,
 }) {
   const [records, setRecords] =
     useState([]);
@@ -573,6 +623,8 @@ export default function ModuleView({
 
   const [formValues, setFormValues] =
     useState({});
+  const [loanHeadingSettings, setLoanHeadingSettings] =
+    useState(readLoanHeadingSettings);
   const [period, setPeriod] = useState("Monthly");
   const [search, setSearch] =
     useState("");
@@ -585,6 +637,10 @@ export default function ModuleView({
     useState("all");
   const [selectedDate, setSelectedDate] = useState("");
   const [dailyMonth, setDailyMonth] = useState("all");
+
+  useEffect(() => {
+    localStorage.setItem(LOAN_HEADING_STORAGE_KEY, JSON.stringify(loanHeadingSettings));
+  }, [loanHeadingSettings]);
 
   useEffect(() => {
     setSort(defaultSortFor(config));
@@ -623,11 +679,9 @@ export default function ModuleView({
             `/${config.key}`
           );
 
-        setRecords(
-          Array.isArray(data.records)
-            ? data.records
-            : []
-        );
+        const loadedRecords = Array.isArray(data.records) ? data.records : [];
+        setRecords(loadedRecords);
+        if (config.key === "dailyManpower") onRecordsChange?.(loadedRecords);
       } catch (err) {
         setError(
           err.response?.data?.error ||
@@ -637,7 +691,7 @@ export default function ModuleView({
         setLoading(false);
       }
     },
-    [config.key]
+    [config.key, onRecordsChange]
   );
 
 
@@ -910,11 +964,26 @@ export default function ModuleView({
   // FIELDS
   // ==========================================================
 
-  const visibleFields =
-    config.fields.filter(
-      (field) =>
-        field.type !== "password"
-    );
+  const loanHeadingLabels = config.key === "loanSummary"
+    ? {
+        budgetPersonal: `Budget ${fiscalYearLabel(loanHeadingSettings.budgetYear)} – Personal (₹ Lac)`,
+        budgetHome: `Budget ${fiscalYearLabel(loanHeadingSettings.budgetYear)} – Home (₹ Lac)`,
+        availablePersonal: `Available Corpus Till ${monthHeading(loanHeadingSettings.corpusMonth)} – Personal (₹ Lac)`,
+        availableHome: `Available Corpus Till ${monthHeading(loanHeadingSettings.corpusMonth)} – Home (₹ Lac)`,
+        takenPersonal: `Loan Taken Till ${monthHeading(loanHeadingSettings.corpusMonth)} – Personal (₹ Lac)`,
+        takenHome: `Loan Taken Till ${monthHeading(loanHeadingSettings.corpusMonth)} – Home (₹ Lac)`,
+        recoveredFY2526: `Amount Recovered ${fiscalYearLabel(loanHeadingSettings.recoveryYear)} (₹ Lac)`,
+        takenFY2526: `Loan Taken ${fiscalYearLabel(loanHeadingSettings.recoveryYear)} (₹ Lac)`,
+        takenFY2425: `Loan Taken ${fiscalYearLabel(loanHeadingSettings.historicalYear)} (₹ Lac)`,
+        outstandingTillJul26: `Total Outstanding Till ${monthHeading(loanHeadingSettings.outstandingMonth)} (₹ Lac)`,
+      }
+    : {};
+
+  const visibleFields = config.fields
+    .filter((field) => field.type !== "password")
+    .map((field) => loanHeadingLabels[field.name]
+      ? { ...field, label: loanHeadingLabels[field.name] }
+      : field);
 
   const computedFields =
     COMPUTED[config.key] || [];
@@ -978,6 +1047,7 @@ export default function ModuleView({
       <ModuleChart
         config={config}
         records={records}
+        companyId={companyId}
       />
 
 
@@ -989,6 +1059,51 @@ export default function ModuleView({
         config={config}
         records={records}
       />
+
+      {config.key === "loanSummary" && (
+        <div className="flex flex-wrap items-end gap-3 py-2" style={{ borderBottom: `1px solid ${C.line}` }}>
+          <span style={{ color: C.ink, fontSize: 12.5, fontWeight: 600, paddingBottom: 8 }}>Heading periods</span>
+          {[
+            ["Budget FY", "budgetYear"],
+            ["Recovery FY", "recoveryYear"],
+            ["Historical FY", "historicalYear"],
+          ].map(([label, name]) => {
+            const currentYear = new Date().getFullYear();
+            const fiscalYears = [...new Set([
+              ...Array.from({ length: 21 }, (_, index) => currentYear - 10 + index),
+              Number(loanHeadingSettings[name]),
+            ])].sort((a, b) => a - b);
+            return (
+              <label key={name} className="flex flex-col gap-1" style={{ color: C.ink2, fontSize: 11.5 }}>
+                {label}
+                <select
+                  value={loanHeadingSettings[name]}
+                  onChange={(event) => setLoanHeadingSettings((settings) => ({ ...settings, [name]: Number(event.target.value) }))}
+                  className="px-2.5 py-2 text-sm rounded"
+                  style={{ background: C.card, border: `1px solid ${C.line}`, color: C.ink }}
+                >
+                  {fiscalYears.map((year) => <option key={year} value={year}>{fiscalYearLabel(year)}</option>)}
+                </select>
+              </label>
+            );
+          })}
+          {[
+            ["Corpus / Taken Till", "corpusMonth"],
+            ["Outstanding Till", "outstandingMonth"],
+          ].map(([label, name]) => (
+            <label key={name} className="flex flex-col gap-1" style={{ color: C.ink2, fontSize: 11.5 }}>
+              {label}
+              <input
+                type="month"
+                value={loanHeadingSettings[name]}
+                onChange={(event) => setLoanHeadingSettings((settings) => ({ ...settings, [name]: event.target.value }))}
+                className="px-2.5 py-2 text-sm rounded"
+                style={{ background: C.card, border: `1px solid ${C.line}`, color: C.ink }}
+              />
+            </label>
+          ))}
+        </div>
+      )}
 
 
       {/* ====================================================
