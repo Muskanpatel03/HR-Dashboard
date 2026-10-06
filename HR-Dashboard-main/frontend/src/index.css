@@ -61,6 +61,7 @@ table {
 table th,
 table td {
   overflow-wrap: break-word;
+  text-align: center !important;
 }
 .nowrap-cell {
   white-space: nowrap !important;

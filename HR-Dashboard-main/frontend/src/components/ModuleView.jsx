@@ -584,11 +584,13 @@ export default function ModuleView({
   const [monthFilter, setMonthFilter] =
     useState("all");
   const [selectedDate, setSelectedDate] = useState("");
+  const [dailyMonth, setDailyMonth] = useState("all");
 
   useEffect(() => {
     setSort(defaultSortFor(config));
     setMonthFilter("all");
     setSelectedDate("");
+    setDailyMonth("all");
   }, [config.key]);
 
   useEffect(() => {
@@ -777,6 +779,11 @@ export default function ModuleView({
       .sort((a, b) => b.date.localeCompare(a.date));
   }, [config.key, records, companyId]);
 
+  const dailyManpowerMonths = useMemo(() => {
+    if (config.key !== "dailyManpower") return [];
+    return [...new Set(dailyManpowerDates.map(({ date }) => date.slice(0, 7)))].sort().reverse();
+  }, [config.key, dailyManpowerDates]);
+
 
   // ==========================================================
   // MONTH FILTER + SEARCH + SORT
@@ -800,6 +807,14 @@ export default function ModuleView({
           config.key === "dailyManpower" &&
           selectedDate &&
           String(record.date || "").slice(0, 10) !== selectedDate
+        ) {
+          return false;
+        }
+
+        if (
+          config.key === "dailyManpower" &&
+          dailyMonth !== "all" &&
+          String(record.date || "").slice(0, 7) !== dailyMonth
         ) {
           return false;
         }
@@ -881,6 +896,7 @@ export default function ModuleView({
     search,
     sort,
     monthFilter,
+    dailyMonth,
     monthField,
     config.fields,
     config.key,
@@ -1014,11 +1030,29 @@ export default function ModuleView({
 
           {config.key === "dailyManpower" && (
             <label className="flex items-center gap-2 text-sm" style={{ color: C.ink2 }}>
+              <span>Month</span>
+              <select
+                value={dailyMonth}
+                onChange={(event) => {
+                  setDailyMonth(event.target.value);
+                  setSelectedDate("");
+                }}
+                className="px-2.5 py-2 text-sm rounded"
+                style={{ background: C.card, border: `1px solid ${C.line}`, color: C.ink }}
+              >
+                <option value="all">All months</option>
+                {dailyManpowerMonths.map((month) => (
+                  <option key={month} value={month}>{monthLabel(month)}</option>
+                ))}
+              </select>
               <span>Date</span>
               <input
                 type="date"
                 value={selectedDate}
-                onChange={(event) => setSelectedDate(event.target.value)}
+                onChange={(event) => {
+                  setSelectedDate(event.target.value);
+                  if (event.target.value) setDailyMonth(event.target.value.slice(0, 7));
+                }}
                 className="px-2.5 py-2 text-sm rounded"
                 style={{ background: C.card, border: `1px solid ${C.line}`, color: C.ink }}
               />
@@ -1257,6 +1291,7 @@ export default function ModuleView({
                       fontSize: 13.5,
                       color: C.ink,
                       borderBottom: `1px solid ${C.line}`,
+                      textAlign: config.key === "loanSummary" ? "center" : undefined,
                     }}
                     className="px-3 py-2"
                   >

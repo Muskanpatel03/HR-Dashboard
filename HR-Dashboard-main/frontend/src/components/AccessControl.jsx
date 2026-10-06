@@ -1,7 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Check, Save, AlertCircle } from 'lucide-react';
+import { Check, Save, AlertCircle, LoaderCircle } from 'lucide-react';
 import api from '../api';
 import { C, COMPANY_OPTIONS, FONT_HEAD, MODULE_MAP } from '../config';
+
+const roleDataCache = new Map();
+const cacheKey = () => localStorage.getItem('automat_token') || '';
+const cachedRoleData = () => roleDataCache.get(cacheKey()) || null;
 
 // Friendly labels for module keys that aren't in the record MODULES config.
 const EXTRA_LABELS = {
@@ -21,8 +25,8 @@ function labelFor(key) {
 const ALWAYS_ADMIN_EDIT = ['usersmgmt', 'roles'];
 
 export default function AccessControl() {
-  const [data, setData] = useState(null); // { roles, allModules, protectedRoles, assignableRoles }
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState(cachedRoleData); // { roles, allModules, protectedRoles, assignableRoles }
+  const [loading, setLoading] = useState(() => !cachedRoleData());
   const [error, setError] = useState('');
   const [savingRole, setSavingRole] = useState(null);
   const [savedRole, setSavedRole] = useState(null);
@@ -30,21 +34,28 @@ export default function AccessControl() {
   const [openRole, setOpenRole] = useState(null); // only one role expanded at a time
 
   const load = useCallback(() => {
-    setLoading(true);
     setError('');
     api.get('/roles')
-      .then((res) => setData(res.data))
+      .then((res) => {
+        roleDataCache.set(cacheKey(), res.data);
+        setData(res.data);
+      })
       .catch((e) => setError(e?.response?.data?.error || 'Failed to load role permissions'))
       .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  if (loading) {
-    return <div style={{ color: C.ink2, fontSize: 13 }} className="py-10 text-center">Loading…</div>;
+  if (!data && loading) {
+    return (
+      <div style={{ color: C.ink2, fontSize: 13 }} className="flex items-center justify-center gap-2 py-10">
+        <LoaderCircle size={16} className="animate-spin" />
+        Loading access details…
+      </div>
+    );
   }
 
-  if (error || !data) {
+  if (!data) {
     return (
       <div style={{ color: C.rust, fontSize: 13 }} className="flex items-center gap-2 py-6">
         <AlertCircle size={16} /> {error || 'Could not load role permissions.'}
@@ -112,7 +123,15 @@ export default function AccessControl() {
       edit: perm.edit,
       companies: perm.companies || data.allCompanies,
     })
-      .then(() => { setSavedRole(role); setTimeout(() => setSavedRole(null), 2000); })
+      .then(() => {
+        const cached = roleDataCache.get(cacheKey()) || data;
+        roleDataCache.set(cacheKey(), {
+          ...cached,
+          roles: { ...cached.roles, [role]: { ...perm } },
+        });
+        setSavedRole(role);
+        setTimeout(() => setSavedRole(null), 2000);
+      })
       .catch((e) => setError(e?.response?.data?.error || `Failed to save ${role}`))
       .finally(() => setSavingRole(null));
   }
@@ -252,7 +271,7 @@ export default function AccessControl() {
                         const editLocked = ALWAYS_ADMIN_EDIT.includes(m);
                         return (
                           <tr key={m} style={{ borderTop: '1px solid rgba(142,197,255,0.12)' }}>
-                            <td className="pr-3 py-1.5" style={{ color: '#edf5ff', textAlign: 'left', padding: '10px 12px', verticalAlign: 'middle' }}>{labelFor(m)}</td>
+                            <td className="py-1.5" style={{ color: '#edf5ff', textAlign: 'center', padding: '10px 12px', verticalAlign: 'middle' }}>{labelFor(m)}</td>
                             <td className="px-3 py-1.5" style={{ textAlign: 'center', padding: '10px 12px', verticalAlign: 'middle' }}>
                               <input
                                 type="checkbox"

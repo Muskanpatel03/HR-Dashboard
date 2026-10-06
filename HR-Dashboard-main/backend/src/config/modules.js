@@ -86,8 +86,18 @@ const MODULES = {
 
     columns: [
       {
+        js: "openingType",
+        db: "opening_type",
+        type: "text",
+      },
+      {
         js: "openingPosition",
         db: "opening_position",
+        type: "text",
+      },
+      {
+        js: "remarks",
+        db: "remarks",
         type: "text",
       },
       {

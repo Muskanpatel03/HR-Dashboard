@@ -121,7 +121,9 @@ WHERE department_production IS NULL
 
 CREATE TABLE IF NOT EXISTS recruitment (
   id SERIAL PRIMARY KEY,
+  opening_type TEXT,
   opening_position TEXT,
+  remarks TEXT,
   month TEXT,
   department TEXT,
   location TEXT,
@@ -325,6 +327,8 @@ ALTER TABLE IF EXISTS retirement ADD COLUMN IF NOT EXISTS date_of_birth DATE;
 ALTER TABLE IF EXISTS retirement ADD COLUMN IF NOT EXISTS last_working_day DATE;
 
 ALTER TABLE recruitment ADD COLUMN IF NOT EXISTS opening_position TEXT;
+ALTER TABLE recruitment ADD COLUMN IF NOT EXISTS opening_type TEXT;
+ALTER TABLE recruitment ADD COLUMN IF NOT EXISTS remarks TEXT;
 ALTER TABLE recruitment ADD COLUMN IF NOT EXISTS month TEXT;
 ALTER TABLE recruitment ADD COLUMN IF NOT EXISTS shortlisted INTEGER DEFAULT 0;
 ALTER TABLE recruitment ADD COLUMN IF NOT EXISTS offered INTEGER DEFAULT 0;
