@@ -50,6 +50,7 @@ async function ensureCurrentSchema() {
      WHERE department_production IS NULL
        AND (department IS NOT NULL OR production IS NOT NULL)`,
     'ALTER TABLE recruitment ADD COLUMN IF NOT EXISTS opening_position TEXT',
+    'ALTER TABLE recruitment ADD COLUMN IF NOT EXISTS number_of_positions INTEGER NOT NULL DEFAULT 1',
     'ALTER TABLE recruitment ADD COLUMN IF NOT EXISTS opening_type TEXT',
     'ALTER TABLE recruitment ADD COLUMN IF NOT EXISTS remarks TEXT',
     'ALTER TABLE recruitment ADD COLUMN IF NOT EXISTS month TEXT',

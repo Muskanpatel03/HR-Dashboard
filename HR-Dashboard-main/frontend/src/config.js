@@ -133,6 +133,7 @@ export const MODULES = [
   { key: 'recruitment', label: 'Recruitment', icon: Briefcase, showTotals: true, wrapHeaders: true, fields: [
     { name: 'openingType', label: 'Opening Type', type: 'select', options: ['New', 'Replacement'] },
     { name: 'openingPosition', label: 'Position Name', type: 'text' },
+    { name: 'numberOfPositions', label: 'No. of Open Positions', type: 'number' },
     { name: 'remarks', label: 'Remarks', type: 'text' },
     { name: 'month', label: 'Month', type: 'month' },
     { name: 'department', label: 'Department', type: 'select', options: DEPARTMENTS },
@@ -544,7 +545,7 @@ export const CHARTS = {
         { key: 'actual', label: 'Actual', fields: ['directCount', 'indirectCount'] },
       ],
     },
-  recruitment: { type: 'bar', title: 'Opening Positions by Month', groupBy: 'month', aggregate: 'count' },
+  recruitment: { type: 'bar', title: 'Open Positions by Month', groupBy: 'month', aggregate: 'sum', valueField: 'numberOfPositions' },
   hiring: { type: 'bar', title: 'Joined by Department', groupBy: 'department', aggregate: 'sum', valueField: 'joined' },
   separation: { type: 'pie', title: 'Separations by type', groupBy: 'type', aggregate: 'count' },
   loanSummary: { type: 'bar', title: 'Outstanding by unit (₹ Lac)', groupBy: 'unit', aggregate: 'sum', valueField: 'outstandingTillJul26' },

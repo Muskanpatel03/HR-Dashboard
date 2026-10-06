@@ -707,6 +707,7 @@ export default function ModuleView({
   const openNew = () => {
     setFormValues({
       ...defaultValues,
+      ...(config.key === "recruitment" ? { numberOfPositions: 1 } : {}),
       ...(companyId && companyId !== 'all' ? { company: companyId } : {}),
       ...(config.key === "dailyManpower" && selectedDate ? { date: selectedDate } : {}),
     });

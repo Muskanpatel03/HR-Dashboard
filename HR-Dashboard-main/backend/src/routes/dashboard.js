@@ -207,7 +207,7 @@ router.get('/', async (req, res) => {
       q(
         perm.recruitment,
         `
-        SELECT month, opening_position, department, location, shortlisted, offered, status
+        SELECT month, opening_position, number_of_positions, department, location, shortlisted, offered, status
         FROM recruitment
         WHERE ${whereFor(
           range,
@@ -538,7 +538,13 @@ router.get('/', async (req, res) => {
 
     const recRows = recruitment.rows;
 
-    const openPositions = recRows.length;
+    const openPositions = recRows.reduce(
+      (sum, row) => {
+        const value = row.number_of_positions == null ? 1 : Number(row.number_of_positions);
+        return sum + (Number.isFinite(value) ? Math.max(value, 0) : 1);
+      },
+      0
+    );
 
     const candidatesInPipeline = recRows.reduce(
       (sum, row) => sum + (Number(row.shortlisted) || 0),

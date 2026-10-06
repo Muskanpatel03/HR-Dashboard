@@ -96,6 +96,11 @@ const MODULES = {
         type: "text",
       },
       {
+        js: "numberOfPositions",
+        db: "number_of_positions",
+        type: "number",
+      },
+      {
         js: "remarks",
         db: "remarks",
         type: "text",

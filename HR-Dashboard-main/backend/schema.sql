@@ -123,6 +123,7 @@ CREATE TABLE IF NOT EXISTS recruitment (
   id SERIAL PRIMARY KEY,
   opening_type TEXT,
   opening_position TEXT,
+  number_of_positions INTEGER NOT NULL DEFAULT 1,
   remarks TEXT,
   month TEXT,
   department TEXT,
