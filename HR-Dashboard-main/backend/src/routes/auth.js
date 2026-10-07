@@ -21,16 +21,14 @@ const smtpPassword = String(process.env.SMTP_PASS || '').replace(/\s+/g, '');
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
-  port: smtpPort,
-  secure: process.env.SMTP_SECURE === undefined
-    ? smtpPort === 465
-    : String(process.env.SMTP_SECURE).toLowerCase() === 'true',
+  port: Number(process.env.SMTP_PORT),
+  secure: process.env.SMTP_SECURE === "true",
+  family: 4,
   auth: {
     user: process.env.SMTP_USER,
-    pass: smtpPassword
-  }
+    pass: process.env.SMTP_PASS,
+  },
 });
-
 /*
 |--------------------------------------------------------------------------
 | JWT
