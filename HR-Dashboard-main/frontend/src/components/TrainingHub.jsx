@@ -11,7 +11,7 @@ const SECTIONS = [
   { key: 'EHS', label: 'EHS' },
 ];
 
-export default function TrainingHub({ canEditModule, canDelete, companyId, onCompanyChange, allowedCompanies }) {
+export default function TrainingHub({ canEditModule, canCreateModule, canDelete, companyId, onCompanyChange, allowedCompanies }) {
   const [active, setActive] = useState(SECTIONS[0].key);
   const section = SECTIONS.find((item) => item.key === active);
 
@@ -38,6 +38,7 @@ export default function TrainingHub({ canEditModule, canDelete, companyId, onCom
       <ModuleView
         config={MODULE_MAP.training}
         editable={canEditModule('training')}
+        creatable={canCreateModule('training')}
         canDelete={canDelete}
         recordFilter={(record) => record.section === section.key}
         defaultValues={{ section: section.key }}

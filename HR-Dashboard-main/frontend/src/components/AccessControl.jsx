@@ -19,10 +19,8 @@ function labelFor(key) {
   return MODULE_MAP[key]?.label || EXTRA_LABELS[key] || key;
 }
 
-// Roles whose "edit" access to these two modules is always Administrator-only,
-// no matter what the checkbox says — mirrors the server-side rule, so the UI
-// doesn't lie about what a save will actually do.
-const ALWAYS_ADMIN_EDIT = ['usersmgmt', 'roles'];
+// Access to these modules is always Administrator-only for both create and edit.
+const ALWAYS_ADMIN_MANAGE = ['usersmgmt', 'roles'];
 
 export default function AccessControl() {
   const [data, setData] = useState(cachedRoleData); // { roles, allModules, protectedRoles, assignableRoles }
@@ -70,7 +68,7 @@ export default function AccessControl() {
 
   function toggle(role, listKey, moduleKey) {
     if (protectedRoles.includes(role)) return;
-    if (listKey === 'edit' && ALWAYS_ADMIN_EDIT.includes(moduleKey)) return;
+    if (['create', 'edit'].includes(listKey) && ALWAYS_ADMIN_MANAGE.includes(moduleKey)) return;
 
     setData((prev) => {
       const current = prev.roles[role];
@@ -85,6 +83,8 @@ export default function AccessControl() {
       // turns edit off for that module.
       const nextRole = { ...current, [listKey]: nextList };
       if (listKey === 'modules' && has) {
+        const createList = nextRole.create === 'all' ? [...allModules] : nextRole.create;
+        nextRole.create = createList.filter((m) => m !== moduleKey);
         const editList = nextRole.edit === 'all' ? [...allModules] : nextRole.edit;
         nextRole.edit = editList.filter((m) => m !== moduleKey);
       }
@@ -120,6 +120,7 @@ export default function AccessControl() {
     api.put('/roles', {
       role,
       modules: perm.modules,
+      create: perm.create,
       edit: perm.edit,
       companies: perm.companies || data.allCompanies,
     })
@@ -139,7 +140,7 @@ export default function AccessControl() {
   return (
     <div className="space-y-6" style={{ maxWidth: 1240, margin: '0 auto', padding: '8px 12px 28px' }}>
       <div style={{ color: C.ink2, fontSize: 13, lineHeight: 1.6 }}>
-        <strong>View</strong> controls who can see each module. <strong>Edit / Change</strong> controls who can add or change its data. Turning View off also removes Edit.
+        <strong>View</strong> controls who can see each module. <strong>Create</strong> controls who can add records, and <strong>Edit / Change</strong> controls who can update them. Delete is Administrator-only. Turning View off also removes Create and Edit.
         Save a role to apply its access changes across the app.
       </div>
 
@@ -168,6 +169,7 @@ export default function AccessControl() {
         const perm = roles[role];
         const isProtected = protectedRoles.includes(role);
         const viewList = perm.modules === 'all' ? allModules : perm.modules;
+        const createList = perm.create === 'all' ? allModules : perm.create;
         const editList = perm.edit === 'all' ? allModules : perm.edit;
         const companyList = perm.companies || data.allCompanies || COMPANY_OPTIONS.map((company) => company.id);
 
@@ -261,14 +263,17 @@ export default function AccessControl() {
                       <tr>
                         <th style={{ color: '#edf5ff', fontSize: 11, background: 'rgba(30,48,63,0.95)', padding: '10px 12px', textAlign: 'center' }} className="pb-1 font-medium">Module</th>
                         <th style={{ color: '#edf5ff', fontSize: 11, background: 'rgba(30,48,63,0.95)', padding: '10px 12px', textAlign: 'center' }} className="px-3 pb-1 font-medium">View</th>
+                        <th style={{ color: '#edf5ff', fontSize: 11, background: 'rgba(30,48,63,0.95)', padding: '10px 12px', textAlign: 'center' }} className="px-3 pb-1 font-medium">Create</th>
                         <th style={{ color: '#edf5ff', fontSize: 11, background: 'rgba(30,48,63,0.95)', padding: '10px 12px', textAlign: 'center' }} className="px-3 pb-1 font-medium">Edit / Change</th>
+                        <th style={{ color: '#edf5ff', fontSize: 11, background: 'rgba(30,48,63,0.95)', padding: '10px 12px', textAlign: 'center' }} className="px-3 pb-1 font-medium">Delete</th>
                       </tr>
                     </thead>
                     <tbody>
                       {allModules.map((m) => {
                         const canView = perm.modules === 'all' || viewList.includes(m);
+                        const canCreate = perm.create === 'all' || createList.includes(m);
                         const canEdit = perm.edit === 'all' || editList.includes(m);
-                        const editLocked = ALWAYS_ADMIN_EDIT.includes(m);
+                        const manageLocked = ALWAYS_ADMIN_MANAGE.includes(m);
                         return (
                           <tr key={m} style={{ borderTop: '1px solid rgba(142,197,255,0.12)' }}>
                             <td className="py-1.5" style={{ color: '#edf5ff', textAlign: 'center', padding: '10px 12px', verticalAlign: 'middle' }}>{labelFor(m)}</td>
@@ -284,12 +289,25 @@ export default function AccessControl() {
                             <td className="px-3 py-1.5" style={{ textAlign: 'center', padding: '10px 12px', verticalAlign: 'middle' }}>
                               <input
                                 type="checkbox"
-                                checked={editLocked ? isProtected : canEdit}
-                                disabled={isProtected || editLocked || !canView}
-                                title={editLocked ? 'Administrator-only, always' : !canView ? 'Grant View first' : ''}
+                                checked={manageLocked ? isProtected : canCreate}
+                                disabled={isProtected || manageLocked || !canView}
+                                title={manageLocked ? 'Administrator-only, always' : !canView ? 'Grant View first' : ''}
+                                aria-label={`${canCreate ? 'Allow' : 'Deny'} ${role} to create ${labelFor(m)}`}
+                                onChange={() => toggle(role, 'create', m)}
+                              />
+                            </td>
+                            <td className="px-3 py-1.5" style={{ textAlign: 'center', padding: '10px 12px', verticalAlign: 'middle' }}>
+                              <input
+                                type="checkbox"
+                                checked={manageLocked ? isProtected : canEdit}
+                                disabled={isProtected || manageLocked || !canView}
+                                title={manageLocked ? 'Administrator-only, always' : !canView ? 'Grant View first' : ''}
                                 aria-label={`${canEdit ? 'Allow' : 'Deny'} ${role} to edit ${labelFor(m)}`}
                                 onChange={() => toggle(role, 'edit', m)}
                               />
+                            </td>
+                            <td className="px-3 py-1.5" style={{ color: isProtected ? '#8cd4aa' : '#9bb4c9', textAlign: 'center', padding: '10px 12px', verticalAlign: 'middle', fontSize: 11 }}>
+                              {isProtected ? 'Allowed' : 'Admin only'}
                             </td>
                           </tr>
                         );

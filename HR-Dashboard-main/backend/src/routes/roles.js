@@ -40,7 +40,7 @@ function normalizeRoleName(role) {
 }
 
 router.put('/', requireAdmin, async (req, res) => {
-  const { role, modules, edit, companies } = req.body || {};
+  const { role, modules, create, edit, companies } = req.body || {};
   const cleanRole = normalizeRoleName(role);
 
   if (!cleanRole) {
@@ -48,7 +48,7 @@ router.put('/', requireAdmin, async (req, res) => {
   }
 
   try {
-    const updated = await setRolePermissions(cleanRole, { modules, edit, companies });
+    const updated = await setRolePermissions(cleanRole, { modules, create, edit, companies });
     res.json({ role: cleanRole, ...updated });
   } catch (e) {
     res.status(400).json({ error: e.message });
@@ -57,10 +57,10 @@ router.put('/', requireAdmin, async (req, res) => {
 
 router.put('/:role', requireAdmin, async (req, res) => {
   const role = normalizeRoleName(req.params.role);
-  const { modules, edit, companies } = req.body || {};
+  const { modules, create, edit, companies } = req.body || {};
 
   try {
-    const updated = await setRolePermissions(role, { modules, edit, companies });
+    const updated = await setRolePermissions(role, { modules, create, edit, companies });
     res.json({ role, ...updated });
   } catch (e) {
     res.status(400).json({ error: e.message });

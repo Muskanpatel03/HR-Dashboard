@@ -7,6 +7,7 @@ const { pool } = require('../db');
 const { MODULES } = require('../config/modules');
 const {
   canView,
+  canCreate,
   canEdit,
   canAccessCompany,
   getRoleCompanies,
@@ -143,7 +144,7 @@ router.post('/:module', async (req, res) => {
   const { module: moduleKey } = req.params;
   const conf = MODULES[moduleKey];
   if (!conf) return res.status(404).json({ error: 'Unknown module' });
-  if (!canEdit(req.user.role, permissionModuleKey(moduleKey))) return res.status(403).json({ error: 'Not permitted to add records here' });
+  if (!canCreate(req.user.role, permissionModuleKey(moduleKey))) return res.status(403).json({ error: 'Not permitted to add records here' });
   const body = bodyForModule(moduleKey, req.body);
   if (moduleKey === 'usersmgmt' && !ASSIGNABLE_ROLES.includes(body.role)) {
     return res.status(400).json({ error: 'Select a valid designation for this user.' });

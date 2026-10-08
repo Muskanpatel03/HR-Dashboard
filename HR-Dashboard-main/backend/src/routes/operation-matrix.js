@@ -1,7 +1,7 @@
 const express = require('express');
 const { pool } = require('../db');
 const { authenticate } = require('../middleware/auth');
-const { canView, canEdit, canAccessCompany } = require('../config/roles');
+const { canView, canCreate, canEdit, canAccessCompany } = require('../config/roles');
 
 const router = express.Router();
 router.use(authenticate);
@@ -63,10 +63,6 @@ router.get('/', async (req, res) => {
 });
 
 router.put('/', async (req, res) => {
-  if (!canEdit(req.user.role, 'operationMatrix')) {
-    return res.status(403).json({ error: 'Not permitted to edit the Operation Matrix' });
-  }
-
   const { industry, data } = req.body || {};
   if (!INDUSTRIES.includes(industry) || !validMatrix(data)) {
     return res.status(400).json({ error: 'Invalid Operation Matrix data' });
@@ -82,13 +78,29 @@ router.put('/', async (req, res) => {
       'SELECT data FROM operation_matrix_by_industry WHERE industry = $1 FOR UPDATE',
       [industry]
     );
-    if (req.user.role !== 'Administrator') {
-      const currentRows = current.rows[0]?.data?.particulars || [];
-      const nextRowIds = new Set(data.particulars.map((row) => row.id));
-      if (currentRows.some((row) => !nextRowIds.has(row.id))) {
-        await client.query('ROLLBACK');
-        return res.status(403).json({ error: 'Only an Administrator can delete Operation Matrix rows' });
-      }
+    const currentData = current.rows[0]?.data || { fiscalYearEnd: data.fiscalYearEnd, reportMonth: data.reportMonth, particulars: [] };
+    const currentRows = currentData.particulars || [];
+    const currentRowsById = new Map(currentRows.map((row) => [row.id, row]));
+    const nextRowsById = new Map(data.particulars.map((row) => [row.id, row]));
+    const hasAddedRows = data.particulars.some((row) => !currentRowsById.has(row.id));
+    const hasUpdatedRows = currentRows.some((row) => {
+      const nextRow = nextRowsById.get(row.id);
+      return nextRow && JSON.stringify(row) !== JSON.stringify(nextRow);
+    });
+    const hasDeletedRows = currentRows.some((row) => !nextRowsById.has(row.id));
+    const hasUpdatedSettings = currentData.fiscalYearEnd !== data.fiscalYearEnd || currentData.reportMonth !== data.reportMonth;
+
+    if (hasDeletedRows && req.user.role !== 'Administrator') {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Only an Administrator can delete Operation Matrix rows' });
+    }
+    if (hasAddedRows && !canCreate(req.user.role, 'operationMatrix')) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Not permitted to create Operation Matrix rows' });
+    }
+    if ((hasUpdatedRows || hasUpdatedSettings) && !canEdit(req.user.role, 'operationMatrix')) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Not permitted to edit the Operation Matrix' });
     }
     const result = await client.query(
       `INSERT INTO operation_matrix_by_industry (industry, data, updated_by, updated_at)

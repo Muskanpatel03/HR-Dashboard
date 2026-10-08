@@ -603,6 +603,7 @@ function ModuleChart({
 export default function ModuleView({
   config,
   editable,
+  creatable = false,
   canDelete = false,
   recordFilter,
   defaultValues = {},
@@ -1267,7 +1268,7 @@ export default function ModuleView({
 
           {/* Add record */}
 
-          {editable && (
+          {creatable && (
             <button
               onClick={openNew}
               className="flex items-center gap-1.5 px-3 py-2 text-sm rounded"
@@ -1326,7 +1327,7 @@ export default function ModuleView({
           VIEW ONLY NOTICE
       ==================================================== */}
 
-      {!editable && (
+      {!editable && !creatable && (
         <div
           className="flex items-center gap-1.5 px-3 py-2 rounded text-xs"
           style={{
@@ -1396,6 +1397,7 @@ export default function ModuleView({
                   return departments.includes(record.departmentProduction);
                 })
               : displayRows;
+              const showActions = canEditRows || (canDelete && (!periodField || period === "Monthly"));
 
             const groupColSpan =
               group.fields.length +
@@ -1403,7 +1405,7 @@ export default function ModuleView({
               (showComputed
                 ? computedFields.length
                 : 0) +
-              (editable ? 1 : 0);
+              (showActions ? 1 : 0);
 
             return (
               <div
@@ -1512,7 +1514,7 @@ export default function ModuleView({
 
                       {/* Actions header */}
 
-                      {editable && (
+                      {showActions && (
                         <th
                           className="px-3 py-2"
                           style={{
@@ -1650,35 +1652,26 @@ export default function ModuleView({
 
                             {/* Actions */}
 
-                            {editable && (
+                            {showActions && (
                               <td className="px-3 py-2">
                                 <div className="flex gap-2">
 
                                   {/* Edit */}
 
-                                  <button
-                                    onClick={() =>
-                                      openEdit(
-                                        record
-                                      )
-                                    }
-                                    style={{
-                                      color:
-                                        C.steel,
-                                    }}
-                                    title="Edit"
-                                  >
-                                    <Pencil
-                                      size={
-                                        14
-                                      }
-                                    />
-                                  </button>
+                                  {canEditRows && (
+                                    <button
+                                      onClick={() => openEdit(record)}
+                                      style={{ color: C.steel }}
+                                      title="Edit"
+                                    >
+                                      <Pencil size={14} />
+                                    </button>
+                                  )}
 
 
                                   {/* Delete */}
 
-                                  {canDelete && (
+                                  {canDelete && (!periodField || period === "Monthly") && (
                                     <button
                                       onClick={() => remove(record.id)}
                                       style={{ color: C.rust }}
@@ -1766,7 +1759,7 @@ export default function ModuleView({
 
                           {/* Action column */}
 
-                          {editable && (
+                          {showActions && (
                             <td className="px-3 py-2" />
                           )}
 
