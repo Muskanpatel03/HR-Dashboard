@@ -14,6 +14,16 @@ pool.on('error', (err) => {
 
 async function ensureCurrentSchema() {
   const migrations = [
+    'ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS password_hash TEXT',
+    'ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS department TEXT',
+    'ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS designation TEXT',
+    'ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS location TEXT',
+    "ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'Viewer'",
+    "ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'Active'",
+    'ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT false',
+    "ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS permissions JSONB NOT NULL DEFAULT '{}'::jsonb",
+    'ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now()',
+    'ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now()',
     `ALTER TABLE IF EXISTS role_permissions
      ADD COLUMN IF NOT EXISTS company_access JSONB NOT NULL
      DEFAULT '["Automat Industries (Site 4)", "Automat Irrigation", "Smith3", "HO"]'::jsonb`,

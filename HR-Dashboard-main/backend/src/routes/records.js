@@ -49,6 +49,12 @@ function normalizeValue(val, type) {
   }
   return val;
 }
+
+function bodyForModule(moduleKey, body) {
+  if (moduleKey !== 'usersmgmt') return body;
+  return { ...body, role: body.designation || body.role };
+}
+
 function toJsRow(dbRow, columns) {
   const out = { id: dbRow.id };
 
@@ -138,14 +144,15 @@ router.post('/:module', async (req, res) => {
   const conf = MODULES[moduleKey];
   if (!conf) return res.status(404).json({ error: 'Unknown module' });
   if (!canEdit(req.user.role, permissionModuleKey(moduleKey))) return res.status(403).json({ error: 'Not permitted to add records here' });
-  if (moduleKey === 'usersmgmt' && !ASSIGNABLE_ROLES.includes(req.body.role)) {
-    return res.status(400).json({ error: 'That role cannot be assigned. Viewer accounts are self-signup only.' });
+  const body = bodyForModule(moduleKey, req.body);
+  if (moduleKey === 'usersmgmt' && !ASSIGNABLE_ROLES.includes(body.role)) {
+    return res.status(400).json({ error: 'Select a valid designation for this user.' });
   }
   if (isCompanyScoped(moduleKey)) {
-    if (!ALL_COMPANY_IDS.includes(req.body.company)) {
+    if (!ALL_COMPANY_IDS.includes(body.company)) {
       return res.status(400).json({ error: 'Select a company for this record' });
     }
-    if (!canReadCompany(req.user.role, req.body.company)) {
+    if (!canReadCompany(req.user.role, body.company)) {
       return res.status(403).json({ error: 'Not permitted to access this company' });
     }
   }
@@ -154,12 +161,12 @@ router.post('/:module', async (req, res) => {
   try {
     const columns = columnsFor(moduleKey, conf);
     const dbCols = columns.map((c) => c.db);
-    const values = columns.map((c) => normalizeValue(req.body[c.js], c.type));
+    const values = columns.map((c) => normalizeValue(body[c.js], c.type));
     let insertCols = [...dbCols];
     let insertVals = [...values];
 
-    if (moduleKey === 'usersmgmt' && req.body.password) {
-      const hash = await bcrypt.hash(String(req.body.password), 10);
+    if (moduleKey === 'usersmgmt' && body.password) {
+      const hash = await bcrypt.hash(String(body.password), 10);
       insertCols.push('password_hash');
       insertVals.push(hash);
     }
@@ -190,14 +197,15 @@ router.put('/:module/:id', async (req, res) => {
   const conf = MODULES[moduleKey];
   if (!conf) return res.status(404).json({ error: 'Unknown module' });
   if (!canEdit(req.user.role, permissionModuleKey(moduleKey))) return res.status(403).json({ error: 'Not permitted to edit records here' });
-  if (moduleKey === 'usersmgmt' && !ASSIGNABLE_ROLES.includes(req.body.role)) {
-    return res.status(400).json({ error: 'That role cannot be assigned. Viewer accounts are self-signup only.' });
+  const body = bodyForModule(moduleKey, req.body);
+  if (moduleKey === 'usersmgmt' && !ASSIGNABLE_ROLES.includes(body.role)) {
+    return res.status(400).json({ error: 'Select a valid designation for this user.' });
   }
   if (isCompanyScoped(moduleKey)) {
-    if (!ALL_COMPANY_IDS.includes(req.body.company)) {
+    if (!ALL_COMPANY_IDS.includes(body.company)) {
       return res.status(400).json({ error: 'Select a company for this record' });
     }
-    if (!canReadCompany(req.user.role, req.body.company)) {
+    if (!canReadCompany(req.user.role, body.company)) {
       return res.status(403).json({ error: 'Not permitted to access this company' });
     }
   }
@@ -206,12 +214,12 @@ router.put('/:module/:id', async (req, res) => {
   try {
     const columns = columnsFor(moduleKey, conf);
     const setParts = columns.map((c, i) => `${c.db} = $${i + 1}`);
-    const values = columns.map((c) => normalizeValue(req.body[c.js], c.type));
+    const values = columns.map((c) => normalizeValue(body[c.js], c.type));
     let setClause = `${setParts.join(', ')}, updated_at = now()`;
     let params = [...values];
 
-    if (moduleKey === 'usersmgmt' && req.body.password) {
-      const hash = await bcrypt.hash(String(req.body.password), 10);
+    if (moduleKey === 'usersmgmt' && body.password) {
+      const hash = await bcrypt.hash(String(body.password), 10);
       params.push(hash);
       setClause += `, password_hash = $${params.length}`;
     }
@@ -231,11 +239,11 @@ router.put('/:module/:id', async (req, res) => {
       return res.status(403).json({ error: 'Not permitted to access this company' });
     }
     if (isCompanyScoped(moduleKey)) {
-      if (!ALL_COMPANY_IDS.includes(req.body.company)) {
+      if (!ALL_COMPANY_IDS.includes(body.company)) {
         await client.query('ROLLBACK');
         return res.status(400).json({ error: 'Select a company for this record' });
       }
-      if (!canReadCompany(req.user.role, req.body.company)) {
+      if (!canReadCompany(req.user.role, body.company)) {
         await client.query('ROLLBACK');
         return res.status(403).json({ error: 'Not permitted to access this company' });
       }
