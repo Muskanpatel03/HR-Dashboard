@@ -127,8 +127,8 @@ export const MODULES = [
     { name: 'plannedIndirectCount', label: 'Planned Indirect', type: 'number' },
     { name: 'directCount', label: 'Actual Direct', type: 'number' },
     { name: 'indirectCount', label: 'Actual Indirect', type: 'number' },
-    { name: 'plannedCostPerPerson', label: 'Planned Cost / Person (₹)', type: 'number' },
-    { name: 'actualCostPerPerson', label: 'Actual Cost / Person (₹)', type: 'number' },
+    { name: 'plannedCostPerPerson', label: 'Planned Cost / Person (₹)', type: 'number', noSum: true, weightFields: ['plannedDirectCount', 'plannedIndirectCount'] },
+    { name: 'actualCostPerPerson', label: 'Actual Cost / Person (₹)', type: 'number', noSum: true, weightFields: ['directCount', 'indirectCount'] },
   ]},
   { key: 'recruitment', label: 'Recruitment', icon: Briefcase, showTotals: true, wrapHeaders: true, fields: [
     { name: 'openingType', label: 'Opening Type', type: 'select', options: ['New', 'Replacement'] },

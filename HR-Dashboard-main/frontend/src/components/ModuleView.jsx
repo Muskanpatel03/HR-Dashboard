@@ -147,6 +147,7 @@ function periodKey(monthStr, period) {
 function weightedAvg(rows, f) {
   let num = 0, den = 0;
   rows.forEach((r) => {
+    if (r[f.name] === undefined || r[f.name] === null || r[f.name] === "") return;
     const w = f.weightFields.reduce((s, k) => s + (Number(r[k]) || 0), 0);
     num += (Number(r[f.name]) || 0) * w;
     den += w;
@@ -1707,7 +1708,9 @@ export default function ModuleView({
                                 {fieldIndex === 0
                                   ? "Total"
                                   : field.type === "number"
-                                    ? filtered.reduce((sum, record) => sum + (Number(record[field.name]) || 0), 0).toLocaleString("en-IN")
+                                    ? field.noSum
+                                      ? weightedAvg(filtered, field).toLocaleString("en-IN", { maximumFractionDigits: 2 })
+                                      : filtered.reduce((sum, record) => sum + (Number(record[field.name]) || 0), 0).toLocaleString("en-IN")
                                     : ""}
                               </td>
                               {isLast && config.computedAfterField === field.name && computedFields.map((computed) => (

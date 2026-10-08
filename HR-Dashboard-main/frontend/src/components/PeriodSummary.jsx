@@ -19,6 +19,23 @@ function num(v) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function weightedAvg(rows, field) {
+  let weightedTotal = 0;
+  let totalWeight = 0;
+  rows.forEach((row) => {
+    const value = row[field.name];
+    if (value === undefined || value === null || value === "") return;
+    const weight = field.weightFields.reduce((sum, key) => sum + num(row[key]), 0);
+    weightedTotal += num(value) * weight;
+    totalWeight += weight;
+  });
+  return totalWeight > 0 ? weightedTotal / totalWeight : 0;
+}
+
+function formatNumber(value) {
+  return Number(value).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+}
+
 // A record's "month" field is "YYYY-MM" (native <input type="month"> value).
 // Bucket it into the right label + a lexically-sortable key for the chosen period.
 function bucketFor(monthStr, period) {
@@ -152,7 +169,9 @@ export default function PeriodSummary({ config, records }) {
                   className="px-3 py-2 nowrap-cell"
                   style={{ fontFamily: FONT_MONO }}
                 >
-                  {b.rows.reduce((s, r) => s + num(r[f.name]), 0).toLocaleString("en-IN")}
+                  {formatNumber(f.noSum
+                    ? weightedAvg(b.rows, f)
+                    : b.rows.reduce((s, r) => s + num(r[f.name]), 0))}
                 </td>
               ))}
               {computedFields.map((c) => (
@@ -173,7 +192,9 @@ export default function PeriodSummary({ config, records }) {
               </td>
               {numericFields.map((f) => (
                 <td key={f.name} className="px-3 py-2 nowrap-cell" style={{ fontFamily: FONT_MONO, color: C.ink }}>
-                  {records.reduce((s, r) => s + num(r[f.name]), 0).toLocaleString("en-IN")}
+                  {formatNumber(f.noSum
+                    ? weightedAvg(records, f)
+                    : records.reduce((s, r) => s + num(r[f.name]), 0))}
                 </td>
               ))}
               {computedFields.map((c) => (
