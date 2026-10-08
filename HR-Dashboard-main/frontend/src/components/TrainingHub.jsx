@@ -6,9 +6,12 @@ import { C, MODULE_MAP } from '../config';
 const SECTIONS = [
   { key: 'Behavioural', label: 'Behavioural' },
   { key: 'Technical (Site 4)', label: 'Technical (Site 4)' },
+  { key: 'SME', label: 'SME' },
+  { key: 'Coach In', label: 'Coach In' },
+  { key: 'EHS', label: 'EHS' },
 ];
 
-export default function TrainingHub({ canEditModule, companyId, onCompanyChange, allowedCompanies }) {
+export default function TrainingHub({ canEditModule, canDelete, companyId, onCompanyChange, allowedCompanies }) {
   const [active, setActive] = useState(SECTIONS[0].key);
   const section = SECTIONS.find((item) => item.key === active);
 
@@ -35,6 +38,7 @@ export default function TrainingHub({ canEditModule, companyId, onCompanyChange,
       <ModuleView
         config={MODULE_MAP.training}
         editable={canEditModule('training')}
+        canDelete={canDelete}
         recordFilter={(record) => record.section === section.key}
         defaultValues={{ section: section.key }}
         companyId={companyId}

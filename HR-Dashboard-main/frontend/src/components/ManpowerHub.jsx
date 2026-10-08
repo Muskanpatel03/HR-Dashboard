@@ -12,6 +12,7 @@ const TABS = [
 export default function ManpowerHub({
   visibleModuleKeys,
   canEditModule,
+  canDelete,
   companyId,
   onCompanyChange,
   allowedCompanies,
@@ -125,6 +126,7 @@ export default function ManpowerHub({
       <ModuleView
         config={active === 'daily' ? DAILY_MANPOWER_CONFIG : MODULE_MAP.manpower}
         editable={canEditModule('manpower')}
+        canDelete={canDelete}
         companyId={companyId}
         onRecordsChange={setDailyRecords}
       />

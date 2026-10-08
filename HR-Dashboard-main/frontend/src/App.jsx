@@ -629,6 +629,7 @@ export default function App() {
           {active === 'dashboard' && canSeeDashboard && (
             <Dashboard
               editable={canEditModule('operationMatrix')}
+              canDelete={user?.role === 'Administrator'}
               canViewMatrix={canViewModule('operationMatrix') || canSeeDashboard}
               companyId={companyId}
               onCompanyChange={handleCompanyChange}
@@ -664,6 +665,7 @@ export default function App() {
               canEditModule={
                 canEditModule
               }
+              canDelete={user?.role === 'Administrator'}
               companyId={companyId}
               onCompanyChange={handleCompanyChange}
               allowedCompanies={allowedCompanies}
@@ -671,13 +673,14 @@ export default function App() {
           )}
 
           {active === 'training' && (
-            <TrainingHub canEditModule={canEditModule} companyId={companyId} onCompanyChange={handleCompanyChange} allowedCompanies={allowedCompanies} />
+            <TrainingHub canEditModule={canEditModule} canDelete={user?.role === 'Administrator'} companyId={companyId} onCompanyChange={handleCompanyChange} allowedCompanies={allowedCompanies} />
           )}
 
           {active === 'manpower' && (
             <ManpowerHub
               visibleModuleKeys={visibleModuleKeys}
               canEditModule={canEditModule}
+              canDelete={user?.role === 'Administrator'}
               companyId={companyId}
               onCompanyChange={handleCompanyChange}
               allowedCompanies={allowedCompanies}
@@ -700,6 +703,7 @@ export default function App() {
                 <ModuleView
                   config={MODULE_MAP[active]}
                   editable={canEditModule(active)}
+                  canDelete={user?.role === 'Administrator'}
                   companyId={companyId}
                 />
               </>

@@ -265,7 +265,7 @@ router.delete('/:module/:id', async (req, res) => {
   const { module: moduleKey, id } = req.params;
   const conf = MODULES[moduleKey];
   if (!conf) return res.status(404).json({ error: 'Unknown module' });
-  if (!canEdit(req.user.role, permissionModuleKey(moduleKey))) return res.status(403).json({ error: 'Not permitted to delete records here' });
+  if (req.user.role !== 'Administrator') return res.status(403).json({ error: 'Only an Administrator can delete records' });
 
   const client = await pool.connect();
   try {

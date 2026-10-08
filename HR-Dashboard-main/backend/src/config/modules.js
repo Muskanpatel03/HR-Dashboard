@@ -337,6 +337,11 @@ const MODULES = {
         db: "bill_amount",
         type: "number",
       },
+      {
+        js: "remarks",
+        db: "remarks",
+        type: "text",
+      },
     ],
   },
 
@@ -365,6 +370,16 @@ const MODULES = {
       {
         js: "employeeRecovery",
         db: "employee_recovery",
+        type: "number",
+      },
+      {
+        js: "managementCoupon",
+        db: "management_coupon",
+        type: "number",
+      },
+      {
+        js: "visitorsCustomers",
+        db: "visitors_customers",
         type: "number",
       },
     ],

@@ -198,12 +198,15 @@ export const MODULES = [
     { name: 'closingReading', label: 'Closing Reading', type: 'number' },
     { name: 'solarGeneration', label: 'Solar Generation (units)', type: 'number' },
     { name: 'billAmount', label: 'Bill Amount', type: 'number' },
+    { name: 'remarks', label: 'Remarks', type: 'text' },
   ]},
   { key: 'canteen', label: 'Canteen', icon: UtensilsCrossed, showTotals: true, wrapHeaders: true, fields: [
     { name: 'month', label: 'Month', type: 'month' },
     { name: 'location', label: 'Location', type: 'text' },
     { name: 'monthlyBill', label: 'Monthly Bill', type: 'number' },
     { name: 'employeeRecovery', label: 'Employee Recovery', type: 'number' },
+    { name: 'managementCoupon', label: 'Management Coupon', type: 'number' },
+    { name: 'visitorsCustomers', label: 'Visitors/Customers', type: 'number' },
   ]},
   {
   key: 'healthcheck',
@@ -283,7 +286,7 @@ export const MODULES = [
   label: 'Training',
   icon: CalendarDays,
   showTotals: true, wrapHeaders: true, fields: [
-    { name: 'section', label: 'Training Section', type: 'select', options: ['Behavioural', 'Technical (Site 4)'] },
+    { name: 'section', label: 'Training Section', type: 'select', options: ['Behavioural', 'Technical (Site 4)', 'SME', 'Coach In', 'EHS'] },
     { name: 'trainingName', label: 'Training Name', type: 'text' },
     { name: 'location', label: 'Location', type: 'text' },
     { name: 'trainingDate', label: 'Training Date', type: 'date' },

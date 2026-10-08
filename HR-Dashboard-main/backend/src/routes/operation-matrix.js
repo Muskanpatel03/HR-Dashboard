@@ -78,6 +78,18 @@ router.put('/', async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    const current = await client.query(
+      'SELECT data FROM operation_matrix_by_industry WHERE industry = $1 FOR UPDATE',
+      [industry]
+    );
+    if (req.user.role !== 'Administrator') {
+      const currentRows = current.rows[0]?.data?.particulars || [];
+      const nextRowIds = new Set(data.particulars.map((row) => row.id));
+      if (currentRows.some((row) => !nextRowIds.has(row.id))) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ error: 'Only an Administrator can delete Operation Matrix rows' });
+      }
+    }
     const result = await client.query(
       `INSERT INTO operation_matrix_by_industry (industry, data, updated_by, updated_at)
        VALUES ($1, $2, $3, now())

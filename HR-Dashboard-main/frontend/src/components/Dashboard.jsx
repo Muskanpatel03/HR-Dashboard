@@ -830,7 +830,7 @@ export function DashboardSummary({ allowedCompanies }) {
   );
 }
 
-export default function Dashboard({ editable, canViewMatrix, companyId, onCompanyChange, allowedCompanies = COMPANY_OPTIONS }) {
+export default function Dashboard({ editable, canDelete, canViewMatrix, companyId, onCompanyChange, allowedCompanies = COMPANY_OPTIONS }) {
   const selectedCompany = COMPANY_OPTIONS.find((company) => company.id === companyId);
   const canSelectAll = allowedCompanies.length === COMPANY_OPTIONS.length;
 
@@ -899,6 +899,7 @@ export default function Dashboard({ editable, canViewMatrix, companyId, onCompan
             industry={selectedCompany.id}
             label={selectedCompany.label}
             editable={editable}
+            canDelete={canDelete}
           /> : <div className="company-selector-detail">Select one company to open its Operation Matrix.</div>}
         </>
       )}

@@ -42,7 +42,7 @@ function newRow() {
   };
 }
 
-export default function OperationMatrix({ industry, label = industry, editable }) {
+export default function OperationMatrix({ industry, label = industry, editable, canDelete = false }) {
   const [data, setData] = useState(INITIAL_DATA);
   const [search, setSearch] = useState('');
   const [sortDirection, setSortDirection] = useState(null);
@@ -247,7 +247,7 @@ export default function OperationMatrix({ industry, label = industry, editable }
                 </th>
               ))}
               {monthYearColumns.map((column) => <th key={column.key} rowSpan={2}>{column.label}</th>)}
-              {editable && <th rowSpan={2} aria-label="Row actions" />}
+              {canDelete && <th rowSpan={2} aria-label="Row actions" />}
             </tr>
             <tr>
               {fiscalHeaderGroups.filter((group) => group.grouped).flatMap((group) =>
@@ -298,7 +298,7 @@ export default function OperationMatrix({ industry, label = industry, editable }
                     )}
                   </td>
                 ))}
-                {editable && (
+                {canDelete && (
                   <td className="operation-matrix-row-action">
                     <button
                       type="button"
@@ -315,7 +315,7 @@ export default function OperationMatrix({ industry, label = industry, editable }
             ))}
             {visibleRows.length === 0 && (
               <tr>
-                <td colSpan={columns.length + (editable ? 3 : 2)} className="operation-matrix-empty">
+                <td colSpan={columns.length + (canDelete ? 3 : 2)} className="operation-matrix-empty">
                   {search ? 'No matching particulars.' : 'No particulars yet. Add a row to start building the matrix.'}
                 </td>
               </tr>

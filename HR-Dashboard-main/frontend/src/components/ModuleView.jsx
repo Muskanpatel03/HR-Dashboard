@@ -601,6 +601,7 @@ function ModuleChart({
 export default function ModuleView({
   config,
   editable,
+  canDelete = false,
   recordFilter,
   defaultValues = {},
   companyId,
@@ -1661,24 +1662,15 @@ export default function ModuleView({
 
                                   {/* Delete */}
 
-                                  <button
-                                    onClick={() =>
-                                      remove(
-                                        record.id
-                                      )
-                                    }
-                                    style={{
-                                      color:
-                                        C.rust,
-                                    }}
-                                    title="Delete"
-                                  >
-                                    <Trash2
-                                      size={
-                                        14
-                                      }
-                                    />
-                                  </button>
+                                  {canDelete && (
+                                    <button
+                                      onClick={() => remove(record.id)}
+                                      style={{ color: C.rust }}
+                                      title="Delete"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  )}
 
                                 </div>
                               </td>

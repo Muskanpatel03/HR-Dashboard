@@ -214,6 +214,7 @@ CREATE TABLE IF NOT EXISTS electricity (
   closing_reading NUMERIC,
   solar_generation NUMERIC,
   bill_amount NUMERIC,
+  remarks TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -224,9 +225,15 @@ CREATE TABLE IF NOT EXISTS canteen (
   location TEXT,
   monthly_bill NUMERIC,
   employee_recovery NUMERIC,
+  management_coupon INTEGER,
+  visitors_customers INTEGER,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
+
+ALTER TABLE electricity ADD COLUMN IF NOT EXISTS remarks TEXT;
+ALTER TABLE canteen ADD COLUMN IF NOT EXISTS management_coupon INTEGER;
+ALTER TABLE canteen ADD COLUMN IF NOT EXISTS visitors_customers INTEGER;
 
 CREATE TABLE IF NOT EXISTS healthcheck (
   id SERIAL PRIMARY KEY,
