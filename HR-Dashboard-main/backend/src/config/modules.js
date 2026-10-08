@@ -70,6 +70,7 @@ const MODULES = {
   table: 'daily_manpower',
   columns: [
     { js: 'date', db: 'date', type: 'date' },
+    { js: 'departmentType', db: 'department_type', type: 'text' },
     { js: 'departmentProduction', db: 'department_production', type: 'text' },
     { js: 'fixedManpower', db: 'fixed_manpower', type: 'number' },
     { js: 'dayShift', db: 'day_shift', type: 'number' },

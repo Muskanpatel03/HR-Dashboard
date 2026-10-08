@@ -101,6 +101,7 @@ CREATE TABLE IF NOT EXISTS daily_manpower (
   night_shift INTEGER,
   absent INTEGER,
   double_shift INTEGER,
+  department_type TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -114,10 +115,17 @@ ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS night_shift INTEGER;
 ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS absent INTEGER;
 ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS double_shift INTEGER;
 ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS department_production TEXT;
+ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS department_type TEXT;
 UPDATE daily_manpower
 SET department_production = CONCAT_WS(' - ', NULLIF(department, ''), NULLIF(production::TEXT, ''))
 WHERE department_production IS NULL
   AND (department IS NOT NULL OR production IS NOT NULL);
+UPDATE daily_manpower
+SET department_type = CASE
+  WHEN department_production IN ('QC & RD', 'Water Flow Meter', 'ACCOUNTS_DAY', 'PURCHASE DAY', 'PROJECTS/WAREHOUSE', 'HR', 'ADMIN', 'PANTRY', 'GAURAD_SBD', 'DRIVER', 'GARDENER', 'HK', 'ABSOLUTE 4 SECURITY', 'IT', 'Hadar') THEN 'Non-Production'
+  ELSE 'Production'
+END
+WHERE department_type IS NULL AND department_production IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS recruitment (
   id SERIAL PRIMARY KEY,

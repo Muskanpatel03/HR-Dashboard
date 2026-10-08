@@ -328,17 +328,53 @@ MODULES.forEach((module) => {
   if (module.key !== 'usersmgmt') module.fields.unshift(companyField);
 });
 
+const PRODUCTION_DAILY_DEPARTMENTS = [
+  'PROD_AIPL', 'PROD_IND', 'PROD_MISC', 'DISPATCH', 'SHOP FLOOR QC', 'O & M',
+  'INVENTORY CONTROL / STORE', 'OTHERS_ROMIL_JI', 'OUTSOURCES Welder & Carpenter, Other',
+];
+
+const NON_PRODUCTION_DAILY_DEPARTMENTS = [
+  'QC & RD', 'Water Flow Meter', 'ACCOUNTS_DAY', 'PURCHASE DAY', 'PROJECTS/WAREHOUSE',
+  'HR', 'ADMIN', 'PANTRY', 'GAURAD_SBD', 'DRIVER', 'GARDENER', 'HK', 'ABSOLUTE 4 SECURITY', 'IT', 'Hadar',
+];
+
 export const DAILY_MANPOWER_CONFIG = {
   key: 'dailyManpower',
   label: 'Daily Manpower',
   showTotals: true,
   showSerialNumber: true,
   computedAfterField: 'nightShift',
+  totalLabelField: 'departmentProduction',
   wrapHeaders: true,
+  columnGroups: [
+    {
+      title: 'Production Department',
+      filterField: 'departmentType',
+      filterValue: 'Production',
+      fields: ['date', 'departmentProduction', 'fixedManpower', 'dayShift', 'nightShift', 'absent', 'doubleShift'],
+    },
+    {
+      title: 'Non-Production Department',
+      filterField: 'departmentType',
+      filterValue: 'Non-Production',
+      fields: ['date', 'departmentProduction', 'fixedManpower', 'dayShift', 'nightShift', 'absent', 'doubleShift'],
+    },
+  ],
   fields: [
     { name: 'date', label: 'Date', type: 'date' },
-    { name: 'departmentProduction', label: 'Department_Production', type: 'text' },
-    { name: 'fixedManpower', label: 'Fixed Manpower', type: 'number' },
+    { name: 'departmentType', label: 'Department Type', type: 'select', options: ['Production', 'Non-Production'] },
+    {
+      name: 'departmentProduction',
+      label: 'Department',
+      type: 'select',
+      optionsFor: (values) => values.departmentType === 'Non-Production'
+        ? NON_PRODUCTION_DAILY_DEPARTMENTS
+        : values.departmentType === 'Production'
+          ? PRODUCTION_DAILY_DEPARTMENTS
+          : [...PRODUCTION_DAILY_DEPARTMENTS, ...NON_PRODUCTION_DAILY_DEPARTMENTS],
+      resetOnChange: ['departmentType'],
+    },
+    { name: 'fixedManpower', label: 'Fix Manpower', type: 'number' },
     { name: 'dayShift', label: 'Day Shift', type: 'number' },
     { name: 'nightShift', label: 'Night Shift', type: 'number' },
     { name: 'absent', label: 'Absent', type: 'number' },

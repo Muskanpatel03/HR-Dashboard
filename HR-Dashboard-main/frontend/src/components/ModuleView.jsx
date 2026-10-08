@@ -40,6 +40,7 @@ import {
   COMPUTED,
   CHARTS,
   COMPANY_OPTIONS,
+  DAILY_MANPOWER_CONFIG,
 } from "../config";
 
 
@@ -712,6 +713,7 @@ export default function ModuleView({
       ...(config.key === "recruitment" ? { numberOfPositions: 1 } : {}),
       ...(companyId && companyId !== 'all' ? { company: companyId } : {}),
       ...(config.key === "dailyManpower" && selectedDate ? { date: selectedDate } : {}),
+      ...(config.key === "dailyManpower" ? { departmentType: 'Production' } : {}),
     });
     setEditingId(null);
     setShowForm(true);
@@ -1018,6 +1020,8 @@ export default function ModuleView({
     return config.columnGroups.map(
       (group) => ({
         title: group.title,
+        filterField: group.filterField,
+        filterValue: group.filterValue,
 
         fields: group.fields
           .map((fieldName) =>
@@ -1381,11 +1385,22 @@ export default function ModuleView({
             const isLast =
               groupIndex ===
               groups.length - 1;
+            const showComputed = isLast || config.key === "dailyManpower";
+            const groupRows = group.filterField
+              ? displayRows.filter((record) => {
+                  const value = record[group.filterField];
+                  if (value) return value === group.filterValue;
+                  const departments = group.filterValue === 'Production'
+                    ? DAILY_MANPOWER_CONFIG.fields.find((field) => field.name === 'departmentProduction').optionsFor({ departmentType: 'Production' })
+                    : DAILY_MANPOWER_CONFIG.fields.find((field) => field.name === 'departmentProduction').optionsFor({ departmentType: 'Non-Production' });
+                  return departments.includes(record.departmentProduction);
+                })
+              : displayRows;
 
             const groupColSpan =
               group.fields.length +
               (config.showSerialNumber ? 1 : 0) +
-              (isLast
+              (showComputed
                 ? computedFields.length
                 : 0) +
               (editable ? 1 : 0);
@@ -1460,7 +1475,7 @@ export default function ModuleView({
                               ? sort.dir === "asc" ? " ▲" : " ▼"
                               : ""}
                           </th>
-                          {isLast && config.computedAfterField === field.name && computedFields.map((computed) => (
+                          {showComputed && config.computedAfterField === field.name && computedFields.map((computed) => (
                             <th key={computed.name} style={{ color: C.steel, fontSize: 11.5, minWidth: 110 }} className="text-left px-3 py-2 font-medium whitespace-normal break-words leading-tight align-bottom">
                               {computed.label}
                             </th>
@@ -1471,7 +1486,7 @@ export default function ModuleView({
 
                       {/* Computed headers */}
 
-                      {isLast && !config.computedAfterField &&
+                      {showComputed && !config.computedAfterField &&
                         computedFields.map(
                           (computed) => (
                             <th
@@ -1541,7 +1556,7 @@ export default function ModuleView({
                     {/* Empty */}
 
                     {!loading &&
-                      filtered.length ===
+                      groupRows.length ===
                         0 && (
                         <tr>
                           <td
@@ -1565,7 +1580,7 @@ export default function ModuleView({
                     {/* Records */}
 
                     {!loading &&
-                      filtered.map(
+                      groupRows.map(
                         (record, rowIndex) => (
                           <tr
                             key={
@@ -1596,7 +1611,7 @@ export default function ModuleView({
                                     ? formatDate(record[f.name])
                                     : record[f.name] || "—"}
                                 </td>
-                                {isLast && config.computedAfterField === f.name && computedFields.map((computed) => (
+                                {showComputed && config.computedAfterField === f.name && computedFields.map((computed) => (
                                   <td key={computed.name} className="px-3 py-2 nowrap-cell" style={{ fontFamily: FONT_MONO, color: C.steel, minWidth: 110 }}>
                                     {computed.compute(record)}
                                   </td>
@@ -1607,7 +1622,7 @@ export default function ModuleView({
 
                             {/* Computed fields */}
 
-                            {isLast && !config.computedAfterField &&
+                            {showComputed && !config.computedAfterField &&
                               computedFields.map(
                                 (
                                   computed
@@ -1687,7 +1702,7 @@ export default function ModuleView({
                     ================================================== */}
 
                     {config.showTotals &&
-                      filtered.length >
+                      groupRows.length >
                         0 && (
                         <tr
                           style={{
@@ -1705,17 +1720,17 @@ export default function ModuleView({
                                 className={`px-3 py-2 ${config.wrapHeaders && field.type !== "number" ? "whitespace-normal break-words" : "nowrap-cell"}`}
                                 style={{ fontFamily: field.type === "number" ? FONT_MONO : FONT_BODY, color: C.ink }}
                               >
-                                {fieldIndex === 0
+                                {field.name === config.totalLabelField || (!config.totalLabelField && fieldIndex === 0)
                                   ? "Total"
                                   : field.type === "number"
                                     ? field.noSum
-                                      ? weightedAvg(filtered, field).toLocaleString("en-IN", { maximumFractionDigits: 2 })
-                                      : filtered.reduce((sum, record) => sum + (Number(record[field.name]) || 0), 0).toLocaleString("en-IN")
+                                      ? weightedAvg(groupRows, field).toLocaleString("en-IN", { maximumFractionDigits: 2 })
+                                      : groupRows.reduce((sum, record) => sum + (Number(record[field.name]) || 0), 0).toLocaleString("en-IN")
                                     : ""}
                               </td>
-                              {isLast && config.computedAfterField === field.name && computedFields.map((computed) => (
+                              {showComputed && config.computedAfterField === field.name && computedFields.map((computed) => (
                                 <td key={computed.name} className="px-3 py-2 nowrap-cell" style={{ fontFamily: FONT_MONO, color: C.steel }}>
-                                  {computed.total ? computed.total(filtered) : ""}
+                                  {computed.total ? computed.total(groupRows) : ""}
                                 </td>
                               ))}
                             </React.Fragment>
@@ -1724,7 +1739,7 @@ export default function ModuleView({
 
                           {/* Computed totals */}
 
-                          {isLast && !config.computedAfterField &&
+                          {showComputed && !config.computedAfterField &&
                             computedFields.map(
                               (computed) => (
                                 <td
@@ -1741,7 +1756,7 @@ export default function ModuleView({
                                 >
                                   {computed.total
                                     ? computed.total(
-                                        filtered
+                                        groupRows
                                       )
                                     : ""}
                                 </td>

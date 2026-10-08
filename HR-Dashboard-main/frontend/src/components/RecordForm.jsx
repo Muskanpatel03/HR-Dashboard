@@ -3,7 +3,11 @@ import { X } from 'lucide-react';
 import { C, FONT_HEAD, FONT_MONO, COMPUTED } from '../config';
 
 export default function RecordForm({ config, values, setValues, onCancel, onSubmit, isEdit }) {
-  const set = (name, val) => setValues((prev) => ({ ...prev, [name]: val }));
+  const set = (name, val, resetOnChange = []) => setValues((prev) => {
+    const next = { ...prev, [name]: val };
+    resetOnChange.forEach((fieldName) => { next[fieldName] = ''; });
+    return next;
+  });
   const computedFields = COMPUTED[config.key] || [];
 
   return (
@@ -21,12 +25,12 @@ export default function RecordForm({ config, values, setValues, onCancel, onSubm
             {f.type === 'select' ? (
               <select
                 value={values[f.name] || ''}
-                onChange={(e) => set(f.name, e.target.value)}
+                onChange={(e) => set(f.name, e.target.value, f.resetOnChange)}
                 className="record-entry-control w-full mt-1 px-2.5 py-1.5 text-sm rounded"
                 style={{ border: `1px solid ${C.line}` }}
               >
                 <option value="">Select…</option>
-                {f.options.map((option) => {
+                {(f.optionsFor ? f.optionsFor(values) : f.options).map((option) => {
                   const optionValue = typeof option === 'object' ? option.value : option;
                   const optionLabel = typeof option === 'object' ? option.label : option;
                   return <option key={optionValue} value={optionValue}>{optionLabel}</option>;
