@@ -1399,7 +1399,7 @@ export default function ModuleView({
           values={formValues}
           setValues={setFormValues}
           onCancel={closeForm}
-          onSubmit={submit}
+          onSubmit={() => submit(false)}
           onSubmitAndNew={() => submit(true)}
           isEdit={!!editingId}
         />
