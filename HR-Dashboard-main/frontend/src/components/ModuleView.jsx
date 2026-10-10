@@ -661,6 +661,14 @@ export default function ModuleView({
     setSelectedDate("");
   }, [companyId]);
 
+  useEffect(() => {
+    if (!showForm || editingId || !config.fields.some((field) => field.name === 'company')) return;
+    setFormValues((current) => ({
+      ...current,
+      company: companyId && companyId !== 'all' ? companyId : '',
+    }));
+  }, [companyId, config.fields, editingId, showForm]);
+
   const toggleSort = (field) =>
     setSort((s) =>
       s && s.field === field
