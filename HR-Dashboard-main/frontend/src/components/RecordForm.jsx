@@ -2,7 +2,7 @@ import React from 'react';
 import { X } from 'lucide-react';
 import { C, FONT_HEAD, FONT_MONO, COMPUTED } from '../config';
 
-export default function RecordForm({ config, values, setValues, onCancel, onSubmit, isEdit }) {
+export default function RecordForm({ config, values, setValues, onCancel, onSubmit, onSubmitAndNew, isEdit }) {
   const set = (name, val, resetOnChange = []) => setValues((prev) => {
     const next = { ...prev, [name]: val };
     resetOnChange.forEach((fieldName) => { next[fieldName] = ''; });
@@ -78,6 +78,11 @@ export default function RecordForm({ config, values, setValues, onCancel, onSubm
         <button onClick={onSubmit} className="px-4 py-2 text-sm rounded" style={{ background: C.steel, color: '#fff' }}>
           {isEdit ? 'Save changes' : 'Add record'}
         </button>
+        {!isEdit && onSubmitAndNew && (
+          <button onClick={onSubmitAndNew} className="px-4 py-2 text-sm rounded" style={{ border: `1px solid ${C.steel}`, color: C.steel }}>
+            Save &amp; add another
+          </button>
+        )}
         <button onClick={onCancel} className="px-4 py-2 text-sm rounded" style={{ border: `1px solid ${C.line}`, color: C.ink2 }}>
           Cancel
         </button>

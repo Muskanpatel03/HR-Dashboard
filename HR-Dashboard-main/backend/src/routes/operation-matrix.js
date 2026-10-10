@@ -7,7 +7,7 @@ const router = express.Router();
 router.use(authenticate);
 const INDUSTRIES = [
   'Automat Industries (Site 4)',
-  'Smith3',
+  'Smith',
   'Automat Irrigation',
   'HO',
 ];

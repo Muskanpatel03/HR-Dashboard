@@ -12,6 +12,7 @@ import {
   Trash2,
   AlertCircle,
   Download,
+  Upload,
 } from "lucide-react";
 
 import {
@@ -30,6 +31,7 @@ import {
 
 import api from "../api";
 import RecordForm from "./RecordForm";
+import ExcelImport from './ExcelImport';
 import PeriodSummary from "./PeriodSummary";
 
 import {
@@ -622,6 +624,8 @@ export default function ModuleView({
   const [showForm, setShowForm] =
     useState(false);
 
+  const [showImport, setShowImport] = useState(false);
+
   const [editingId, setEditingId] =
     useState(null);
 
@@ -708,14 +712,16 @@ export default function ModuleView({
   // NEW RECORD
   // ==========================================================
 
-  const openNew = () => {
-    setFormValues({
+  const newRecordValues = () => ({
       ...defaultValues,
       ...(config.key === "recruitment" ? { numberOfPositions: 1 } : {}),
       ...(companyId && companyId !== 'all' ? { company: companyId } : {}),
       ...(config.key === "dailyManpower" && selectedDate ? { date: selectedDate } : {}),
       ...(config.key === "dailyManpower" ? { departmentType: 'Production' } : {}),
-    });
+  });
+
+  const openNew = () => {
+    setFormValues(newRecordValues());
     setEditingId(null);
     setShowForm(true);
   };
@@ -750,7 +756,7 @@ export default function ModuleView({
   // SAVE RECORD
   // ==========================================================
 
-  const submit = async () => {
+  const submit = async (addAnother = false) => {
     try {
       if (editingId) {
         await api.put(
@@ -764,9 +770,12 @@ export default function ModuleView({
         );
       }
 
-      closeForm();
-
       await load();
+      if (addAnother && !editingId) {
+        setFormValues(newRecordValues());
+      } else {
+        closeForm();
+      }
     } catch (err) {
       alert(
         err.response?.data?.error ||
@@ -1266,6 +1275,18 @@ export default function ModuleView({
           </button>
 
 
+          {creatable && (
+            <button
+              type="button"
+              onClick={() => setShowImport(true)}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm rounded"
+              style={{ border: `1px solid ${C.line}`, color: C.ink }}
+            >
+              <Upload size={14} />
+              Import Excel
+            </button>
+          )}
+
           {/* Add record */}
 
           {creatable && (
@@ -1285,6 +1306,15 @@ export default function ModuleView({
 
         </div>
       </div>
+
+      {showImport && creatable && (
+        <ExcelImport
+          config={config}
+          companyId={companyId}
+          onClose={() => setShowImport(false)}
+          onImported={load}
+        />
+      )}
 
       {config.key === "dailyManpower" && dailyManpowerDates.length > 0 && (
         <section className="daily-manpower-date-panel" aria-label="Daily manpower dates">
@@ -1370,6 +1400,7 @@ export default function ModuleView({
           setValues={setFormValues}
           onCancel={closeForm}
           onSubmit={submit}
+          onSubmitAndNew={() => submit(true)}
           isEdit={!!editingId}
         />
       )}

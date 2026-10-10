@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, ArrowDownAZ, ArrowUpAZ, Check, Plus, Save, Search, Trash2 } from 'lucide-react';
+import { AlertCircle, ArrowDownAZ, ArrowUpAZ, Check, FileSpreadsheet, Plus, Save, Search, Trash2 } from 'lucide-react';
 import api from '../api';
+import OperationMatrixExcelImport from './OperationMatrixExcelImport';
 import { C, FONT_HEAD } from '../config';
 
 const INITIAL_DATA = {
@@ -42,7 +43,7 @@ function newRow() {
   };
 }
 
-export default function OperationMatrix({ industry, label = industry, editable, canDelete = false }) {
+export default function OperationMatrix({ industry, label = industry, editable, creatable = editable, canDelete = false }) {
   const [data, setData] = useState(INITIAL_DATA);
   const [search, setSearch] = useState('');
   const [sortDirection, setSortDirection] = useState(null);
@@ -52,6 +53,7 @@ export default function OperationMatrix({ industry, label = industry, editable, 
   const [error, setError] = useState('');
   const [savedMessage, setSavedMessage] = useState('');
   const [lastSaved, setLastSaved] = useState(null);
+  const [showImport, setShowImport] = useState(false);
 
   useEffect(() => {
     api.get('/operation-matrix', { params: { industry } })
@@ -115,7 +117,7 @@ export default function OperationMatrix({ industry, label = industry, editable, 
     if (incompleteRow) {
       setError('Enter a particular name for each row, or remove rows that are not needed, before saving.');
       document.getElementById(`matrix-particular-${incompleteRow.id}`)?.focus();
-      return;
+      return false;
     }
 
     setSaving(true);
@@ -127,8 +129,10 @@ export default function OperationMatrix({ industry, label = industry, editable, 
       setLastSaved({ by: response.data.updated_by, at: response.data.updated_at });
       setDirty(false);
       setSavedMessage('Saved');
+      return true;
     } catch (requestError) {
       setError(requestError.response?.data?.error || 'Could not save the Operation Matrix.');
+      return false;
     } finally {
       setSaving(false);
     }
@@ -231,7 +235,21 @@ export default function OperationMatrix({ industry, label = industry, editable, 
             <Plus size={16} /> <span>Add particular</span>
           </button>
         )}
+        {creatable && (
+          <button type="button" className="operation-matrix-add" disabled={saving} onClick={() => setShowImport(true)}>
+            <FileSpreadsheet size={16} /> <span>Import Excel</span>
+          </button>
+        )}
       </div>
+
+      {showImport && creatable && (
+        <OperationMatrixExcelImport
+          columns={columns}
+          existingCount={data.particulars.length}
+          onClose={() => setShowImport(false)}
+          onImport={async (rows) => save({ ...data, particulars: [...data.particulars, ...rows] })}
+        />
+      )}
 
       {error && <div role="alert" className="operation-matrix-error"><AlertCircle size={16} />{error}</div>}
 

@@ -23,7 +23,7 @@ const { pool } = require('../db');
 const ALL_COMPANY_IDS = [
   'Automat Industries (Site 4)',
   'Automat Irrigation',
-  'Smith3',
+  'Smith',
   'HO',
 ];
 

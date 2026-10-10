@@ -35,7 +35,7 @@ export const FONT_MONO = "'IBM Plex Mono', 'Courier New', monospace";
 export const COMPANY_OPTIONS = [
   { id: 'Automat Industries (Site 4)', label: 'Automat Industries (Site 4)', shortLabel: 'Site 4', accent: 'hsl(207, 42%, 53%)' },
   { id: 'Automat Irrigation', label: 'Automat Irrigation', shortLabel: 'Irrigation', accent: 'hsl(184, 42%, 43%)' },
-  { id: 'Smith3', label: 'Smith', shortLabel: 'Smith', accent: 'hsl(31, 65%, 48%)' },
+  { id: 'Smith', label: 'Smith', shortLabel: 'Smith', accent: 'hsl(31, 65%, 48%)' },
   { id: 'HO', label: 'HO', shortLabel: 'Head Office', accent: 'hsl(145, 32%, 43%)' },
 ];
 
@@ -47,12 +47,15 @@ export const RECRUITMENT_STAGES = [
 
 // Master Department list — used everywhere a "Department" dropdown appears.
 export const DEPARTMENTS = [
-  'ACCOUNT & FINANCE', 'ADMIN', 'CEO OFFICE', 'Civil Maintainance', 'DISPATCH',
-  'EXPORTS', 'HUMAN RESOURCE', 'INVENTORY CONTROL', 'IT', 'LOGISTICS',
-  'MAINTENANCE', 'MARKETING', 'O & M', 'PENTRY', 'PRODUCTION', 'PROJECTS',
-  'PURCHASE', 'QC_SHOP FLOOR', 'QUALITY CONTROL', 'R&D', 'SALES',
-  'SALES_CENTRAL', 'Sales_HO', 'Sales_Hyderabad', 'TOOL ROOM', 'WAREHOUSE',
-  'Water Meter',
+  'ACCOUNT & FINANCE', 'ADMIN', 'CEO OFFICE',
+  { value: 'Civil Maintainance', label: 'CIVIL MAINTAINANCE' },
+  'DISPATCH', 'EXPORTS', 'HUMAN RESOURCE', 'INVENTORY CONTROL', 'IT', 'LOGISTICS',
+  'MAINTENANCE', 'MARKETING', 'NPD', 'O & M',
+  { value: 'PANTRY', label: 'PANTRY' },
+  'PRODUCTION', 'PROJECTS', 'PURCHASE', 'QC_SHOP FLOOR', 'QUALITY', 'QUALITY CONTROL', 'R&D',
+  'SALES', 'SALES_CENTRAL', { value: 'Sales_HO', label: 'SALES_HO' },
+  { value: 'Sales_Hyderabad', label: 'SALES_HYDERABAD' },
+  'TOOL ROOM', 'WAREHOUSE', { value: 'Water Meter', label: 'WATER METER' },
 ];
 
 // Master Designation list — used for the Designation dropdown (User Management).

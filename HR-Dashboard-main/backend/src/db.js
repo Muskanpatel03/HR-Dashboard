@@ -26,7 +26,7 @@ async function ensureCurrentSchema() {
     'ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now()',
     `ALTER TABLE IF EXISTS role_permissions
      ADD COLUMN IF NOT EXISTS company_access JSONB NOT NULL
-     DEFAULT '["Automat Industries (Site 4)", "Automat Irrigation", "Smith3", "HO"]'::jsonb`,
+     DEFAULT '["Automat Industries (Site 4)", "Automat Irrigation", "Smith", "HO"]'::jsonb`,
     'ALTER TABLE IF EXISTS role_permissions ADD COLUMN IF NOT EXISTS create_modules JSONB',
     'UPDATE role_permissions SET create_modules = edit WHERE create_modules IS NULL',
     "ALTER TABLE IF EXISTS role_permissions ALTER COLUMN create_modules SET DEFAULT '[]'::jsonb",
@@ -157,8 +157,42 @@ async function ensureCurrentSchema() {
      FROM operation_matrix WHERE id = 1
      ON CONFLICT (industry) DO NOTHING`,
     `INSERT INTO operation_matrix_by_industry (industry)
-     VALUES ('Smith3'), ('Automat Irrigation'), ('HO')
+     VALUES ('Smith'), ('Automat Irrigation'), ('HO')
      ON CONFLICT (industry) DO NOTHING`,
+    `UPDATE role_permissions
+     SET company_access = (
+       SELECT COALESCE(jsonb_agg(to_jsonb(company_name) ORDER BY ordinal), '[]'::jsonb)
+       FROM (
+         SELECT DISTINCT CASE WHEN value = 'Smith3' THEN 'Smith' ELSE value END AS company_name,
+                min(ordinality) AS ordinal
+         FROM jsonb_array_elements_text(company_access) WITH ORDINALITY AS access(value, ordinality)
+         GROUP BY CASE WHEN value = 'Smith3' THEN 'Smith' ELSE value END
+       ) normalized
+     )
+     WHERE company_access @> '["Smith3"]'::jsonb`,
+    `INSERT INTO operation_matrix_by_industry (industry, data, updated_by, updated_at)
+     SELECT 'Smith', data, updated_by, updated_at
+     FROM operation_matrix_by_industry WHERE industry = 'Smith3'
+     ON CONFLICT (industry) DO UPDATE SET
+       data = CASE
+         WHEN jsonb_array_length(operation_matrix_by_industry.data->'particulars') = 0
+           THEN EXCLUDED.data
+         ELSE jsonb_set(
+           operation_matrix_by_industry.data,
+           '{particulars}',
+           (operation_matrix_by_industry.data->'particulars') || COALESCE((
+             SELECT jsonb_agg(old_row)
+             FROM jsonb_array_elements(EXCLUDED.data->'particulars') AS old_row
+             WHERE NOT EXISTS (
+               SELECT 1 FROM jsonb_array_elements(operation_matrix_by_industry.data->'particulars') AS current_row
+               WHERE current_row->>'id' = old_row->>'id'
+             )
+           ), '[]'::jsonb)
+         )
+       END,
+       updated_by = COALESCE(operation_matrix_by_industry.updated_by, EXCLUDED.updated_by),
+       updated_at = GREATEST(operation_matrix_by_industry.updated_at, EXCLUDED.updated_at)`,
+    `DELETE FROM operation_matrix_by_industry WHERE industry = 'Smith3'`,
   ];
 
   const companyTables = [
@@ -168,6 +202,8 @@ async function ensureCurrentSchema() {
   ];
   companyTables.forEach((table) => {
     migrations.push(`ALTER TABLE IF EXISTS ${table} ADD COLUMN IF NOT EXISTS company TEXT`);
+    // Preserve rows saved under the old company ID after the rename.
+    migrations.push(`UPDATE ${table} SET company = 'Smith' WHERE company = 'Smith3'`);
   });
 
   for (const migration of migrations) {

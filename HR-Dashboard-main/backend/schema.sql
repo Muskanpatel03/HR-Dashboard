@@ -31,12 +31,12 @@ CREATE TABLE IF NOT EXISTS role_permissions (
   modules JSONB NOT NULL DEFAULT '[]'::jsonb,
   create_modules JSONB NOT NULL DEFAULT '[]'::jsonb,
   edit JSONB NOT NULL DEFAULT '[]'::jsonb,
-  company_access JSONB NOT NULL DEFAULT '["Automat Industries (Site 4)", "Automat Irrigation", "Smith3", "HO"]'::jsonb,
+  company_access JSONB NOT NULL DEFAULT '["Automat Industries (Site 4)", "Automat Irrigation", "Smith", "HO"]'::jsonb,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 ALTER TABLE role_permissions ADD COLUMN IF NOT EXISTS company_access JSONB NOT NULL
-  DEFAULT '["Automat Industries (Site 4)", "Automat Irrigation", "Smith3", "HO"]'::jsonb;
+  DEFAULT '["Automat Industries (Site 4)", "Automat Irrigation", "Smith", "HO"]'::jsonb;
 ALTER TABLE role_permissions ADD COLUMN IF NOT EXISTS create_modules JSONB;
 UPDATE role_permissions SET create_modules = edit WHERE create_modules IS NULL;
 ALTER TABLE role_permissions ALTER COLUMN create_modules SET DEFAULT '[]'::jsonb;
@@ -64,8 +64,29 @@ FROM operation_matrix WHERE id = 1
 ON CONFLICT (industry) DO NOTHING;
 
 INSERT INTO operation_matrix_by_industry (industry)
-VALUES ('Smith3'), ('Automat Irrigation'), ('HO')
+VALUES ('Smith'), ('Automat Irrigation'), ('HO')
 ON CONFLICT (industry) DO NOTHING;
+
+INSERT INTO operation_matrix_by_industry (industry, data, updated_by, updated_at)
+SELECT 'Smith', data, updated_by, updated_at
+FROM operation_matrix_by_industry WHERE industry = 'Smith3'
+ON CONFLICT (industry) DO UPDATE SET
+  data = CASE
+    WHEN jsonb_array_length(operation_matrix_by_industry.data->'particulars') = 0 THEN EXCLUDED.data
+    ELSE jsonb_set(
+      operation_matrix_by_industry.data,
+      '{particulars}',
+      (operation_matrix_by_industry.data->'particulars') || COALESCE((
+        SELECT jsonb_agg(old_row)
+        FROM jsonb_array_elements(EXCLUDED.data->'particulars') AS old_row
+        WHERE NOT EXISTS (
+          SELECT 1 FROM jsonb_array_elements(operation_matrix_by_industry.data->'particulars') AS current_row
+          WHERE current_row->>'id' = old_row->>'id'
+        )
+      ), '[]'::jsonb)
+    )
+  END;
+DELETE FROM operation_matrix_by_industry WHERE industry = 'Smith3';
 
 CREATE TABLE IF NOT EXISTS email_otps (
   id SERIAL PRIMARY KEY,
@@ -373,6 +394,24 @@ ALTER TABLE training ADD COLUMN IF NOT EXISTS trainer TEXT;
 ALTER TABLE training ADD COLUMN IF NOT EXISTS number_of_people INTEGER;
 ALTER TABLE training ADD COLUMN IF NOT EXISTS average_rating NUMERIC;
 ALTER TABLE training ADD COLUMN IF NOT EXISTS remarks TEXT;
+
+-- Preserve records created before the company ID was corrected to Smith.
+UPDATE manpower SET company = 'Smith' WHERE company = 'Smith3';
+UPDATE daily_manpower SET company = 'Smith' WHERE company = 'Smith3';
+UPDATE recruitment SET company = 'Smith' WHERE company = 'Smith3';
+UPDATE hiring SET company = 'Smith' WHERE company = 'Smith3';
+UPDATE separation SET company = 'Smith' WHERE company = 'Smith3';
+UPDATE loan_summary SET company = 'Smith' WHERE company = 'Smith3';
+UPDATE retirement SET company = 'Smith' WHERE company = 'Smith3';
+UPDATE electricity SET company = 'Smith' WHERE company = 'Smith3';
+UPDATE canteen SET company = 'Smith' WHERE company = 'Smith3';
+UPDATE healthcheck SET company = 'Smith' WHERE company = 'Smith3';
+UPDATE engagement SET company = 'Smith' WHERE company = 'Smith3';
+UPDATE training SET company = 'Smith' WHERE company = 'Smith3';
+UPDATE attendance SET company = 'Smith' WHERE company = 'Smith3';
+UPDATE role_permissions
+SET company_access = (company_access - 'Smith3') || '["Smith"]'::jsonb
+WHERE company_access @> '["Smith3"]'::jsonb AND NOT company_access @> '["Smith"]'::jsonb;
 
 ALTER TABLE IF EXISTS manpower ADD COLUMN IF NOT EXISTS company TEXT;
 ALTER TABLE IF EXISTS daily_manpower ADD COLUMN IF NOT EXISTS company TEXT;
