@@ -98,7 +98,7 @@ export default function OperationMatrixExcelImport({ columns, existingCount, onC
   return (
     <section className="rounded p-4 space-y-3" style={{ background: C.card, border: `1px solid ${C.line}` }}>
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2" style={{ color: C.ink, fontWeight: 600 }}><FileSpreadsheet size={17} /> Import Operation Matrix particulars</div>
+        <div className="flex items-center gap-2" style={{ color: C.ink, fontWeight: 600 }}><FileSpreadsheet size={17} /> Import HR Matrix data</div>
         <button type="button" onClick={onClose} disabled={busy} aria-label="Close Excel import"><X size={17} /></button>
       </div>
       <p className="text-xs" style={{ color: C.ink2 }}>Use the current matrix headers plus a Particular or Particulars column. Missing value columns stay blank. Imported rows are appended to this company’s matrix.</p>

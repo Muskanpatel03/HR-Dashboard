@@ -51,11 +51,49 @@ router.get('/', async (req, res) => {
   }
 
   try {
-    const { rows } = await pool.query(
-      'SELECT data, updated_by, updated_at FROM operation_matrix_by_industry WHERE industry = $1',
+    const requestedFy = Number(req.query.fiscalYearEnd);
+    const requestedMonth = typeof req.query.reportMonth === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(req.query.reportMonth)
+      ? req.query.reportMonth
+      : null;
+    const hasPeriod = Number.isInteger(requestedFy) && requestedFy >= 2000 && requestedFy <= 2100 && requestedMonth;
+    const periodsResult = await pool.query(
+      'SELECT fiscal_year_end, report_month, updated_by, updated_at FROM operation_matrix_periods WHERE industry = $1 ORDER BY report_month DESC, fiscal_year_end DESC',
       [industry]
     );
-    res.json(rows[0]);
+    let selected;
+    if (hasPeriod) {
+      const periodResult = await pool.query(
+        'SELECT data, updated_by, updated_at FROM operation_matrix_periods WHERE industry = $1 AND fiscal_year_end = $2 AND report_month = $3',
+        [industry, requestedFy, requestedMonth]
+      );
+      selected = periodResult.rows[0] || {
+        data: { fiscalYearEnd: requestedFy, reportMonth: requestedMonth, particulars: [] },
+        updated_by: null,
+        updated_at: null,
+      };
+    } else if (periodsResult.rows.length) {
+      const latest = periodsResult.rows[0];
+      const latestResult = await pool.query(
+        'SELECT data, updated_by, updated_at FROM operation_matrix_periods WHERE industry = $1 AND fiscal_year_end = $2 AND report_month = $3',
+        [industry, latest.fiscal_year_end, latest.report_month]
+      );
+      selected = latestResult.rows[0];
+    } else {
+      const currentResult = await pool.query(
+        'SELECT data, updated_by, updated_at FROM operation_matrix_by_industry WHERE industry = $1',
+        [industry]
+      );
+      selected = currentResult.rows[0];
+    }
+    res.json({
+      ...(selected || {}),
+      periods: periodsResult.rows.map((period) => ({
+        fiscalYearEnd: period.fiscal_year_end,
+        reportMonth: period.report_month,
+        updated_by: period.updated_by,
+        updated_at: period.updated_at,
+      })),
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to load the Operation Matrix' });
@@ -109,6 +147,13 @@ router.put('/', async (req, res) => {
        SET data = EXCLUDED.data, updated_by = EXCLUDED.updated_by, updated_at = now()
        RETURNING data, updated_by, updated_at`,
       [industry, JSON.stringify(data), req.user.name]
+    );
+    await client.query(
+      `INSERT INTO operation_matrix_periods (industry, fiscal_year_end, report_month, data, updated_by, updated_at)
+       VALUES ($1, $2, $3, $4, $5, now())
+       ON CONFLICT (industry, fiscal_year_end, report_month) DO UPDATE
+       SET data = EXCLUDED.data, updated_by = EXCLUDED.updated_by, updated_at = now()`,
+      [industry, data.fiscalYearEnd, data.reportMonth, JSON.stringify(data), req.user.name]
     );
     await client.query(
       'INSERT INTO audit_log (user_name, role, module, action, detail, company) VALUES ($1, $2, $3, $4, $5, $6)',

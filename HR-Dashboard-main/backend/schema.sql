@@ -88,6 +88,23 @@ ON CONFLICT (industry) DO UPDATE SET
   END;
 DELETE FROM operation_matrix_by_industry WHERE industry = 'Smith3';
 
+CREATE TABLE IF NOT EXISTS operation_matrix_periods (
+  industry TEXT NOT NULL,
+  fiscal_year_end INTEGER NOT NULL,
+  report_month TEXT NOT NULL,
+  data JSONB NOT NULL,
+  updated_by TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (industry, fiscal_year_end, report_month)
+);
+
+INSERT INTO operation_matrix_periods (industry, fiscal_year_end, report_month, data, updated_by, updated_at)
+SELECT industry, (data->>'fiscalYearEnd')::integer, data->>'reportMonth', data, updated_by, updated_at
+FROM operation_matrix_by_industry
+WHERE data->>'fiscalYearEnd' ~ '^[0-9]{4}$'
+  AND data->>'reportMonth' ~ '^\d{4}-(0[1-9]|1[0-2])$'
+ON CONFLICT (industry, fiscal_year_end, report_month) DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS email_otps (
   id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

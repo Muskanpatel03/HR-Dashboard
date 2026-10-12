@@ -9,6 +9,52 @@ const INITIAL_DATA = {
   reportMonth: '2026-08',
   particulars: [],
 };
+const HR_SECTION_PARTICULARS = [
+  'Manpower', 'Daily Manpower', 'Recruitment', 'Open Position Recruitment',
+  'Hiring', 'Separation', 'Attendance', 'Retirement', 'Loan Summary',
+  'Electricity', 'Canteen', 'Health Check', 'Engagement', 'Training',
+];
+
+function includeHrSectionRows(matrixData) {
+  const rows = Array.isArray(matrixData.particulars) ? matrixData.particulars : [];
+  const existing = new Set(rows.map((row) => String(row.particular || '').trim().toLocaleLowerCase()));
+  const missing = HR_SECTION_PARTICULARS
+    .filter((name) => !existing.has(name.toLocaleLowerCase()))
+    .map((name) => ({ id: `hr-section-${name.toLocaleLowerCase().replace(/[^a-z0-9]+/g, '-')}`, particular: name, values: {} }));
+  return { ...matrixData, particulars: [...rows, ...missing] };
+}
+
+function linkedSectionValue(particular, summary) {
+  const definitions = {
+    'Manpower': ['manpower', summary.kpis?.totalManpower],
+    'Daily Manpower': ['manpower', summary.dailyManpowerRecords?.[0]?.total],
+    'Recruitment': ['recruitment', summary.kpis?.candidatesInPipeline],
+    'Open Position Recruitment': ['recruitment', summary.kpis?.openPositions],
+    'Hiring': ['hiring', summary.kpis?.newJoiners],
+    'Separation': ['separation', summary.kpis?.separations],
+    'Attendance': ['attendance', summary.kpis?.absenteeism],
+    'Retirement': ['retirement', summary.kpis?.futureRetirements],
+    'Loan Summary': ['loanSummary', (summary.loanByUnit || []).reduce((total, unit) => total + (Number(unit.outstanding) || 0), 0)],
+    'Electricity': ['electricity', summary.kpis?.electricityCost],
+    'Canteen': ['canteen', summary.kpis?.canteenCost],
+    'Health Check': ['healthcheck', summary.kpis?.healthcheckUsed],
+    'Engagement': ['engagement', summary.kpis?.engagementCount],
+    'Training': ['training', summary.kpis?.trainingsCount],
+  };
+  const [permission, value] = definitions[particular] || [];
+  return permission && summary.permissions?.[permission] ? Number(value) || 0 : null;
+}
+const matrixCache = new Map();
+
+export function preloadOperationMatrix(industry) {
+  if (!matrixCache.has(industry)) {
+    const request = api.get('/operation-matrix', { params: { industry } })
+      .then((response) => response.data)
+      .catch((error) => { matrixCache.delete(industry); throw error; });
+    matrixCache.set(industry, request);
+  }
+  return Promise.resolve(matrixCache.get(industry));
+}
 
 function fiscalYearLabel(year) {
   const normalized = Number(year);
@@ -31,7 +77,7 @@ function makeColumns(fiscalYearEnd, reportMonth) {
     { key: `actual Target-${fiscalYearEnd}`, label: 'Actual Target', group: currentYear },
     { key: `revised Target-${fiscalYearEnd}`, label: 'Revised Target', group: currentYear },
     { key: `month-${reportMonth}`, label: monthLabel },
-    { key: `ytd-${reportMonth}`, label: 'YTD' },
+    { key: `ytd-${reportMonth}`, label: 'FY Total' },
   ];
 }
 
@@ -44,32 +90,56 @@ function newRow() {
 }
 
 export default function OperationMatrix({ industry, label = industry, editable, creatable = editable, canDelete = false }) {
-  const [data, setData] = useState(INITIAL_DATA);
+  const [data, setData] = useState(() => {
+    const cached = matrixCache.get(industry);
+    return cached && typeof cached.then !== 'function' ? includeHrSectionRows(cached.data || INITIAL_DATA) : includeHrSectionRows(INITIAL_DATA);
+  });
   const [search, setSearch] = useState('');
   const [sortDirection, setSortDirection] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !matrixCache.has(industry) || Boolean(matrixCache.get(industry)?.then));
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState('');
   const [savedMessage, setSavedMessage] = useState('');
   const [lastSaved, setLastSaved] = useState(null);
+  const [periods, setPeriods] = useState([]);
+  const [selectedPeriod, setSelectedPeriod] = useState('');
+  const [linkedMetrics, setLinkedMetrics] = useState({ month: null, year: null });
   const [showImport, setShowImport] = useState(false);
 
   useEffect(() => {
-    api.get('/operation-matrix', { params: { industry } })
+    preloadOperationMatrix(industry)
       .then((response) => {
-        setData(response.data?.data || INITIAL_DATA);
-        setLastSaved(response.data?.updated_at ? {
-          by: response.data.updated_by,
-          at: response.data.updated_at,
+        matrixCache.set(industry, response);
+        setData(includeHrSectionRows(response?.data || INITIAL_DATA));
+        setLastSaved(response?.updated_at ? {
+          by: response.updated_by,
+          at: response.updated_at,
         } : null);
+        setPeriods(response?.periods || []);
+        setSelectedPeriod(response?.data ? `${response.data.fiscalYearEnd}|${response.data.reportMonth}` : '');
         setDirty(false);
       })
       .catch((requestError) => {
-        setError(requestError.response?.data?.error || 'Could not load the Operation Matrix.');
+        setError(requestError.response?.data?.error || 'Could not load HR Matrix.');
       })
       .finally(() => setLoading(false));
   }, [industry]);
+
+  useEffect(() => {
+    if (!data.reportMonth || !data.fiscalYearEnd) return;
+    const financialYearStart = Number(data.fiscalYearEnd) - 1;
+    let cancelled = false;
+    Promise.all([
+      api.get('/dashboard', { params: { company: industry, range: 'selectedMonth', date: `${data.reportMonth}-01` } }),
+      api.get('/dashboard', { params: { company: industry, range: 'fy', year: financialYearStart } }),
+    ])
+      .then(([monthResponse, yearResponse]) => {
+        if (!cancelled) setLinkedMetrics({ month: monthResponse.data, year: yearResponse.data });
+      })
+      .catch(() => { if (!cancelled) setLinkedMetrics({ month: null, year: null }); });
+    return () => { cancelled = true; };
+  }, [industry, data.reportMonth, data.fiscalYearEnd]);
 
   const columns = useMemo(
     () => makeColumns(data.fiscalYearEnd, data.reportMonth),
@@ -125,16 +195,44 @@ export default function OperationMatrix({ industry, label = industry, editable, 
     setSavedMessage('');
     try {
       const response = await api.put('/operation-matrix', { industry, data: nextData });
+      matrixCache.set(industry, response.data);
       setData(response.data.data);
+      const savedPeriod = `${response.data.data.fiscalYearEnd}|${response.data.data.reportMonth}`;
+      setSelectedPeriod(savedPeriod);
+      setPeriods((current) => [
+        { fiscalYearEnd: response.data.data.fiscalYearEnd, reportMonth: response.data.data.reportMonth, updated_by: response.data.updated_by, updated_at: response.data.updated_at },
+        ...current.filter((period) => `${period.fiscalYearEnd}|${period.reportMonth}` !== savedPeriod),
+      ].sort((left, right) => right.reportMonth.localeCompare(left.reportMonth)));
       setLastSaved({ by: response.data.updated_by, at: response.data.updated_at });
       setDirty(false);
       setSavedMessage('Saved');
       return true;
     } catch (requestError) {
-      setError(requestError.response?.data?.error || 'Could not save the Operation Matrix.');
+      setError(requestError.response?.data?.error || 'Could not save HR Matrix.');
       return false;
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function openSavedPeriod(value) {
+    if (!value || value === selectedPeriod) return;
+    const [fiscalYearEnd, reportMonth] = value.split('|');
+    setLoading(true);
+    setError('');
+    try {
+      const response = await api.get('/operation-matrix', { params: { industry, fiscalYearEnd, reportMonth } });
+      matrixCache.set(industry, response.data);
+      setData(includeHrSectionRows(response.data?.data || INITIAL_DATA));
+      setLastSaved(response.data?.updated_at ? { by: response.data.updated_by, at: response.data.updated_at } : null);
+      setPeriods(response.data?.periods || periods);
+      setSelectedPeriod(value);
+      setDirty(false);
+      setSavedMessage('');
+    } catch (requestError) {
+      setError(requestError.response?.data?.error || 'Could not load the saved reporting period.');
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -148,7 +246,7 @@ export default function OperationMatrix({ industry, label = industry, editable, 
   }
 
   if (loading) {
-    return <div style={{ color: C.ink2, fontSize: 13 }} className="py-10 text-center">Loading Operation Matrix...</div>;
+    return <div style={{ color: C.ink2, fontSize: 13 }} className="py-10 text-center">Loading HR Matrix...</div>;
   }
 
   if (error && !data) {
@@ -175,7 +273,7 @@ export default function OperationMatrix({ industry, label = industry, editable, 
             onClick={() => save()}
             disabled={saving || !dirty}
             className="operation-matrix-save"
-            title={dirty ? 'Save Operation Matrix' : 'No unsaved changes'}
+            title={dirty ? 'Save HR Matrix' : 'No unsaved changes'}
           >
             {savedMessage ? <Check size={16} /> : <Save size={16} />}
             <span>{saving ? 'Saving...' : savedMessage || 'Save changes'}</span>
@@ -185,7 +283,19 @@ export default function OperationMatrix({ industry, label = industry, editable, 
 
       <div className="operation-matrix-toolbar">
         <label className="operation-matrix-setting">
-          <span>Year / Session</span>
+          <span>Saved month / financial year</span>
+          <select value={selectedPeriod} onChange={(event) => openSavedPeriod(event.target.value)} disabled={loading || saving}>
+            {periods.length === 0 && <option value={selectedPeriod}>Current period</option>}
+            {periods.map((period) => {
+              const key = `${period.fiscalYearEnd}|${period.reportMonth}`;
+              const date = new Date(`${period.reportMonth}-01T12:00:00`);
+              const month = Number.isNaN(date.getTime()) ? period.reportMonth : date.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+              return <option key={key} value={key}>{month} · {fiscalYearLabel(period.fiscalYearEnd)}</option>;
+            })}
+          </select>
+        </label>
+        <label className="operation-matrix-setting">
+          <span>Financial year</span>
           <select
             value={data.fiscalYearEnd}
             disabled={!editable || saving}
@@ -212,7 +322,7 @@ export default function OperationMatrix({ industry, label = industry, editable, 
             placeholder="Search particulars or values"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            aria-label="Search Operation Matrix"
+            aria-label="Search HR Matrix"
           />
         </label>
         <button
@@ -278,7 +388,7 @@ export default function OperationMatrix({ industry, label = industry, editable, 
               <tr key={row.id}>
                 <td className="operation-matrix-serial-cell">{index + 1}</td>
                 <td className="operation-matrix-particular-cell">
-                  {editable ? (
+                  {editable && !row.id.startsWith('hr-section-') ? (
                     <input
                       id={`matrix-particular-${row.id}`}
                       type="text"
@@ -294,7 +404,13 @@ export default function OperationMatrix({ industry, label = industry, editable, 
                 </td>
                 {columns.map((column) => (
                   <td key={column.key}>
-                    {editable ? (
+                    {row.id.startsWith('hr-section-') && (column.key.startsWith('month-') || column.key.startsWith('ytd-')) ? (() => {
+                      const source = column.key.startsWith('month-') ? linkedMetrics.month : linkedMetrics.year;
+                      const value = source ? linkedSectionValue(row.particular, source) : null;
+                      return value === null
+                        ? <span className="operation-matrix-number" title="No linked data available">—</span>
+                        : <span className="operation-matrix-number" title="Linked from this company’s dashboard data">{value.toLocaleString('en-IN', { maximumFractionDigits: 1 })}</span>;
+                    })() : editable ? (
                       <input
                         type="number"
                         step="any"
@@ -320,7 +436,7 @@ export default function OperationMatrix({ industry, label = industry, editable, 
                   <td className="operation-matrix-row-action">
                     <button
                       type="button"
-                      disabled={saving}
+                      disabled={saving || row.id.startsWith('hr-section-')}
                       onClick={() => removeRow(row.id)}
                       title={`Remove ${row.particular || 'particular'}`}
                       aria-label={`Remove ${row.particular || 'particular'}`}

@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import api from '../api';
 import KpiCard from './KpiCard';
-import OperationMatrix from './OperationMatrix';
+import OperationMatrix, { preloadOperationMatrix } from './OperationMatrix';
 import { C, COMPANY_OPTIONS, FONT_HEAD, fmtMoney } from '../config';
 
 
@@ -570,6 +570,8 @@ export function DashboardSummary({ allowedCompanies }) {
   const [summaries, setSummaries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [summaryMonth, setSummaryMonth] = useState('');
+  const [financialYear, setFinancialYear] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -578,7 +580,12 @@ export function DashboardSummary({ allowedCompanies }) {
 
     Promise.all(allowedCompanies.map(async (company) => {
       const [summaryResponse, matrixResponse] = await Promise.all([
-        api.get('/dashboard', { params: { company: company.id } }),
+        api.get('/dashboard', { params: {
+          company: company.id,
+          range: summaryMonth ? 'selectedMonth' : financialYear ? 'fy' : 'all',
+          year: financialYear || undefined,
+          date: summaryMonth ? `${summaryMonth}-01` : undefined,
+        } }),
         api.get('/operation-matrix', { params: { industry: company.id } }),
       ]);
       return {
@@ -598,7 +605,7 @@ export function DashboardSummary({ allowedCompanies }) {
       });
 
     return () => { cancelled = true; };
-  }, [allowedCompanies]);
+  }, [allowedCompanies, summaryMonth, financialYear]);
 
   if (loading) return <div style={{ color: C.ink2, fontSize: 13 }}>Loading company summaries...</div>;
   if (error) return <div role="alert" style={{ color: C.rust, fontSize: 13 }}>{error}</div>;
@@ -695,7 +702,7 @@ export function DashboardSummary({ allowedCompanies }) {
   const sectionRows = [
     {
       key: 'operationMatrix',
-      label: 'Operation Matrix',
+      label: 'HR Matrix',
       permission: 'operationMatrix',
       value: (summary) => `${Number(summary.matrix?.particulars?.length || 0).toLocaleString('en-IN')} particulars`,
     },
@@ -800,6 +807,22 @@ export function DashboardSummary({ allowedCompanies }) {
         </div>
         <span className="company-summary-count">{sectionRows.length} sections · {summaries.length} companies</span>
       </header>
+      <div className="flex flex-wrap items-end gap-3 px-3 py-3">
+        <label className="dashboard-filter-field">
+          <span className="dashboard-filter-label">Month</span>
+          <input type="month" value={summaryMonth} onChange={(event) => { setSummaryMonth(event.target.value); setFinancialYear(''); }} className="dashboard-filter-input" />
+        </label>
+        <label className="dashboard-filter-field">
+          <span className="dashboard-filter-label">Financial year (1 Apr–31 Mar)</span>
+          <select value={financialYear} onChange={(event) => { setFinancialYear(event.target.value); setSummaryMonth(''); }} className="dashboard-filter-input">
+            <option value="">All financial years</option>
+            {Array.from({ length: new Date().getFullYear() - 1999 }, (_, index) => new Date().getFullYear() - index).map((startYear) => (
+              <option key={startYear} value={startYear}>{startYear}–{startYear + 1}</option>
+            ))}
+          </select>
+        </label>
+        {(summaryMonth || financialYear) && <button type="button" onClick={() => { setSummaryMonth(''); setFinancialYear(''); }} className="dashboard-clear-filter">Clear period</button>}
+      </div>
       <div className="company-summary-table-wrap">
         <table className="company-summary-table" aria-label="Section summary by company">
         <thead>
@@ -833,6 +856,12 @@ export function DashboardSummary({ allowedCompanies }) {
 export default function Dashboard({ editable, creatable, canDelete, canViewMatrix, companyId, onCompanyChange, allowedCompanies = COMPANY_OPTIONS }) {
   const selectedCompany = COMPANY_OPTIONS.find((company) => company.id === companyId);
   const canSelectAll = allowedCompanies.length === COMPANY_OPTIONS.length;
+
+  useEffect(() => {
+    allowedCompanies.forEach((company) => {
+      preloadOperationMatrix(company.id).catch(() => {});
+    });
+  }, [allowedCompanies]);
 
   return (
     <div className="dashboard-layout">
@@ -876,7 +905,7 @@ export default function Dashboard({ editable, creatable, canDelete, canViewMatri
                         <span>{isActive ? 'Selected' : 'Select company'}</span>
                       </span>
                       <span className="company-card-name">{company.label}</span>
-                      <span className="company-card-action">Operation Matrix <ArrowRight size={14} /></span>
+                      <span className="company-card-action">HR Matrix <ArrowRight size={14} /></span>
                     </span>
                   </button>
                 );
@@ -890,7 +919,7 @@ export default function Dashboard({ editable, creatable, canDelete, canViewMatri
               <h3>{selectedCompany.label}</h3>
             </div>
             <div className="company-selector-detail-meta">
-              <span>Operation matrix</span>
+              <span>HR Matrix</span>
             </div>
           </div>}
 
@@ -901,7 +930,7 @@ export default function Dashboard({ editable, creatable, canDelete, canViewMatri
             editable={editable}
             creatable={creatable}
             canDelete={canDelete}
-          /> : <div className="company-selector-detail">Select one company to open its Operation Matrix.</div>}
+          /> : <div className="company-selector-detail">Select one company to open HR Matrix.</div>}
         </>
       )}
     </div>

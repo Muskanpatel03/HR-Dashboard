@@ -32,6 +32,8 @@ const RANGE_SQL = {
   '30d': "(%COL%) >= (current_date - interval '29 days') AND (%COL%) < (current_date + interval '1 day')",
   month: "date_trunc('month', (%COL%)) = date_trunc('month', current_date)",
   year: "date_trunc('year', (%COL%)) = date_trunc('year', current_date)",
+  fy: '1=1',
+  selectedMonth: '1=1',
 };
 
 const VALID_RANGES = Object.keys(RANGE_SQL);
@@ -39,10 +41,14 @@ const VALID_RANGES = Object.keys(RANGE_SQL);
 function whereFor(range, colExpr, year, selectedDate, { monthGranularity = false } = {}) {
   if (selectedDate) {
     // Exact day picked in Daily mode — overrides range and year.
-    if (monthGranularity) {
+    if (monthGranularity || range === 'selectedMonth') {
       return `date_trunc('month', (${colExpr})) = date_trunc('month', '${selectedDate}'::date)`;
     }
     return `(${colExpr})::date = '${selectedDate}'`;
+  }
+
+  if (range === 'fy' && year) {
+    return `(${colExpr}) >= make_date(${year}, 4, 1) AND (${colExpr}) < make_date(${year} + 1, 4, 1)`;
   }
 
   if (year) {

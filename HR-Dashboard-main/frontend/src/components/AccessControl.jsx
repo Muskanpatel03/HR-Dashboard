@@ -12,7 +12,7 @@ const EXTRA_LABELS = {
   dashboard: 'Dashboard',
   audit: 'Audit Trail',
   roles: 'Access Control',
-  operationMatrix: 'Operation Matrix',
+  operationMatrix: 'HR Matrix',
 };
 
 function labelFor(key) {
