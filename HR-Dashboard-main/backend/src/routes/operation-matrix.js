@@ -12,6 +12,18 @@ const INDUSTRIES = [
   'HO',
 ];
 
+function getIndianReportingPeriod() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit',
+  }).formatToParts(new Date());
+  const year = Number(parts.find((part) => part.type === 'year')?.value);
+  const month = Number(parts.find((part) => part.type === 'month')?.value);
+  return {
+    fiscalYearEnd: year + (month >= 4 ? 1 : 0),
+    reportMonth: `${year}-${String(month).padStart(2, '0')}`,
+  };
+}
+
 function validMatrix(data) {
   return data &&
     Number.isInteger(data.fiscalYearEnd) &&
@@ -71,19 +83,17 @@ router.get('/', async (req, res) => {
         updated_by: null,
         updated_at: null,
       };
-    } else if (periodsResult.rows.length) {
-      const latest = periodsResult.rows[0];
-      const latestResult = await pool.query(
-        'SELECT data, updated_by, updated_at FROM operation_matrix_periods WHERE industry = $1 AND fiscal_year_end = $2 AND report_month = $3',
-        [industry, latest.fiscal_year_end, latest.report_month]
-      );
-      selected = latestResult.rows[0];
     } else {
-      const currentResult = await pool.query(
-        'SELECT data, updated_by, updated_at FROM operation_matrix_by_industry WHERE industry = $1',
-        [industry]
+      const currentPeriod = getIndianReportingPeriod();
+      const currentPeriodResult = await pool.query(
+        'SELECT data, updated_by, updated_at FROM operation_matrix_periods WHERE industry = $1 AND fiscal_year_end = $2 AND report_month = $3',
+        [industry, currentPeriod.fiscalYearEnd, currentPeriod.reportMonth]
       );
-      selected = currentResult.rows[0];
+      selected = currentPeriodResult.rows[0] || {
+        data: { ...currentPeriod, particulars: [] },
+        updated_by: null,
+        updated_at: null,
+      };
     }
     res.json({
       ...(selected || {}),

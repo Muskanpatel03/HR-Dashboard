@@ -577,38 +577,55 @@ export function DashboardSummary({ allowedCompanies }) {
     let cancelled = false;
     setLoading(true);
     setError('');
+    setSummaries((current) => current.filter(({ company }) => allowedCompanies.some((allowed) => allowed.id === company.id)));
+    let remaining = allowedCompanies.length;
+    if (remaining === 0) setLoading(false);
 
-    Promise.all(allowedCompanies.map(async (company) => {
-      const [summaryResponse, matrixResponse] = await Promise.all([
-        api.get('/dashboard', { params: {
+    allowedCompanies.forEach((company) => {
+      api.get('/dashboard', { params: {
           company: company.id,
           range: summaryMonth ? 'selectedMonth' : financialYear ? 'fy' : 'all',
           year: financialYear || undefined,
           date: summaryMonth ? `${summaryMonth}-01` : undefined,
-        } }),
-        api.get('/operation-matrix', { params: { industry: company.id } }),
-      ]);
-      return {
-        company,
-        summary: summaryResponse.data,
-        matrix: matrixResponse.data?.data,
-      };
-    }))
-      .then((results) => {
-        if (!cancelled) setSummaries(results);
-      })
-      .catch((requestError) => {
-        if (!cancelled) setError(requestError.response?.data?.error || 'Failed to load company summaries');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        } })
+        .then((summaryResponse) => {
+          if (!cancelled) {
+            setSummaries((current) => {
+              const existing = current.find((item) => item.company.id === company.id);
+              const next = { company, summary: summaryResponse.data, matrix: existing?.matrix };
+              return existing
+                ? current.map((item) => item.company.id === company.id ? next : item)
+                : [...current, next];
+            });
+            setLoading(false);
+          }
+        })
+        .catch((requestError) => {
+          if (!cancelled) {
+            setError((current) => current || requestError.response?.data?.error || `Failed to load ${company.label} summary`);
+          }
+        })
+        .finally(() => {
+          remaining -= 1;
+          if (!cancelled && remaining === 0) setLoading(false);
+        });
+
+      preloadOperationMatrix(company.id)
+        .then((matrixResponse) => {
+          if (!cancelled) {
+            setSummaries((current) => current.map((item) => item.company.id === company.id
+              ? { ...item, matrix: matrixResponse?.data }
+              : item));
+          }
+        })
+        .catch(() => {});
       });
 
     return () => { cancelled = true; };
   }, [allowedCompanies, summaryMonth, financialYear]);
 
-  if (loading) return <div style={{ color: C.ink2, fontSize: 13 }}>Loading company summaries...</div>;
-  if (error) return <div role="alert" style={{ color: C.rust, fontSize: 13 }}>{error}</div>;
+  if (loading && summaries.length === 0) return <div style={{ color: C.ink2, fontSize: 13 }}>Loading company summaries...</div>;
+  if (error && summaries.length === 0) return <div role="alert" style={{ color: C.rust, fontSize: 13 }}>{error}</div>;
 
   const averageMetric = (metric) => {
     const values = summaries
@@ -630,7 +647,7 @@ export function DashboardSummary({ allowedCompanies }) {
     return weightedTotal / totalWeight;
   };
 
-  const allCompanyData = summaries.length ? (() => {
+  const allCompanyData = !loading && summaries.length === allowedCompanies.length && summaries.length ? (() => {
     const allPermissions = {};
     const allKpis = {};
     const loanByUnitMap = new Map();
@@ -823,6 +840,8 @@ export function DashboardSummary({ allowedCompanies }) {
         </label>
         {(summaryMonth || financialYear) && <button type="button" onClick={() => { setSummaryMonth(''); setFinancialYear(''); }} className="dashboard-clear-filter">Clear period</button>}
       </div>
+      {loading && <div className="px-3 pb-2" style={{ color: C.ink2, fontSize: 12 }}>Updating company summaries…</div>}
+      {error && <div role="alert" className="px-3 pb-2" style={{ color: C.rust, fontSize: 12 }}>{error}</div>}
       <div className="company-summary-table-wrap">
         <table className="company-summary-table" aria-label="Section summary by company">
         <thead>

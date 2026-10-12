@@ -44,7 +44,12 @@ ALTER TABLE role_permissions ALTER COLUMN create_modules SET NOT NULL;
 
 CREATE TABLE IF NOT EXISTS operation_matrix (
   id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
-  data JSONB NOT NULL DEFAULT '{"fiscalYearEnd": 2027, "reportMonth": "2026-08", "particulars": []}'::jsonb,
+  data JSONB NOT NULL DEFAULT jsonb_build_object(
+    'fiscalYearEnd', EXTRACT(YEAR FROM (now() AT TIME ZONE 'Asia/Kolkata'))::integer +
+      CASE WHEN EXTRACT(MONTH FROM (now() AT TIME ZONE 'Asia/Kolkata')) >= 4 THEN 1 ELSE 0 END,
+    'reportMonth', to_char(now() AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM'),
+    'particulars', '[]'::jsonb
+  ),
   updated_by TEXT,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -53,9 +58,26 @@ INSERT INTO operation_matrix (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS operation_matrix_by_industry (
   industry TEXT PRIMARY KEY,
-  data JSONB NOT NULL DEFAULT '{"fiscalYearEnd": 2027, "reportMonth": "2026-08", "particulars": []}'::jsonb,
+  data JSONB NOT NULL DEFAULT jsonb_build_object(
+    'fiscalYearEnd', EXTRACT(YEAR FROM (now() AT TIME ZONE 'Asia/Kolkata'))::integer +
+      CASE WHEN EXTRACT(MONTH FROM (now() AT TIME ZONE 'Asia/Kolkata')) >= 4 THEN 1 ELSE 0 END,
+    'reportMonth', to_char(now() AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM'),
+    'particulars', '[]'::jsonb
+  ),
   updated_by TEXT,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE operation_matrix_by_industry ALTER COLUMN data SET DEFAULT jsonb_build_object(
+  'fiscalYearEnd', EXTRACT(YEAR FROM (now() AT TIME ZONE 'Asia/Kolkata'))::integer +
+    CASE WHEN EXTRACT(MONTH FROM (now() AT TIME ZONE 'Asia/Kolkata')) >= 4 THEN 1 ELSE 0 END,
+  'reportMonth', to_char(now() AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM'),
+  'particulars', '[]'::jsonb
+);
+ALTER TABLE operation_matrix ALTER COLUMN data SET DEFAULT jsonb_build_object(
+  'fiscalYearEnd', EXTRACT(YEAR FROM (now() AT TIME ZONE 'Asia/Kolkata'))::integer +
+    CASE WHEN EXTRACT(MONTH FROM (now() AT TIME ZONE 'Asia/Kolkata')) >= 4 THEN 1 ELSE 0 END,
+  'reportMonth', to_char(now() AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM'),
+  'particulars', '[]'::jsonb
 );
 
 INSERT INTO operation_matrix_by_industry (industry, data, updated_by, updated_at)
@@ -443,3 +465,16 @@ ALTER TABLE IF EXISTS healthcheck ADD COLUMN IF NOT EXISTS company TEXT;
 ALTER TABLE IF EXISTS engagement ADD COLUMN IF NOT EXISTS company TEXT;
 ALTER TABLE IF EXISTS training ADD COLUMN IF NOT EXISTS company TEXT;
 ALTER TABLE IF EXISTS attendance ADD COLUMN IF NOT EXISTS company TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_manpower_company_period ON manpower (company, month);
+CREATE INDEX IF NOT EXISTS idx_daily_manpower_company_period ON daily_manpower (company, date);
+CREATE INDEX IF NOT EXISTS idx_recruitment_company_period ON recruitment (company, month);
+CREATE INDEX IF NOT EXISTS idx_hiring_company_period ON hiring (company, month);
+CREATE INDEX IF NOT EXISTS idx_separation_company_period ON separation (company, last_working_day);
+CREATE INDEX IF NOT EXISTS idx_attendance_company_period ON attendance (company, month);
+CREATE INDEX IF NOT EXISTS idx_electricity_company_period ON electricity (company, month);
+CREATE INDEX IF NOT EXISTS idx_canteen_company_period ON canteen (company, month);
+CREATE INDEX IF NOT EXISTS idx_engagement_company_period ON engagement (company, date);
+CREATE INDEX IF NOT EXISTS idx_training_company_period ON training (company, training_date);
+CREATE INDEX IF NOT EXISTS idx_retirement_company_period ON retirement (company, retirement_date);
+CREATE INDEX IF NOT EXISTS idx_healthcheck_company_period ON healthcheck (company, as_of_date);

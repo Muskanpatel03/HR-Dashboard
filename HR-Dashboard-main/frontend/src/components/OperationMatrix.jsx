@@ -1,12 +1,30 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { AlertCircle, ArrowDownAZ, ArrowUpAZ, Check, FileSpreadsheet, Plus, Save, Search, Trash2 } from 'lucide-react';
 import api from '../api';
-import OperationMatrixExcelImport from './OperationMatrixExcelImport';
 import { C, FONT_HEAD } from '../config';
 
+const OperationMatrixExcelImport = lazy(() => import('./OperationMatrixExcelImport'));
+
+function getIndianReportingPeriod() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit',
+  }).formatToParts(new Date());
+  const year = Number(parts.find((part) => part.type === 'year')?.value);
+  const month = Number(parts.find((part) => part.type === 'month')?.value);
+  return {
+    fiscalYearEnd: year + (month >= 4 ? 1 : 0),
+    reportMonth: `${year}-${String(month).padStart(2, '0')}`,
+  };
+}
+
+function fiscalYearEndForMonth(reportMonth) {
+  const [year, month] = String(reportMonth).split('-').map(Number);
+  return year + (month >= 4 ? 1 : 0);
+}
+
+const INITIAL_PERIOD = getIndianReportingPeriod();
 const INITIAL_DATA = {
-  fiscalYearEnd: 2027,
-  reportMonth: '2026-08',
+  ...INITIAL_PERIOD,
   particulars: [],
 };
 const HR_SECTION_PARTICULARS = [
@@ -92,23 +110,35 @@ function newRow() {
 export default function OperationMatrix({ industry, label = industry, editable, creatable = editable, canDelete = false }) {
   const [data, setData] = useState(() => {
     const cached = matrixCache.get(industry);
-    return cached && typeof cached.then !== 'function' ? includeHrSectionRows(cached.data || INITIAL_DATA) : includeHrSectionRows(INITIAL_DATA);
+    const matchesCurrentPeriod = cached && typeof cached.then !== 'function' &&
+      cached.data?.reportMonth === INITIAL_DATA.reportMonth &&
+      cached.data?.fiscalYearEnd === INITIAL_DATA.fiscalYearEnd;
+    return matchesCurrentPeriod ? includeHrSectionRows(cached.data) : includeHrSectionRows(INITIAL_DATA);
   });
   const [search, setSearch] = useState('');
   const [sortDirection, setSortDirection] = useState(null);
-  const [loading, setLoading] = useState(() => !matrixCache.has(industry) || Boolean(matrixCache.get(industry)?.then));
+  const [loading, setLoading] = useState(() => {
+    const cached = matrixCache.get(industry);
+    return !cached || Boolean(cached.then) || cached.data?.reportMonth !== INITIAL_DATA.reportMonth || cached.data?.fiscalYearEnd !== INITIAL_DATA.fiscalYearEnd;
+  });
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState('');
   const [savedMessage, setSavedMessage] = useState('');
   const [lastSaved, setLastSaved] = useState(null);
-  const [periods, setPeriods] = useState([]);
   const [selectedPeriod, setSelectedPeriod] = useState('');
+  const [periodSelection, setPeriodSelection] = useState(INITIAL_PERIOD);
+  const [followsCurrentPeriod, setFollowsCurrentPeriod] = useState(true);
   const [linkedMetrics, setLinkedMetrics] = useState({ month: null, year: null });
   const [showImport, setShowImport] = useState(false);
 
   useEffect(() => {
-    preloadOperationMatrix(industry)
+    api.get('/operation-matrix', { params: {
+      industry,
+      fiscalYearEnd: INITIAL_DATA.fiscalYearEnd,
+      reportMonth: INITIAL_DATA.reportMonth,
+    } })
+      .then((response) => response.data)
       .then((response) => {
         matrixCache.set(industry, response);
         setData(includeHrSectionRows(response?.data || INITIAL_DATA));
@@ -116,8 +146,8 @@ export default function OperationMatrix({ industry, label = industry, editable, 
           by: response.updated_by,
           at: response.updated_at,
         } : null);
-        setPeriods(response?.periods || []);
         setSelectedPeriod(response?.data ? `${response.data.fiscalYearEnd}|${response.data.reportMonth}` : '');
+        setPeriodSelection(response?.data || INITIAL_PERIOD);
         setDirty(false);
       })
       .catch((requestError) => {
@@ -125,6 +155,23 @@ export default function OperationMatrix({ industry, label = industry, editable, 
       })
       .finally(() => setLoading(false));
   }, [industry]);
+
+  useEffect(() => {
+    const refreshCurrentPeriod = () => {
+      const currentPeriod = getIndianReportingPeriod();
+      if (!followsCurrentPeriod || dirty || saving || (data.reportMonth === currentPeriod.reportMonth && data.fiscalYearEnd === currentPeriod.fiscalYearEnd)) return;
+      api.get('/operation-matrix', { params: { industry, ...currentPeriod } }).then((response) => {
+        const matrix = response.data;
+        setData(includeHrSectionRows(matrix?.data || { ...currentPeriod, particulars: [] }));
+        setPeriodSelection(matrix?.data || currentPeriod);
+        setLastSaved(matrix?.updated_at ? { by: matrix.updated_by, at: matrix.updated_at } : null);
+        setSelectedPeriod(matrix?.data ? `${matrix.data.fiscalYearEnd}|${matrix.data.reportMonth}` : `${currentPeriod.fiscalYearEnd}|${currentPeriod.reportMonth}`);
+        setSavedMessage('');
+      }).catch(() => {});
+    };
+    const interval = window.setInterval(refreshCurrentPeriod, 60_000);
+    return () => window.clearInterval(interval);
+  }, [industry, data.reportMonth, data.fiscalYearEnd, dirty, saving, followsCurrentPeriod]);
 
   useEffect(() => {
     if (!data.reportMonth || !data.fiscalYearEnd) return;
@@ -199,10 +246,9 @@ export default function OperationMatrix({ industry, label = industry, editable, 
       setData(response.data.data);
       const savedPeriod = `${response.data.data.fiscalYearEnd}|${response.data.data.reportMonth}`;
       setSelectedPeriod(savedPeriod);
-      setPeriods((current) => [
-        { fiscalYearEnd: response.data.data.fiscalYearEnd, reportMonth: response.data.data.reportMonth, updated_by: response.data.updated_by, updated_at: response.data.updated_at },
-        ...current.filter((period) => `${period.fiscalYearEnd}|${period.reportMonth}` !== savedPeriod),
-      ].sort((left, right) => right.reportMonth.localeCompare(left.reportMonth)));
+      setPeriodSelection(response.data.data);
+      const currentPeriod = getIndianReportingPeriod();
+      setFollowsCurrentPeriod(savedPeriod === `${currentPeriod.fiscalYearEnd}|${currentPeriod.reportMonth}`);
       setLastSaved({ by: response.data.updated_by, at: response.data.updated_at });
       setDirty(false);
       setSavedMessage('Saved');
@@ -215,9 +261,12 @@ export default function OperationMatrix({ industry, label = industry, editable, 
     }
   }
 
-  async function openSavedPeriod(value) {
-    if (!value || value === selectedPeriod) return;
-    const [fiscalYearEnd, reportMonth] = value.split('|');
+  async function openSavedPeriod(fiscalYearEnd, reportMonth) {
+    const value = `${fiscalYearEnd}|${reportMonth}`;
+    const currentPeriod = getIndianReportingPeriod();
+    setFollowsCurrentPeriod(value === `${currentPeriod.fiscalYearEnd}|${currentPeriod.reportMonth}`);
+    setPeriodSelection({ fiscalYearEnd: Number(fiscalYearEnd), reportMonth });
+    if (value === selectedPeriod) return;
     setLoading(true);
     setError('');
     try {
@@ -225,8 +274,8 @@ export default function OperationMatrix({ industry, label = industry, editable, 
       matrixCache.set(industry, response.data);
       setData(includeHrSectionRows(response.data?.data || INITIAL_DATA));
       setLastSaved(response.data?.updated_at ? { by: response.data.updated_by, at: response.data.updated_at } : null);
-      setPeriods(response.data?.periods || periods);
       setSelectedPeriod(value);
+      setPeriodSelection(response.data?.data || { fiscalYearEnd: Number(fiscalYearEnd), reportMonth });
       setDirty(false);
       setSavedMessage('');
     } catch (requestError) {
@@ -283,38 +332,49 @@ export default function OperationMatrix({ industry, label = industry, editable, 
 
       <div className="operation-matrix-toolbar">
         <label className="operation-matrix-setting">
-          <span>Saved month / financial year</span>
-          <select value={selectedPeriod} onChange={(event) => openSavedPeriod(event.target.value)} disabled={loading || saving}>
-            {periods.length === 0 && <option value={selectedPeriod}>Current period</option>}
-            {periods.map((period) => {
-              const key = `${period.fiscalYearEnd}|${period.reportMonth}`;
-              const date = new Date(`${period.reportMonth}-01T12:00:00`);
-              const month = Number.isNaN(date.getTime()) ? period.reportMonth : date.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
-              return <option key={key} value={key}>{month} · {fiscalYearLabel(period.fiscalYearEnd)}</option>;
-            })}
-          </select>
+          <span>Month</span>
+          <input
+            type="month"
+            value={periodSelection.reportMonth}
+            required
+            disabled={loading || saving}
+            onChange={(event) => {
+              if (!event.target.value) return;
+              setPeriodSelection({
+                reportMonth: event.target.value,
+                fiscalYearEnd: fiscalYearEndForMonth(event.target.value),
+              });
+            }}
+          />
         </label>
         <label className="operation-matrix-setting">
-          <span>Financial year</span>
+          <span>Financial year (Apr–Mar)</span>
           <select
-            value={data.fiscalYearEnd}
-            disabled={!editable || saving}
-            onChange={(event) => updateData({ fiscalYearEnd: Number(event.target.value) })}
+            value={periodSelection.fiscalYearEnd}
+            disabled={loading || saving}
+            onChange={(event) => {
+              const fiscalYearEnd = Number(event.target.value);
+              const month = Number(periodSelection.reportMonth.slice(5, 7));
+              const calendarYear = month >= 4 ? fiscalYearEnd - 1 : fiscalYearEnd;
+              setPeriodSelection({
+                fiscalYearEnd,
+                reportMonth: `${calendarYear}-${String(month).padStart(2, '0')}`,
+              });
+            }}
           >
             {Array.from({ length: 101 }, (_, index) => 2100 - index).map((year) => (
               <option key={year} value={year}>{year - 1}-{String(year).slice(-2)}</option>
             ))}
           </select>
         </label>
-        <label className="operation-matrix-setting">
-          <span>Reporting month</span>
-          <input
-            type="month"
-            value={data.reportMonth}
-            disabled={!editable || saving}
-            onChange={(event) => updateData({ reportMonth: event.target.value })}
-          />
-        </label>
+        <button
+          type="button"
+          className="operation-matrix-sort"
+          disabled={loading || saving}
+          onClick={() => openSavedPeriod(periodSelection.fiscalYearEnd, periodSelection.reportMonth)}
+        >
+          Open period
+        </button>
         <label className="operation-matrix-search">
           <Search size={16} aria-hidden="true" />
           <input
@@ -353,12 +413,14 @@ export default function OperationMatrix({ industry, label = industry, editable, 
       </div>
 
       {showImport && creatable && (
-        <OperationMatrixExcelImport
-          columns={columns}
-          existingCount={data.particulars.length}
-          onClose={() => setShowImport(false)}
-          onImport={async (rows) => save({ ...data, particulars: [...data.particulars, ...rows] })}
-        />
+        <Suspense fallback={null}>
+          <OperationMatrixExcelImport
+            columns={columns}
+            existingCount={data.particulars.length}
+            onClose={() => setShowImport(false)}
+            onImport={async (rows) => save({ ...data, particulars: [...data.particulars, ...rows] })}
+          />
+        </Suspense>
       )}
 
       {error && <div role="alert" className="operation-matrix-error"><AlertCircle size={16} />{error}</div>}

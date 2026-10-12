@@ -1,4 +1,6 @@
 import React, {
+  lazy,
+  Suspense,
   useEffect,
   useState,
   useCallback,
@@ -31,8 +33,9 @@ import {
 
 import api from "../api";
 import RecordForm from "./RecordForm";
-import ExcelImport from './ExcelImport';
 import PeriodSummary from "./PeriodSummary";
+
+const ExcelImport = lazy(() => import('./ExcelImport'));
 
 import {
   C,
@@ -212,19 +215,49 @@ const monthLabel = (key) => {
   return `${MONTH_LABELS[Number(m) - 1]} ${y}`;
 };
 const LOAN_HEADING_STORAGE_KEY = "loan-summary-heading-periods";
+function currentIndianPeriod() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit",
+  }).formatToParts(new Date());
+  const year = Number(parts.find((part) => part.type === "year")?.value);
+  const month = Number(parts.find((part) => part.type === "month")?.value);
+  return { year, month, monthKey: `${year}-${String(month).padStart(2, "0")}` };
+}
+
+function previousMonthKey(monthKey) {
+  const [year, month] = monthKey.split("-").map(Number);
+  const previous = new Date(Date.UTC(year, month - 2, 1));
+  return `${previous.getUTCFullYear()}-${String(previous.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+const CURRENT_INDIAN_PERIOD = currentIndianPeriod();
+const CURRENT_FY_START = CURRENT_INDIAN_PERIOD.month >= 4
+  ? CURRENT_INDIAN_PERIOD.year
+  : CURRENT_INDIAN_PERIOD.year - 1;
 const DEFAULT_LOAN_HEADING_SETTINGS = {
-  budgetYear: 2026,
-  recoveryYear: 2025,
-  historicalYear: 2024,
-  corpusMonth: "2026-08",
-  outstandingMonth: "2026-07",
+  budgetYear: CURRENT_FY_START,
+  recoveryYear: CURRENT_FY_START - 1,
+  historicalYear: CURRENT_FY_START - 2,
+  corpusMonth: CURRENT_INDIAN_PERIOD.monthKey,
+  outstandingMonth: previousMonthKey(CURRENT_INDIAN_PERIOD.monthKey),
 };
 
 function readLoanHeadingSettings() {
   try {
+    const stored = JSON.parse(localStorage.getItem(LOAN_HEADING_STORAGE_KEY) || "{}");
+    const legacyDefaults = {
+      budgetYear: 2026,
+      recoveryYear: 2025,
+      historicalYear: 2024,
+      corpusMonth: "2026-08",
+      outstandingMonth: "2026-07",
+    };
+    Object.entries(legacyDefaults).forEach(([key, value]) => {
+      if (stored[key] === value) stored[key] = DEFAULT_LOAN_HEADING_SETTINGS[key];
+    });
     return {
       ...DEFAULT_LOAN_HEADING_SETTINGS,
-      ...JSON.parse(localStorage.getItem(LOAN_HEADING_STORAGE_KEY) || "{}"),
+      ...stored,
     };
   } catch {
     return DEFAULT_LOAN_HEADING_SETTINGS;
@@ -633,6 +666,14 @@ export default function ModuleView({
     useState({});
   const [loanHeadingSettings, setLoanHeadingSettings] =
     useState(readLoanHeadingSettings);
+
+  const updateLoanHeadingSetting = (name, value) => {
+    setLoanHeadingSettings((settings) => {
+      const nextSettings = { ...settings, [name]: value };
+      localStorage.setItem(LOAN_HEADING_STORAGE_KEY, JSON.stringify(nextSettings));
+      return nextSettings;
+    });
+  };
   const [period, setPeriod] = useState("Monthly");
   const [search, setSearch] =
     useState("");
@@ -645,10 +686,6 @@ export default function ModuleView({
     useState("all");
   const [selectedDate, setSelectedDate] = useState("");
   const [dailyMonth, setDailyMonth] = useState("all");
-
-  useEffect(() => {
-    localStorage.setItem(LOAN_HEADING_STORAGE_KEY, JSON.stringify(loanHeadingSettings));
-  }, [loanHeadingSettings]);
 
   useEffect(() => {
     setSort(defaultSortFor(config));
@@ -1103,7 +1140,7 @@ export default function ModuleView({
                 {label}
                 <select
                   value={loanHeadingSettings[name]}
-                  onChange={(event) => setLoanHeadingSettings((settings) => ({ ...settings, [name]: Number(event.target.value) }))}
+                  onChange={(event) => updateLoanHeadingSetting(name, Number(event.target.value))}
                   className="px-2.5 py-2 text-sm rounded"
                   style={{ background: C.card, border: `1px solid ${C.line}`, color: C.ink }}
                 >
@@ -1121,7 +1158,7 @@ export default function ModuleView({
               <input
                 type="month"
                 value={loanHeadingSettings[name]}
-                onChange={(event) => setLoanHeadingSettings((settings) => ({ ...settings, [name]: event.target.value }))}
+                onChange={(event) => updateLoanHeadingSetting(name, event.target.value)}
                 className="px-2.5 py-2 text-sm rounded"
                 style={{ background: C.card, border: `1px solid ${C.line}`, color: C.ink }}
               />
@@ -1316,12 +1353,14 @@ export default function ModuleView({
       </div>
 
       {showImport && creatable && (
-        <ExcelImport
-          config={config}
-          companyId={companyId}
-          onClose={() => setShowImport(false)}
-          onImported={load}
-        />
+        <Suspense fallback={null}>
+          <ExcelImport
+            config={config}
+            companyId={companyId}
+            onClose={() => setShowImport(false)}
+            onImported={load}
+          />
+        </Suspense>
       )}
 
       {config.key === "dailyManpower" && dailyManpowerDates.length > 0 && (

@@ -1,16 +1,18 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useMemo } from 'react';
 import { BarChart3, LayoutGrid, History, LogOut, Shield } from 'lucide-react';
 
 import Login from './components/Login';
-import Dashboard, { DashboardSummary } from './components/Dashboard';
-import ModuleView from './components/ModuleView';
-import ManpowerHub from './components/ManpowerHub';
-import RecruitmentHub from './components/RecruitmentHub';
-import TrainingHub from './components/TrainingHub';
-import AuditView from './components/AuditView';
-import AccessControl from './components/AccessControl';
-import CompanySelector from './components/CompanySelector';
 import api from './api';
+
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const DashboardSummary = lazy(() => import('./components/Dashboard').then((module) => ({ default: module.DashboardSummary })));
+const ModuleView = lazy(() => import('./components/ModuleView'));
+const ManpowerHub = lazy(() => import('./components/ManpowerHub'));
+const RecruitmentHub = lazy(() => import('./components/RecruitmentHub'));
+const TrainingHub = lazy(() => import('./components/TrainingHub'));
+const AuditView = lazy(() => import('./components/AuditView'));
+const AccessControl = lazy(() => import('./components/AccessControl'));
+const CompanySelector = lazy(() => import('./components/CompanySelector'));
 
 import {
   C,
@@ -636,6 +638,7 @@ export default function App() {
 
         {/* PAGE CONTENT */}
 
+        <Suspense fallback={null}>
         <div className="p-5 w-full" style={{ maxWidth: 1500, margin: '0 auto' }}>
 
           {active === 'dashboard' && canSeeDashboard && (
@@ -726,6 +729,7 @@ export default function App() {
             )}
 
         </div>
+        </Suspense>
       </main>
     </div>
   );

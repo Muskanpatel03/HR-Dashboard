@@ -13,6 +13,12 @@ pool.on('error', (err) => {
 });
 
 async function ensureCurrentSchema() {
+  const matrixDefault = `jsonb_build_object(
+    'fiscalYearEnd', EXTRACT(YEAR FROM (now() AT TIME ZONE 'Asia/Kolkata'))::integer +
+      CASE WHEN EXTRACT(MONTH FROM (now() AT TIME ZONE 'Asia/Kolkata')) >= 4 THEN 1 ELSE 0 END,
+    'reportMonth', to_char(now() AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM'),
+    'particulars', '[]'::jsonb
+  )`;
   const migrations = [
     'ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS password_hash TEXT',
     'ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS department TEXT',
@@ -141,14 +147,15 @@ async function ensureCurrentSchema() {
     'ALTER TABLE training ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now()',
     `CREATE TABLE IF NOT EXISTS operation_matrix (
       id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
-      data JSONB NOT NULL DEFAULT '{"fiscalYearEnd": 2027, "reportMonth": "2026-08", "particulars": []}'::jsonb,
+      data JSONB NOT NULL DEFAULT ${matrixDefault},
       updated_by TEXT,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )`,
     `INSERT INTO operation_matrix (id) VALUES (1) ON CONFLICT (id) DO NOTHING`,
+    `ALTER TABLE operation_matrix ALTER COLUMN data SET DEFAULT ${matrixDefault}`,
     `CREATE TABLE IF NOT EXISTS operation_matrix_by_industry (
       industry TEXT PRIMARY KEY,
-      data JSONB NOT NULL DEFAULT '{"fiscalYearEnd": 2027, "reportMonth": "2026-08", "particulars": []}'::jsonb,
+      data JSONB NOT NULL DEFAULT ${matrixDefault},
       updated_by TEXT,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )`,
@@ -156,6 +163,7 @@ async function ensureCurrentSchema() {
      SELECT 'Automat Industries (Site 4)', data, updated_by, updated_at
      FROM operation_matrix WHERE id = 1
      ON CONFLICT (industry) DO NOTHING`,
+    `ALTER TABLE operation_matrix_by_industry ALTER COLUMN data SET DEFAULT ${matrixDefault}`,
     `INSERT INTO operation_matrix_by_industry (industry)
      VALUES ('Smith'), ('Automat Irrigation'), ('HO')
      ON CONFLICT (industry) DO NOTHING`,
@@ -219,6 +227,28 @@ async function ensureCurrentSchema() {
     migrations.push(`ALTER TABLE IF EXISTS ${table} ADD COLUMN IF NOT EXISTS company TEXT`);
     // Preserve rows saved under the old company ID after the rename.
     migrations.push(`UPDATE ${table} SET company = 'Smith' WHERE company = 'Smith3'`);
+  });
+
+  const reportingIndexes = [
+    ['manpower', 'company, month'],
+    ['daily_manpower', 'company, date'],
+    ['recruitment', 'company, month'],
+    ['hiring', 'company, month'],
+    ['separation', 'company, last_working_day'],
+    ['attendance', 'company, month'],
+    ['electricity', 'company, month'],
+    ['canteen', 'company, month'],
+    ['engagement', 'company, date'],
+    ['training', 'company, training_date'],
+    ['retirement', 'company, retirement_date'],
+    ['healthcheck', 'company, as_of_date'],
+  ];
+  reportingIndexes.forEach(([table, columns]) => {
+    migrations.push(`DO $$ BEGIN
+      IF to_regclass('public.${table}') IS NOT NULL THEN
+        EXECUTE 'CREATE INDEX IF NOT EXISTS idx_${table}_company_period ON ${table} (${columns})';
+      END IF;
+    END $$`);
   });
 
   for (const migration of migrations) {
