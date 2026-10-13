@@ -657,12 +657,12 @@ export function DashboardSummary({ allowedCompanies, onOpenSection }) {
 
       (summary?.loanByUnit || []).forEach((unit) => {
         const key = unit.unit || '—';
-        const existing = loanByUnitMap.get(key) || { unit: key, budget: 0, taken: 0, outstanding: 0 };
+        const existing = loanByUnitMap.get(key) || { unit: key, budget: null, taken: null, outstanding: null };
         loanByUnitMap.set(key, {
           ...existing,
-          budget: (Number(existing.budget) || 0) + (Number(unit.budget) || 0),
-          taken: (Number(existing.taken) || 0) + (Number(unit.taken) || 0),
-          outstanding: (Number(existing.outstanding) || 0) + (Number(unit.outstanding) || 0),
+          budget: unit.budget == null ? existing.budget : (Number(existing.budget) || 0) + Number(unit.budget),
+          taken: unit.taken == null ? existing.taken : (Number(existing.taken) || 0) + Number(unit.taken),
+          outstanding: unit.outstanding == null ? existing.outstanding : (Number(existing.outstanding) || 0) + Number(unit.outstanding),
         });
       });
 
@@ -703,7 +703,12 @@ export function DashboardSummary({ allowedCompanies, onOpenSection }) {
     };
   })() : null;
 
-  const companyColumns = allCompanyData ? [...summaries, allCompanyData] : summaries;
+  const companyOrder = new Map(COMPANY_OPTIONS.map(({ id }, index) => [id, index]));
+  const orderedSummaries = [...summaries].sort((a, b) =>
+    (companyOrder.get(a.company.id) ?? Number.MAX_SAFE_INTEGER) -
+    (companyOrder.get(b.company.id) ?? Number.MAX_SAFE_INTEGER)
+  );
+  const companyColumns = allCompanyData ? [...orderedSummaries, allCompanyData] : orderedSummaries;
 
   const sectionRows = [
     {
@@ -768,8 +773,18 @@ export function DashboardSummary({ allowedCompanies, onOpenSection }) {
       label: 'Loan Summary',
       permission: 'loanSummary',
       value: (summary) => {
-        const outstanding = (summary.loanByUnit || []).reduce((total, unit) => total + (Number(unit.outstanding) || 0), 0);
-        return `${fmtMoney(outstanding)} outstanding`;
+        const units = summary.loanByUnit || [];
+        const metrics = [
+          ['Budget', 'budget'],
+          ['Taken', 'taken'],
+          ['Outstanding', 'outstanding'],
+        ].flatMap(([label, field]) => {
+          const recorded = units.filter((unit) => unit[field] != null);
+          if (!recorded.length) return [];
+          const total = recorded.reduce((sum, unit) => sum + Number(unit[field] || 0), 0);
+          return [`${label} ${fmtMoney(total)}`];
+        });
+        return metrics.length ? metrics.join(' · ') : 'No Loan Summary data for this period';
       },
     },
     {

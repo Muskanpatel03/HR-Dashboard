@@ -168,6 +168,26 @@ router.get('/', async (req, res) => {
     const currentFiscalYearEnd = currentYear + (currentMonthNumber >= 4 ? 1 : 0);
     const selectedReportMonth = requestedDate?.slice(0, 7);
     const selectedMonthNumber = selectedReportMonth ? Number(selectedReportMonth.slice(5, 7)) : 0;
+    const selectedLoanFiscalYearStart = selectedReportMonth
+      ? Number(selectedReportMonth.slice(0, 4)) - (selectedMonthNumber < 4 ? 1 : 0)
+      : range === 'fy' && year
+        ? year
+        : currentFiscalYearEnd - 1;
+    const loanBudgetAvailable = selectedLoanFiscalYearStart === 2026;
+    const loanTakenExpression = selectedReportMonth
+      ? selectedReportMonth === '2026-08'
+        ? 'SUM(COALESCE(taken_personal, 0) + COALESCE(taken_home, 0))'
+        : 'NULL'
+      : selectedLoanFiscalYearStart === 2024
+        ? 'SUM(taken_fy2425)'
+        : selectedLoanFiscalYearStart === 2025
+          ? 'SUM(taken_fy2526)'
+          : selectedLoanFiscalYearStart === 2026
+            ? 'SUM(COALESCE(taken_personal, 0) + COALESCE(taken_home, 0))'
+            : 'NULL';
+    const loanOutstandingAvailable = selectedReportMonth
+      ? selectedReportMonth === '2026-07'
+      : selectedLoanFiscalYearStart === 2026;
     const selectedFiscalYearEnd = selectedReportMonth
       ? Number(selectedReportMonth.slice(0, 4)) + (selectedMonthNumber >= 4 ? 1 : 0)
       : null;
@@ -245,13 +265,14 @@ router.get('/', async (req, res) => {
         ) FROM healthcheck WHERE ${scoped(perm.healthcheck, filters.healthcheck)} ORDER BY as_of_date DESC NULLS LAST LIMIT 1) AS healthcheck,
         (SELECT COALESCE(json_agg(json_build_object(
           'unit', COALESCE(unit, '—'),
-          'budget', COALESCE(budget_personal, 0) + COALESCE(budget_home, 0),
-          'taken', COALESCE(taken_personal, 0) + COALESCE(taken_home, 0),
-          'outstanding', COALESCE(outstanding_till_jul26, 0)
+          'budget', budget,
+          'taken', taken,
+          'outstanding', outstanding
         ) ORDER BY unit), '[]'::json) FROM (
-          SELECT unit, SUM(budget_personal) AS budget_personal, SUM(budget_home) AS budget_home,
-                 SUM(taken_personal) AS taken_personal, SUM(taken_home) AS taken_home,
-                 SUM(outstanding_till_jul26) AS outstanding_till_jul26
+          SELECT unit,
+                 ${loanBudgetAvailable ? 'SUM(COALESCE(budget_personal, 0) + COALESCE(budget_home, 0))' : 'NULL'} AS budget,
+                 ${loanTakenExpression} AS taken,
+                 ${loanOutstandingAvailable ? 'SUM(outstanding_till_jul26)' : 'NULL'} AS outstanding
           FROM loan_summary WHERE ${scoped(perm.loanSummary)} GROUP BY unit
         ) loan_units) AS loan_by_unit,
         (SELECT COALESCE(json_agg(latest_row), '[]'::json) FROM (
