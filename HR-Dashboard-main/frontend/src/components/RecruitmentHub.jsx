@@ -20,18 +20,20 @@ export default function RecruitmentHub({ visibleModuleKeys, canEditModule, canCr
   const [counts, setCounts] = useState({ hiring: null, separation: null });
 
   useEffect(() => {
+    const params = {
+      summary: true,
+      ...(companyId && companyId !== 'all' ? { company: companyId } : {}),
+    };
     if (visibleModuleKeys.includes('hiring')) {
-      api.get('/hiring').then((res) => setCounts((c) => ({
+      api.get('/hiring', { params }).then((res) => setCounts((c) => ({
         ...c,
-        hiring: res.data.records
-          .filter((record) => companyId === 'all' || record.company === companyId)
-          .reduce((sum, record) => sum + (Number(record.joined) || 0), 0),
+        hiring: Number(res.data.summary?.total) || 0,
       }))).catch(() => {});
     }
     if (visibleModuleKeys.includes('separation')) {
-      api.get('/separation').then((res) => setCounts((c) => ({
+      api.get('/separation', { params }).then((res) => setCounts((c) => ({
         ...c,
-        separation: res.data.records.filter((record) => companyId === 'all' || record.company === companyId).length,
+        separation: Number(res.data.summary?.total) || 0,
       }))).catch(() => {});
     }
   }, [visibleModuleKeys, companyId]);

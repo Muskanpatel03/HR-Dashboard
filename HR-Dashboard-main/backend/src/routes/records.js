@@ -127,12 +127,32 @@ router.get('/:module', async (req, res) => {
   if (!conf) return res.status(404).json({ error: 'Unknown module' });
   if (!canView(req.user.role, permissionModuleKey(moduleKey))) return res.status(403).json({ error: 'Not permitted to view this module' });
   try {
+    const requestedCompany = typeof req.query.company === 'string' ? req.query.company : '';
+    if (requestedCompany && !ALL_COMPANY_IDS.includes(requestedCompany)) {
+      return res.status(400).json({ error: 'Invalid company' });
+    }
+    if (requestedCompany && !canAccessCompany(req.user.role, requestedCompany)) {
+      return res.status(403).json({ error: 'Not permitted to access this company' });
+    }
+    const accessibleCompanies = getRoleCompanies(req.user.role);
+    const companyIds = requestedCompany ? [requestedCompany] : accessibleCompanies;
+    const companyFilter = isCompanyScoped(moduleKey) &&
+      (Boolean(requestedCompany) || accessibleCompanies.length < ALL_COMPANY_IDS.length);
+    const where = companyFilter ? ' WHERE company = ANY($1::text[])' : '';
+    const queryValues = companyFilter ? [companyIds] : [];
+
+    if (req.query.summary === 'true' && (moduleKey === 'hiring' || moduleKey === 'separation')) {
+      const expression = moduleKey === 'hiring' ? 'COALESCE(SUM(joined), 0)' : 'COUNT(*)';
+      const { rows: [summary] } = await pool.query(
+        `SELECT ${expression} AS total FROM ${conf.table}${where}`,
+        queryValues
+      );
+      return res.json({ summary: { total: Number(summary.total) || 0 } });
+    }
+
     const columns = columnsFor(moduleKey, conf);
     const cols = columns.map((c) => c.db).join(', ');
-    const companyFilter = isCompanyScoped(moduleKey) && getRoleCompanies(req.user.role).length < ALL_COMPANY_IDS.length;
-    const sql = `SELECT id, ${cols} FROM ${conf.table}${companyFilter ? ' WHERE company = ANY($1::text[])' : ''} ORDER BY id DESC`;
-    const params = companyFilter ? [getRoleCompanies(req.user.role)] : [];
-    const result = await pool.query(sql, params);
+    const result = await pool.query(`SELECT id, ${cols} FROM ${conf.table}${where} ORDER BY id DESC`, queryValues);
     res.json({ records: result.rows.map((row) => toJsRow(row, columns)) });
   } catch (e) {
     console.error(e);

@@ -59,6 +59,10 @@ export default function App() {
   const [theme] = useState('light');
 
   useEffect(() => {
+    api.get('/health').catch(() => {});
+  }, []);
+
+  useEffect(() => {
     document.documentElement.setAttribute('data-theme', 'light');
     localStorage.setItem('automat_theme', 'light');
   }, []);

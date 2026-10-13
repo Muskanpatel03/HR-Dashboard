@@ -727,10 +727,10 @@ export default function ModuleView({
       setError("");
 
       try {
-        const { data } =
-          await api.get(
-            `/${config.key}`
-          );
+        const params = config.key !== 'usersmgmt' && companyId && companyId !== 'all'
+          ? { company: companyId }
+          : undefined;
+        const { data } = await api.get(`/${config.key}`, { params });
 
         const loadedRecords = Array.isArray(data.records) ? data.records : [];
         setRecords(loadedRecords);
@@ -744,7 +744,7 @@ export default function ModuleView({
         setLoading(false);
       }
     },
-    [config.key, onRecordsChange]
+    [config.key, onRecordsChange, companyId]
   );
 
 
