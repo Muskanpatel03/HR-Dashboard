@@ -178,8 +178,8 @@ function LegacyDashboard({ onNavigate, companyId }) {
         {d.permissions.retirement && (
   <KpiCard
     label="Retirement"
-    value={k.futureRetirements}
-    sub={`${k.alreadyRetired} already retired · future retirements`}
+    value={k.retirementsInPeriod}
+    sub="retirements in selected period"
     accent={C.rust}
   />
 )}
@@ -766,7 +766,7 @@ export function DashboardSummary({ allowedCompanies, onOpenSection }) {
       key: 'retirement',
       label: 'Retirement',
       permission: 'retirement',
-      value: (summary) => `${Number(summary.kpis?.futureRetirements || 0).toLocaleString('en-IN')} upcoming · ${Number(summary.kpis?.alreadyRetired || 0).toLocaleString('en-IN')} retired`,
+      value: (summary) => `${Number(summary.kpis?.retirementsInPeriod || 0).toLocaleString('en-IN')} retirements`,
     },
     {
       key: 'loanSummary',

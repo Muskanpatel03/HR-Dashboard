@@ -221,6 +221,7 @@ router.get('/', async (req, res) => {
       separation: whereForDateOrMonth(range, 'last_working_day', "to_date(month, 'YYYY-MM')", year, requestedDate),
       training: whereFor(range, 'training_date', year, requestedDate),
       healthcheck: whereFor(range, 'as_of_date', year, requestedDate),
+      retirement: whereFor(range, 'retirement_date', year, requestedDate),
     };
     const scoped = (allowed, filter = '1=1') => allowed ? `${filter} AND company = ANY($1::text[])` : 'FALSE';
     const compactSql = `
@@ -259,6 +260,7 @@ router.get('/', async (req, res) => {
           'futureRetirements', COUNT(*) FILTER (WHERE date_of_birth IS NOT NULL AND EXTRACT(YEAR FROM AGE(${retirementAsOf}, date_of_birth)) < 60),
           'retiringNext12Months', COUNT(*) FILTER (WHERE date_of_birth + INTERVAL '60 years' BETWEEN ${retirementAsOf} AND ${retirementAsOf} + INTERVAL '1 year')
         ) FROM retirement WHERE ${scoped(perm.retirement)}) AS retirement,
+        (SELECT COUNT(*) FROM retirement WHERE ${scoped(perm.retirement, filters.retirement)}) AS retirement_count,
         (SELECT json_build_object(
           'purchased', COALESCE(total_coupons_purchased, 0),
           'available', COALESCE(total_coupons_available, 0)
@@ -321,6 +323,7 @@ router.get('/', async (req, res) => {
           alreadyRetired: Number(retirement.alreadyRetired || 0),
           futureRetirements: Number(retirement.futureRetirements || 0),
           retiringNext12Months: Number(retirement.retiringNext12Months || 0),
+          retirementsInPeriod: Number(summary.retirement_count || 0),
           electricityCost: Number(electricity.cost || 0),
           solarShare: pct(solar, units + solar),
           canteenCost: Number(summary.canteen_cost || 0),
@@ -431,7 +434,6 @@ router.get('/', async (req, res) => {
       ),
 
       // RETIREMENT
-      // Retirement is not filtered by dashboard range.
       q(
         perm.retirement,
         `
@@ -443,6 +445,7 @@ router.get('/', async (req, res) => {
           retirement_date,
           date_of_birth
         FROM retirement
+        WHERE ${whereFor(range, 'retirement_date', year, requestedDate)}
         `
       ),
 
