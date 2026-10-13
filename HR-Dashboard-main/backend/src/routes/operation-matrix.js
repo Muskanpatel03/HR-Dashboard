@@ -68,10 +68,6 @@ router.get('/', async (req, res) => {
       ? req.query.reportMonth
       : null;
     const hasPeriod = Number.isInteger(requestedFy) && requestedFy >= 2000 && requestedFy <= 2100 && requestedMonth;
-    const periodsResult = await pool.query(
-      'SELECT fiscal_year_end, report_month, updated_by, updated_at FROM operation_matrix_periods WHERE industry = $1 ORDER BY report_month DESC, fiscal_year_end DESC',
-      [industry]
-    );
     let selected;
     if (hasPeriod) {
       const periodResult = await pool.query(
@@ -95,15 +91,7 @@ router.get('/', async (req, res) => {
         updated_at: null,
       };
     }
-    res.json({
-      ...(selected || {}),
-      periods: periodsResult.rows.map((period) => ({
-        fiscalYearEnd: period.fiscal_year_end,
-        reportMonth: period.report_month,
-        updated_by: period.updated_by,
-        updated_at: period.updated_at,
-      })),
-    });
+    res.json(selected || {});
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to load the Operation Matrix' });

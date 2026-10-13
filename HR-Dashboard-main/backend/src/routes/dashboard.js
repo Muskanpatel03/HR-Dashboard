@@ -157,6 +157,152 @@ router.get('/', async (req, res) => {
     return pool.query(`${scopedBefore}${after}`, [companiesToQuery]);
   };
 
+  if (req.query.compact === 'true') {
+    const currentPeriodParts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit',
+    }).formatToParts(new Date());
+    const currentYear = Number(currentPeriodParts.find((part) => part.type === 'year')?.value);
+    const currentMonthNumber = Number(currentPeriodParts.find((part) => part.type === 'month')?.value);
+    const currentReportMonth = `${currentYear}-${String(currentMonthNumber).padStart(2, '0')}`;
+    const currentFiscalYearEnd = currentYear + (currentMonthNumber >= 4 ? 1 : 0);
+    const matrixCountSql = canView(req.user.role, 'operationMatrix')
+      ? `(SELECT COALESCE(SUM(jsonb_array_length(data->'particulars')), 0)
+          FROM operation_matrix_periods
+          WHERE industry = ANY($1::text[])
+            AND fiscal_year_end = ${currentFiscalYearEnd}
+            AND report_month = '${currentReportMonth}')`
+      : '0';
+    const filters = {
+      manpower: whereForDateOrMonth(range, 'entry_date', "to_date(month, 'YYYY-MM')", year, requestedDate),
+      daily: whereFor(range, 'date', year, requestedDate),
+      recruitment: whereFor(range, "to_date(month, 'YYYY-MM')", year, requestedDate, { monthGranularity: true }),
+      attendance: whereFor(range, monthCol, year, requestedDate, { monthGranularity: true }),
+      electricity: whereFor(range, monthCol, year, requestedDate, { monthGranularity: true }),
+      canteen: whereFor(range, monthCol, year, requestedDate),
+      engagement: whereFor(range, 'date', year, requestedDate),
+      hiring: whereFor(range, "to_date(month, 'YYYY-MM')", year, requestedDate, { monthGranularity: true }),
+      separation: whereForDateOrMonth(range, 'last_working_day', "to_date(month, 'YYYY-MM')", year, requestedDate),
+      training: whereFor(range, 'training_date', year, requestedDate),
+    };
+    const scoped = (allowed, filter = '1=1') => allowed ? `${filter} AND company = ANY($1::text[])` : 'FALSE';
+    const compactSql = `
+      SELECT
+        (SELECT json_build_object(
+          'direct', COALESCE(SUM(direct_count), 0),
+          'indirect', COALESCE(SUM(indirect_count), 0),
+          'plannedDirect', COALESCE(SUM(planned_direct_count), 0),
+          'plannedIndirect', COALESCE(SUM(planned_indirect_count), 0)
+        ) FROM manpower WHERE ${scoped(perm.manpower, filters.manpower)}) AS manpower,
+        (SELECT json_build_object(
+          'openPositions', COALESCE(SUM(CASE WHEN number_of_positions IS NULL THEN 1 ELSE GREATEST(number_of_positions, 0) END), 0),
+          'candidates', COALESCE(SUM(shortlisted), 0)
+        ) FROM recruitment WHERE ${scoped(perm.recruitment, filters.recruitment)}) AS recruitment,
+        (SELECT json_build_object(
+          'absent', COALESCE(SUM(absent_days), 0),
+          'available', COALESCE(SUM(employee_strength * total_working_days), 0)
+        ) FROM attendance WHERE ${scoped(perm.attendance, filters.attendance)}) AS attendance,
+        (SELECT json_build_object(
+          'cost', COALESCE(SUM(bill_amount), 0),
+          'units', COALESCE(SUM(GREATEST(0, COALESCE(closing_reading, 0) - COALESCE(opening_reading, 0))), 0),
+          'solar', COALESCE(SUM(solar_generation), 0)
+        ) FROM electricity WHERE ${scoped(perm.electricity, filters.electricity)}) AS electricity,
+        (SELECT COALESCE(SUM(monthly_bill), 0) FROM canteen WHERE ${scoped(perm.canteen, filters.canteen)}) AS canteen_cost,
+        (SELECT json_build_object(
+          'joined', COALESCE(SUM(joined), 0)
+        ) FROM hiring WHERE ${scoped(perm.hiring, filters.hiring)}) AS hiring,
+        (SELECT COUNT(*) FROM separation WHERE ${scoped(perm.separation, filters.separation)}) AS separation_count,
+        (SELECT json_build_object(
+          'count', COUNT(*),
+          'averageParticipation', COALESCE(ROUND(AVG(CASE WHEN eligible_employees > 0 THEN participants * 100.0 / eligible_employees ELSE 0 END)), 0)
+        ) FROM engagement WHERE ${scoped(perm.engagement, filters.engagement)}) AS engagement,
+        (SELECT COUNT(*) FROM training WHERE ${scoped(perm.training, filters.training)}) AS training_count,
+        (SELECT json_build_object(
+          'alreadyRetired', COUNT(*) FILTER (WHERE EXTRACT(YEAR FROM AGE(CURRENT_DATE, date_of_birth)) >= 60),
+          'futureRetirements', COUNT(*) FILTER (WHERE date_of_birth IS NOT NULL AND EXTRACT(YEAR FROM AGE(CURRENT_DATE, date_of_birth)) < 60),
+          'retiringNext12Months', COUNT(*) FILTER (WHERE date_of_birth + INTERVAL '60 years' BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '1 year')
+        ) FROM retirement WHERE ${scoped(perm.retirement)}) AS retirement,
+        (SELECT json_build_object(
+          'purchased', COALESCE(total_coupons_purchased, 0),
+          'available', COALESCE(total_coupons_available, 0)
+        ) FROM healthcheck WHERE ${scoped(perm.healthcheck)} ORDER BY as_of_date DESC NULLS LAST LIMIT 1) AS healthcheck,
+        (SELECT COALESCE(json_agg(json_build_object(
+          'unit', COALESCE(unit, '—'),
+          'budget', COALESCE(budget_personal, 0) + COALESCE(budget_home, 0),
+          'taken', COALESCE(taken_personal, 0) + COALESCE(taken_home, 0),
+          'outstanding', COALESCE(outstanding_till_jul26, 0)
+        ) ORDER BY unit), '[]'::json) FROM (
+          SELECT unit, SUM(budget_personal) AS budget_personal, SUM(budget_home) AS budget_home,
+                 SUM(taken_personal) AS taken_personal, SUM(taken_home) AS taken_home,
+                 SUM(outstanding_till_jul26) AS outstanding_till_jul26
+          FROM loan_summary WHERE ${scoped(perm.loanSummary)} GROUP BY unit
+        ) loan_units) AS loan_by_unit,
+        (SELECT COALESCE(json_agg(latest_row), '[]'::json) FROM (
+          SELECT to_char(date, 'YYYY-MM-DD') AS date, department_production AS "departmentProduction",
+                 COALESCE(fixed_manpower, 0) AS "fixedManpower", COALESCE(day_shift, 0) AS "dayShift",
+                 COALESCE(night_shift, 0) AS "nightShift", COALESCE(day_shift, 0) + COALESCE(night_shift, 0) AS total,
+                 COALESCE(absent, 0) AS absent, COALESCE(double_shift, 0) AS "doubleShift"
+          FROM daily_manpower WHERE ${scoped(perm.manpower, filters.daily)}
+          ORDER BY date DESC, department_production ASC LIMIT 1
+        ) latest_row) AS daily_manpower_records,
+        ${matrixCountSql} AS matrix_particular_count
+    `;
+
+    try {
+      const { rows: [summary] } = await pool.query(compactSql, [companiesToQuery]);
+      const manpower = summary.manpower || {};
+      const recruitment = summary.recruitment || {};
+      const attendance = summary.attendance || {};
+      const electricity = summary.electricity || {};
+      const retirement = summary.retirement || {};
+      const healthcheck = summary.healthcheck || {};
+      const engagement = summary.engagement || {};
+      const totalManpower = Number(manpower.direct || 0) + Number(manpower.indirect || 0);
+      const plannedManpower = Number(manpower.plannedDirect || 0) + Number(manpower.plannedIndirect || 0);
+      const healthcheckPurchased = Number(healthcheck.purchased || 0);
+      const healthcheckUsed = Math.max(0, healthcheckPurchased - Number(healthcheck.available || 0));
+      const units = Number(electricity.units || 0);
+      const solar = Number(electricity.solar || 0);
+      return res.json({
+        range,
+        year,
+        permissions: perm,
+        kpis: {
+          totalManpower,
+          directManpower: Number(manpower.direct || 0),
+          indirectManpower: Number(manpower.indirect || 0),
+          plannedManpower,
+          plannedDirectManpower: Number(manpower.plannedDirect || 0),
+          plannedIndirectManpower: Number(manpower.plannedIndirect || 0),
+          manpowerVariance: totalManpower - plannedManpower,
+          openPositions: Number(recruitment.openPositions || 0),
+          candidatesInPipeline: Number(recruitment.candidates || 0),
+          newJoiners: Number(summary.hiring?.joined || 0),
+          separations: Number(summary.separation_count || 0),
+          absenteeism: Number(attendance.available) > 0 ? Number(((Number(attendance.absent || 0) / Number(attendance.available)) * 100).toFixed(1)) : 0,
+          alreadyRetired: Number(retirement.alreadyRetired || 0),
+          futureRetirements: Number(retirement.futureRetirements || 0),
+          retiringNext12Months: Number(retirement.retiringNext12Months || 0),
+          electricityCost: Number(electricity.cost || 0),
+          solarShare: pct(solar, units + solar),
+          canteenCost: Number(summary.canteen_cost || 0),
+          healthcheckPurchased,
+          healthcheckAvailable: Number(healthcheck.available || 0),
+          healthcheckUsed,
+          healthcheckUsedPct: pct(healthcheckUsed, healthcheckPurchased),
+          engagementCount: Number(engagement.count || 0),
+          avgParticipation: Number(engagement.averageParticipation || 0),
+          trainingsCount: Number(summary.training_count || 0),
+        },
+        dailyManpowerRecords: summary.daily_manpower_records || [],
+        loanByUnit: summary.loan_by_unit || [],
+        matrix: { particularCount: Number(summary.matrix_particular_count || 0) },
+      });
+    } catch (error) {
+      console.error('Failed to load compact dashboard summary', error);
+      return res.status(500).json({ error: 'Failed to load dashboard summary' });
+    }
+  }
+
   try {
     const [
       manpower,

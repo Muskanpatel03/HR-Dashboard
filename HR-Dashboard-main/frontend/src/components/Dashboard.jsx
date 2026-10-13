@@ -584,6 +584,7 @@ export function DashboardSummary({ allowedCompanies }) {
     allowedCompanies.forEach((company) => {
       api.get('/dashboard', { params: {
           company: company.id,
+          compact: true,
           range: summaryMonth ? 'selectedMonth' : financialYear ? 'fy' : 'all',
           year: financialYear || undefined,
           date: summaryMonth ? `${summaryMonth}-01` : undefined,
@@ -592,7 +593,7 @@ export function DashboardSummary({ allowedCompanies }) {
           if (!cancelled) {
             setSummaries((current) => {
               const existing = current.find((item) => item.company.id === company.id);
-              const next = { company, summary: summaryResponse.data, matrix: existing?.matrix };
+              const next = { company, summary: summaryResponse.data, matrix: summaryResponse.data.matrix || existing?.matrix };
               return existing
                 ? current.map((item) => item.company.id === company.id ? next : item)
                 : [...current, next];
@@ -609,16 +610,6 @@ export function DashboardSummary({ allowedCompanies }) {
           remaining -= 1;
           if (!cancelled && remaining === 0) setLoading(false);
         });
-
-      preloadOperationMatrix(company.id)
-        .then((matrixResponse) => {
-          if (!cancelled) {
-            setSummaries((current) => current.map((item) => item.company.id === company.id
-              ? { ...item, matrix: matrixResponse?.data }
-              : item));
-          }
-        })
-        .catch(() => {});
       });
 
     return () => { cancelled = true; };
@@ -651,7 +642,7 @@ export function DashboardSummary({ allowedCompanies }) {
     const allPermissions = {};
     const allKpis = {};
     const loanByUnitMap = new Map();
-    const allMatrices = [];
+    let matrixParticularCount = 0;
 
     summaries.forEach(({ summary, matrix }) => {
       Object.entries(summary?.permissions || {}).forEach(([key, value]) => {
@@ -675,9 +666,7 @@ export function DashboardSummary({ allowedCompanies }) {
         });
       });
 
-      if (Array.isArray(matrix?.particulars)) {
-        allMatrices.push(...matrix.particulars);
-      }
+      matrixParticularCount += Number(summary?.matrix?.particularCount ?? matrix?.particulars?.length) || 0;
     });
 
     const latestDailyRecord = summaries
@@ -710,7 +699,7 @@ export function DashboardSummary({ allowedCompanies }) {
           ? [{ total: latestDailyTotal, date: latestDailyRecord.date }]
           : [],
       },
-      matrix: { particulars: allMatrices },
+      matrix: { particularCount: matrixParticularCount },
     };
   })() : null;
 
@@ -721,7 +710,7 @@ export function DashboardSummary({ allowedCompanies }) {
       key: 'operationMatrix',
       label: 'HR Matrix',
       permission: 'operationMatrix',
-      value: (summary) => `${Number(summary.matrix?.particulars?.length || 0).toLocaleString('en-IN')} particulars`,
+      value: (summary) => `${Number(summary.matrix?.particularCount ?? summary.matrix?.particulars?.length ?? 0).toLocaleString('en-IN')} particulars`,
     },
     {
       key: 'manpower',
@@ -876,12 +865,6 @@ export default function Dashboard({ editable, creatable, canDelete, canViewMatri
   const selectedCompany = COMPANY_OPTIONS.find((company) => company.id === companyId);
   const canSelectAll = allowedCompanies.length === COMPANY_OPTIONS.length;
 
-  useEffect(() => {
-    allowedCompanies.forEach((company) => {
-      preloadOperationMatrix(company.id).catch(() => {});
-    });
-  }, [allowedCompanies]);
-
   return (
     <div className="dashboard-layout">
       {canViewMatrix && (
@@ -912,7 +895,12 @@ export default function Dashboard({ editable, creatable, canDelete, canViewMatri
                   <button
                     key={company.id}
                     type="button"
-                    onClick={() => onCompanyChange(company.id)}
+                    onMouseEnter={() => preloadOperationMatrix(company.id).catch(() => {})}
+                    onFocus={() => preloadOperationMatrix(company.id).catch(() => {})}
+                    onClick={() => {
+                      preloadOperationMatrix(company.id).catch(() => {});
+                      onCompanyChange(company.id);
+                    }}
                     className={`company-selector-card${isActive ? ' is-active' : ''}`}
                     style={{ '--company-accent': company.accent }}
                     aria-pressed={isActive}

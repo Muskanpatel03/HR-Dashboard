@@ -67,35 +67,56 @@ const matrixCache = new Map();
 export function preloadOperationMatrix(industry) {
   if (!matrixCache.has(industry)) {
     const request = api.get('/operation-matrix', { params: { industry } })
-      .then((response) => response.data)
+      .then((response) => {
+        matrixCache.set(industry, response.data);
+        return response.data;
+      })
       .catch((error) => { matrixCache.delete(industry); throw error; });
     matrixCache.set(industry, request);
   }
   return Promise.resolve(matrixCache.get(industry));
 }
 
-function fiscalYearLabel(year) {
-  const normalized = Number(year);
-  if (!Number.isFinite(normalized)) return String(year);
-  return `FY ${normalized - 1}-${String(normalized).slice(-2)}`;
+function fiscalYearLabel(fiscalYearEnd) {
+  const end = Number(fiscalYearEnd);
+  if (!Number.isFinite(end)) return String(fiscalYearEnd);
+  return `FY ${String(end - 1).slice(-2)}-${String(end).slice(-2)}`;
 }
 
-function makeColumns(fiscalYearEnd, reportMonth) {
+function fiscalYearOptions(selectedFiscalYearEnd) {
+  const currentFiscalYearEnd = getIndianReportingPeriod().fiscalYearEnd;
+  const firstYear = Math.min(currentFiscalYearEnd - 100, Number(selectedFiscalYearEnd));
+  const lastYear = Math.max(currentFiscalYearEnd + 10, Number(selectedFiscalYearEnd));
+  return Array.from({ length: lastYear - firstYear + 1 }, (_, index) => lastYear - index);
+}
+
+function makeColumns(fiscalYearEnd, reportMonth, periodView) {
   const monthDate = new Date(`${reportMonth}-01T12:00:00`);
   const monthLabel = Number.isNaN(monthDate.getTime())
     ? reportMonth
     : monthDate.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }).replace(' ', '-');
-  const currentYear = fiscalYearLabel(fiscalYearEnd);
+  const [, monthNumber] = reportMonth.split('-').map(Number);
+  const monthSuffix = String(monthNumber).padStart(2, '0');
+  const currentYearLabel = fiscalYearLabel(fiscalYearEnd);
+  const currentYearGroup = periodView === 'year'
+    ? currentYearLabel
+    : `${currentYearLabel} (Actual and revised)`;
 
   return [
-    ...[fiscalYearEnd - 3, fiscalYearEnd - 2, fiscalYearEnd - 1].map((year) => ({
-      key: `fy-${year}`,
-      label: fiscalYearLabel(year),
-    })),
-    { key: `actual Target-${fiscalYearEnd}`, label: 'Actual Target', group: currentYear },
-    { key: `revised Target-${fiscalYearEnd}`, label: 'Revised Target', group: currentYear },
-    { key: `month-${reportMonth}`, label: monthLabel },
-    { key: `ytd-${reportMonth}`, label: 'FY Total' },
+    ...[fiscalYearEnd - 3, fiscalYearEnd - 2, fiscalYearEnd - 1].map((priorFiscalYearEnd) => {
+      const priorCalendarYear = monthNumber >= 4 ? priorFiscalYearEnd - 1 : priorFiscalYearEnd;
+      const priorMonth = `${priorCalendarYear}-${monthSuffix}`;
+      return {
+        key: periodView === 'month' ? `month-${priorMonth}` : `fy-${priorFiscalYearEnd}`,
+        label: fiscalYearLabel(priorFiscalYearEnd),
+        linkedPeriod: 'previous',
+      };
+    }),
+    { key: `actual Target-${fiscalYearEnd}`, label: 'Actual Target', group: currentYearGroup },
+    { key: `revised Target-${fiscalYearEnd}`, label: 'Revised Target', group: currentYearGroup },
+    periodView === 'month'
+      ? { key: `month-${reportMonth}`, label: monthLabel, linkedPeriod: 'month' }
+      : { key: `ytd-${reportMonth}`, label: 'FY Total', group: currentYearGroup, linkedPeriod: 'year' },
   ];
 }
 
@@ -117,6 +138,7 @@ export default function OperationMatrix({ industry, label = industry, editable, 
   });
   const [search, setSearch] = useState('');
   const [sortDirection, setSortDirection] = useState(null);
+  const [periodView, setPeriodView] = useState('month');
   const [loading, setLoading] = useState(() => {
     const cached = matrixCache.get(industry);
     return !cached || Boolean(cached.then) || cached.data?.reportMonth !== INITIAL_DATA.reportMonth || cached.data?.fiscalYearEnd !== INITIAL_DATA.fiscalYearEnd;
@@ -129,17 +151,33 @@ export default function OperationMatrix({ industry, label = industry, editable, 
   const [selectedPeriod, setSelectedPeriod] = useState('');
   const [periodSelection, setPeriodSelection] = useState(INITIAL_PERIOD);
   const [followsCurrentPeriod, setFollowsCurrentPeriod] = useState(true);
-  const [linkedMetrics, setLinkedMetrics] = useState({ month: null, year: null });
+  const [linkedMetrics, setLinkedMetrics] = useState({ month: null, year: null, previousPeriods: {} });
   const [showImport, setShowImport] = useState(false);
 
   useEffect(() => {
-    api.get('/operation-matrix', { params: {
-      industry,
-      fiscalYearEnd: INITIAL_DATA.fiscalYearEnd,
-      reportMonth: INITIAL_DATA.reportMonth,
-    } })
-      .then((response) => response.data)
+    let cancelled = false;
+    const loadMatrix = async () => {
+      const cached = matrixCache.get(industry);
+      if (cached) {
+        try {
+          const cachedData = await Promise.resolve(cached);
+          if (cachedData?.data?.fiscalYearEnd === INITIAL_DATA.fiscalYearEnd &&
+              cachedData?.data?.reportMonth === INITIAL_DATA.reportMonth) return cachedData;
+        } catch {
+          matrixCache.delete(industry);
+        }
+      }
+      const response = await api.get('/operation-matrix', { params: {
+        industry,
+        fiscalYearEnd: INITIAL_DATA.fiscalYearEnd,
+        reportMonth: INITIAL_DATA.reportMonth,
+      } });
+      return response.data;
+    };
+
+    loadMatrix()
       .then((response) => {
+        if (cancelled) return;
         matrixCache.set(industry, response);
         setData(includeHrSectionRows(response?.data || INITIAL_DATA));
         setLastSaved(response?.updated_at ? {
@@ -151,9 +189,11 @@ export default function OperationMatrix({ industry, label = industry, editable, 
         setDirty(false);
       })
       .catch((requestError) => {
+        if (cancelled) return;
         setError(requestError.response?.data?.error || 'Could not load HR Matrix.');
       })
-      .finally(() => setLoading(false));
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [industry]);
 
   useEffect(() => {
@@ -177,30 +217,46 @@ export default function OperationMatrix({ industry, label = industry, editable, 
     if (!data.reportMonth || !data.fiscalYearEnd) return;
     const financialYearStart = Number(data.fiscalYearEnd) - 1;
     let cancelled = false;
+    const currentMonthNumber = Number(data.reportMonth.slice(5, 7));
+    const previousPeriods = [1, 2, 3].map((offset) => {
+      const previousEnd = Number(data.fiscalYearEnd) - offset;
+      if (periodView === 'year') {
+        return {
+          key: `fy-${previousEnd}`,
+          params: { company: industry, range: 'fy', year: previousEnd - 1 },
+        };
+      }
+      const previousYear = currentMonthNumber >= 4 ? previousEnd - 1 : previousEnd;
+      const month = `${previousYear}-${String(currentMonthNumber).padStart(2, '0')}`;
+      return {
+        key: `month-${month}`,
+        params: { company: industry, range: 'selectedMonth', date: `${month}-01` },
+      };
+    });
+    const activePeriod = periodView === 'year'
+      ? { company: industry, range: 'fy', year: financialYearStart }
+      : { company: industry, range: 'selectedMonth', date: `${data.reportMonth}-01` };
     Promise.all([
-      api.get('/dashboard', { params: { company: industry, range: 'selectedMonth', date: `${data.reportMonth}-01` } }),
-      api.get('/dashboard', { params: { company: industry, range: 'fy', year: financialYearStart } }),
+      api.get('/dashboard', { params: { ...activePeriod, compact: true } }),
+      ...previousPeriods.map((period) => api.get('/dashboard', { params: { ...period.params, compact: true } })),
     ])
-      .then(([monthResponse, yearResponse]) => {
-        if (!cancelled) setLinkedMetrics({ month: monthResponse.data, year: yearResponse.data });
+      .then(([activeResponse, ...previousResponses]) => {
+        if (!cancelled) {
+          setLinkedMetrics({
+            month: periodView === 'month' ? activeResponse.data : null,
+            year: periodView === 'year' ? activeResponse.data : null,
+            previousPeriods: Object.fromEntries(previousPeriods.map((period, index) => [period.key, previousResponses[index].data])),
+          });
+        }
       })
-      .catch(() => { if (!cancelled) setLinkedMetrics({ month: null, year: null }); });
+      .catch(() => { if (!cancelled) setLinkedMetrics({ month: null, year: null, previousPeriods: {} }); });
     return () => { cancelled = true; };
-  }, [industry, data.reportMonth, data.fiscalYearEnd]);
+  }, [industry, data.reportMonth, data.fiscalYearEnd, periodView]);
 
   const columns = useMemo(
-    () => makeColumns(data.fiscalYearEnd, data.reportMonth),
-    [data.fiscalYearEnd, data.reportMonth]
+    () => makeColumns(data.fiscalYearEnd, data.reportMonth, periodView),
+    [data.fiscalYearEnd, data.reportMonth, periodView]
   );
-  const fiscalColumns = columns.filter((column) => column.group || column.key.startsWith('fy-'));
-  const fiscalHeaderGroups = fiscalColumns.reduce((groups, column) => {
-    const label = column.group || column.label;
-    const previousGroup = groups[groups.length - 1];
-    if (column.group && previousGroup?.label === label) previousGroup.columns.push(column);
-    else groups.push({ label, columns: [column], grouped: Boolean(column.group) });
-    return groups;
-  }, []);
-  const monthYearColumns = columns.filter((column) => ['month', 'ytd'].includes(column.key.split('-')[0]));
   const visibleRows = useMemo(() => {
     const term = search.trim().toLocaleLowerCase();
     const filteredRows = term
@@ -264,6 +320,10 @@ export default function OperationMatrix({ industry, label = industry, editable, 
   async function openSavedPeriod(fiscalYearEnd, reportMonth) {
     const value = `${fiscalYearEnd}|${reportMonth}`;
     const currentPeriod = getIndianReportingPeriod();
+    if (value !== selectedPeriod && dirty && !window.confirm('Discard unsaved HR Matrix changes and open this period?')) {
+      setPeriodSelection({ fiscalYearEnd: data.fiscalYearEnd, reportMonth: data.reportMonth });
+      return;
+    }
     setFollowsCurrentPeriod(value === `${currentPeriod.fiscalYearEnd}|${currentPeriod.reportMonth}`);
     setPeriodSelection({ fiscalYearEnd: Number(fiscalYearEnd), reportMonth });
     if (value === selectedPeriod) return;
@@ -272,7 +332,11 @@ export default function OperationMatrix({ industry, label = industry, editable, 
     try {
       const response = await api.get('/operation-matrix', { params: { industry, fiscalYearEnd, reportMonth } });
       matrixCache.set(industry, response.data);
-      setData(includeHrSectionRows(response.data?.data || INITIAL_DATA));
+      setData(includeHrSectionRows(response.data?.data || {
+        fiscalYearEnd: Number(fiscalYearEnd),
+        reportMonth,
+        particulars: [],
+      }));
       setLastSaved(response.data?.updated_at ? { by: response.data.updated_by, at: response.data.updated_at } : null);
       setSelectedPeriod(value);
       setPeriodSelection(response.data?.data || { fiscalYearEnd: Number(fiscalYearEnd), reportMonth });
@@ -306,7 +370,7 @@ export default function OperationMatrix({ industry, label = industry, editable, 
   const reportLabel = Number.isNaN(reportDate.getTime())
     ? data.reportMonth
     : reportDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
-  const activeFy = `FY ${data.fiscalYearEnd - 1}-${String(data.fiscalYearEnd).slice(-2)}`;
+  const activeFy = fiscalYearLabel(data.fiscalYearEnd);
 
   return (
     <section className="operation-matrix" aria-labelledby="operation-matrix-title">
@@ -340,10 +404,7 @@ export default function OperationMatrix({ industry, label = industry, editable, 
             disabled={loading || saving}
             onChange={(event) => {
               if (!event.target.value) return;
-              setPeriodSelection({
-                reportMonth: event.target.value,
-                fiscalYearEnd: fiscalYearEndForMonth(event.target.value),
-              });
+              openSavedPeriod(fiscalYearEndForMonth(event.target.value), event.target.value);
             }}
           />
         </label>
@@ -356,15 +417,19 @@ export default function OperationMatrix({ industry, label = industry, editable, 
               const fiscalYearEnd = Number(event.target.value);
               const month = Number(periodSelection.reportMonth.slice(5, 7));
               const calendarYear = month >= 4 ? fiscalYearEnd - 1 : fiscalYearEnd;
-              setPeriodSelection({
-                fiscalYearEnd,
-                reportMonth: `${calendarYear}-${String(month).padStart(2, '0')}`,
-              });
+              openSavedPeriod(fiscalYearEnd, `${calendarYear}-${String(month).padStart(2, '0')}`);
             }}
           >
-            {Array.from({ length: 101 }, (_, index) => 2100 - index).map((year) => (
-              <option key={year} value={year}>{year - 1}-{String(year).slice(-2)}</option>
+            {fiscalYearOptions(periodSelection.fiscalYearEnd).map((year) => (
+              <option key={year} value={year}>{fiscalYearLabel(year)}</option>
             ))}
+          </select>
+        </label>
+        <label className="operation-matrix-setting">
+          <span>Data view</span>
+          <select value={periodView} onChange={(event) => setPeriodView(event.target.value)}>
+            <option value="month">Month-wise</option>
+            <option value="year">Year-wise</option>
           </select>
         </label>
         <button
@@ -431,18 +496,16 @@ export default function OperationMatrix({ industry, label = industry, editable, 
             <tr>
               <th rowSpan={2} className="operation-matrix-serial-head">S. No.</th>
               <th rowSpan={2} className="operation-matrix-particular-head">Particulars</th>
-              {fiscalHeaderGroups.map((group) => (
-                <th key={group.label} colSpan={group.columns.length} rowSpan={group.grouped ? 1 : 2}>
-                  {group.label}
-                </th>
-              ))}
-              {monthYearColumns.map((column) => <th key={column.key} rowSpan={2}>{column.label}</th>)}
+              {columns.map((column, index) => {
+                if (!column.group) return <th key={column.key} rowSpan={2}>{column.label}</th>;
+                if (columns[index - 1]?.group === column.group) return null;
+                const groupSize = columns.slice(index).findIndex((candidate) => candidate.group !== column.group);
+                return <th key={column.group} colSpan={groupSize === -1 ? columns.length - index : groupSize}>{column.group}</th>;
+              })}
               {canDelete && <th rowSpan={2} aria-label="Row actions" />}
             </tr>
             <tr>
-              {fiscalHeaderGroups.filter((group) => group.grouped).flatMap((group) =>
-                group.columns.map((column) => <th key={column.key}>{column.label}</th>)
-              )}
+              {columns.filter((column) => column.group).map((column) => <th key={column.key}>{column.label}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -466,8 +529,10 @@ export default function OperationMatrix({ industry, label = industry, editable, 
                 </td>
                 {columns.map((column) => (
                   <td key={column.key}>
-                    {row.id.startsWith('hr-section-') && (column.key.startsWith('month-') || column.key.startsWith('ytd-')) ? (() => {
-                      const source = column.key.startsWith('month-') ? linkedMetrics.month : linkedMetrics.year;
+                    {row.id.startsWith('hr-section-') && column.linkedPeriod ? (() => {
+                      const source = column.linkedPeriod === 'previous'
+                        ? linkedMetrics.previousPeriods[column.key]
+                        : linkedMetrics[column.linkedPeriod];
                       const value = source ? linkedSectionValue(row.particular, source) : null;
                       return value === null
                         ? <span className="operation-matrix-number" title="No linked data available">—</span>

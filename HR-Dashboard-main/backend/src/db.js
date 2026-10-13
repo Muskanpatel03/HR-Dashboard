@@ -4,8 +4,23 @@ const { Pool, types } = require('pg');
 // Return DATE columns as plain 'YYYY-MM-DD' strings (no timezone shifting)
 types.setTypeParser(1082, (val) => val);
 
+function explicitSslMode(connectionString) {
+  if (!connectionString) return connectionString;
+  try {
+    const url = new URL(connectionString);
+    // pg-connection-string currently treats `require` as verified TLS. Make
+    // that behavior explicit to avoid its compatibility warning.
+    if (url.searchParams.get('sslmode') === 'require' && !url.searchParams.has('uselibpqcompat')) {
+      url.searchParams.set('sslmode', 'verify-full');
+    }
+    return url.toString();
+  } catch {
+    return connectionString;
+  }
+}
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: explicitSslMode(process.env.DATABASE_URL),
 });
 
 pool.on('error', (err) => {
@@ -252,7 +267,16 @@ async function ensureCurrentSchema() {
   });
 
   for (const migration of migrations) {
-    await pool.query(migration);
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        await pool.query(migration);
+        break;
+      } catch (error) {
+        const retryable = ['ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT', '57P01', '08006'].includes(error.code);
+        if (!retryable || attempt >= 2) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 500 * (2 ** attempt)));
+      }
+    }
   }
 }
 
