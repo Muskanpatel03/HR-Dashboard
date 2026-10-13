@@ -14,9 +14,9 @@ const TABS = [
   { key: 'separation', label: 'Separation' },
 ];
 
-export default function RecruitmentHub({ visibleModuleKeys, canEditModule, canCreateModule, canDelete, companyId, onCompanyChange, allowedCompanies }) {
+export default function RecruitmentHub({ visibleModuleKeys, canEditModule, canCreateModule, canDelete, companyId, onCompanyChange, allowedCompanies, initialTab }) {
   const availableTabs = TABS.filter((t) => visibleModuleKeys.includes(t.key));
-  const [active, setActive] = useState(availableTabs[0]?.key || 'recruitment');
+  const [active, setActive] = useState(availableTabs.some((tab) => tab.key === initialTab) ? initialTab : availableTabs[0]?.key || 'recruitment');
   const [counts, setCounts] = useState({ hiring: null, separation: null });
 
   useEffect(() => {

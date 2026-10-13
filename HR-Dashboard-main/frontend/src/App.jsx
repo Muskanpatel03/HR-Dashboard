@@ -49,6 +49,8 @@ export default function App() {
   const [active, setActive] = useState(() => {
     return localStorage.getItem('automat_active') || 'dashboard';
   });
+  const [manpowerInitialTab, setManpowerInitialTab] = useState('total');
+  const [recruitmentInitialTab, setRecruitmentInitialTab] = useState('recruitment');
 
   const [companyId, setCompanyId] = useState(() =>
     localStorage.getItem('automat_company') || COMPANY_OPTIONS[0].id
@@ -662,6 +664,21 @@ export default function App() {
           {active === 'summary' && canSeeDashboard && (
             <DashboardSummary
               allowedCompanies={allowedCompanies}
+              onOpenSection={(sectionKey, targetCompanyId) => {
+                if (targetCompanyId === 'all') {
+                  handleCompanyChange(allowedCompanyIds.length === COMPANY_OPTIONS.length ? 'all' : allowedCompanyIds[0] || '');
+                } else if (targetCompanyId) {
+                  handleCompanyChange(targetCompanyId);
+                }
+                if (sectionKey === 'dailyManpower') setManpowerInitialTab('daily');
+                if (sectionKey === 'manpower') setManpowerInitialTab('total');
+                if (['recruitment', 'hiring', 'separation'].includes(sectionKey)) {
+                  setRecruitmentInitialTab(sectionKey);
+                  handleNavigation('recruitment');
+                  return;
+                }
+                handleNavigation(sectionKey === 'operationMatrix' ? 'dashboard' : sectionKey === 'dailyManpower' ? 'manpower' : sectionKey);
+              }}
             />
           )}
 
@@ -686,6 +703,7 @@ export default function App() {
               companyId={companyId}
               onCompanyChange={handleCompanyChange}
               allowedCompanies={allowedCompanies}
+              initialTab={recruitmentInitialTab}
             />
           )}
 
@@ -702,6 +720,7 @@ export default function App() {
               companyId={companyId}
               onCompanyChange={handleCompanyChange}
               allowedCompanies={allowedCompanies}
+              initialTab={manpowerInitialTab}
             />
           )}
 

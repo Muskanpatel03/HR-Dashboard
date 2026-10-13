@@ -100,7 +100,7 @@ function makeColumns(fiscalYearEnd, reportMonth, periodView) {
   const currentYearLabel = fiscalYearLabel(fiscalYearEnd);
   const currentYearGroup = periodView === 'year'
     ? currentYearLabel
-    : `${currentYearLabel} (Actual and revised)`;
+    : `${currentYearLabel}`;
 
   return [
     ...[fiscalYearEnd - 3, fiscalYearEnd - 2, fiscalYearEnd - 1].map((priorFiscalYearEnd) => {

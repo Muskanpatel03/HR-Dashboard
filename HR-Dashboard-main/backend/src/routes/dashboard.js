@@ -119,6 +119,7 @@ router.get('/', async (req, res) => {
   const monthCol = "to_date(month, 'YYYY-MM')";
 
   const perm = {
+    operationMatrix: canView(req.user.role, 'operationMatrix'),
     manpower: canView(req.user.role, 'manpower'),
     recruitment: canView(req.user.role, 'recruitment'),
     hiring: canView(req.user.role, 'hiring'),
@@ -165,13 +166,29 @@ router.get('/', async (req, res) => {
     const currentMonthNumber = Number(currentPeriodParts.find((part) => part.type === 'month')?.value);
     const currentReportMonth = `${currentYear}-${String(currentMonthNumber).padStart(2, '0')}`;
     const currentFiscalYearEnd = currentYear + (currentMonthNumber >= 4 ? 1 : 0);
+    const selectedReportMonth = requestedDate?.slice(0, 7);
+    const selectedMonthNumber = selectedReportMonth ? Number(selectedReportMonth.slice(5, 7)) : 0;
+    const selectedFiscalYearEnd = selectedReportMonth
+      ? Number(selectedReportMonth.slice(0, 4)) + (selectedMonthNumber >= 4 ? 1 : 0)
+      : null;
+    const matrixPeriodCondition = selectedReportMonth
+      ? `fiscal_year_end = ${selectedFiscalYearEnd} AND report_month = '${selectedReportMonth}'`
+      : range === 'fy' && year
+        ? `fiscal_year_end = ${year + 1} AND report_month >= '${year}-04' AND report_month <= '${year + 1}-03'`
+        : `fiscal_year_end = ${currentFiscalYearEnd} AND report_month = '${currentReportMonth}'`;
     const matrixCountSql = canView(req.user.role, 'operationMatrix')
-      ? `(SELECT COALESCE(SUM(jsonb_array_length(data->'particulars')), 0)
+      ? `(SELECT COALESCE(jsonb_array_length(data->'particulars'), 0)
           FROM operation_matrix_periods
           WHERE industry = ANY($1::text[])
-            AND fiscal_year_end = ${currentFiscalYearEnd}
-            AND report_month = '${currentReportMonth}')`
+            AND ${matrixPeriodCondition}
+          ORDER BY report_month DESC
+          LIMIT 1)`
       : '0';
+    const retirementAsOf = selectedReportMonth
+      ? `(to_date('${selectedReportMonth}-01', 'YYYY-MM-DD') + INTERVAL '1 month - 1 day')::date`
+      : range === 'fy' && year
+        ? `make_date(${year + 1}, 3, 31)`
+        : 'CURRENT_DATE';
     const filters = {
       manpower: whereForDateOrMonth(range, 'entry_date', "to_date(month, 'YYYY-MM')", year, requestedDate),
       daily: whereFor(range, 'date', year, requestedDate),
@@ -183,6 +200,7 @@ router.get('/', async (req, res) => {
       hiring: whereFor(range, "to_date(month, 'YYYY-MM')", year, requestedDate, { monthGranularity: true }),
       separation: whereForDateOrMonth(range, 'last_working_day', "to_date(month, 'YYYY-MM')", year, requestedDate),
       training: whereFor(range, 'training_date', year, requestedDate),
+      healthcheck: whereFor(range, 'as_of_date', year, requestedDate),
     };
     const scoped = (allowed, filter = '1=1') => allowed ? `${filter} AND company = ANY($1::text[])` : 'FALSE';
     const compactSql = `
@@ -217,14 +235,14 @@ router.get('/', async (req, res) => {
         ) FROM engagement WHERE ${scoped(perm.engagement, filters.engagement)}) AS engagement,
         (SELECT COUNT(*) FROM training WHERE ${scoped(perm.training, filters.training)}) AS training_count,
         (SELECT json_build_object(
-          'alreadyRetired', COUNT(*) FILTER (WHERE EXTRACT(YEAR FROM AGE(CURRENT_DATE, date_of_birth)) >= 60),
-          'futureRetirements', COUNT(*) FILTER (WHERE date_of_birth IS NOT NULL AND EXTRACT(YEAR FROM AGE(CURRENT_DATE, date_of_birth)) < 60),
-          'retiringNext12Months', COUNT(*) FILTER (WHERE date_of_birth + INTERVAL '60 years' BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '1 year')
+          'alreadyRetired', COUNT(*) FILTER (WHERE EXTRACT(YEAR FROM AGE(${retirementAsOf}, date_of_birth)) >= 60),
+          'futureRetirements', COUNT(*) FILTER (WHERE date_of_birth IS NOT NULL AND EXTRACT(YEAR FROM AGE(${retirementAsOf}, date_of_birth)) < 60),
+          'retiringNext12Months', COUNT(*) FILTER (WHERE date_of_birth + INTERVAL '60 years' BETWEEN ${retirementAsOf} AND ${retirementAsOf} + INTERVAL '1 year')
         ) FROM retirement WHERE ${scoped(perm.retirement)}) AS retirement,
         (SELECT json_build_object(
           'purchased', COALESCE(total_coupons_purchased, 0),
           'available', COALESCE(total_coupons_available, 0)
-        ) FROM healthcheck WHERE ${scoped(perm.healthcheck)} ORDER BY as_of_date DESC NULLS LAST LIMIT 1) AS healthcheck,
+        ) FROM healthcheck WHERE ${scoped(perm.healthcheck, filters.healthcheck)} ORDER BY as_of_date DESC NULLS LAST LIMIT 1) AS healthcheck,
         (SELECT COALESCE(json_agg(json_build_object(
           'unit', COALESCE(unit, '—'),
           'budget', COALESCE(budget_personal, 0) + COALESCE(budget_home, 0),

@@ -17,8 +17,9 @@ export default function ManpowerHub({
   companyId,
   onCompanyChange,
   allowedCompanies,
+  initialTab = 'total',
 }) {
-  const [active, setActive] = useState('total');
+  const [active, setActive] = useState(initialTab);
   const [dailyRecords, setDailyRecords] = useState([]);
   const canViewManpower = visibleModuleKeys.includes('manpower');
 

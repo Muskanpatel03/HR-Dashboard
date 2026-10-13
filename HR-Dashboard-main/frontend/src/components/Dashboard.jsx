@@ -566,7 +566,7 @@ function LegacyDashboard({ onNavigate, companyId }) {
   );
 }
 
-export function DashboardSummary({ allowedCompanies }) {
+export function DashboardSummary({ allowedCompanies, onOpenSection }) {
   const [summaries, setSummaries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -815,7 +815,7 @@ export function DashboardSummary({ allowedCompanies }) {
       </header>
       <div className="flex flex-wrap items-end gap-3 px-3 py-3">
         <label className="dashboard-filter-field">
-          <span className="dashboard-filter-label">Month</span>
+          <span className="dashboard-filter-label">Monthly</span>
           <input type="month" value={summaryMonth} onChange={(event) => { setSummaryMonth(event.target.value); setFinancialYear(''); }} className="dashboard-filter-input" />
         </label>
         <label className="dashboard-filter-field">
@@ -845,11 +845,16 @@ export function DashboardSummary({ allowedCompanies }) {
               <th scope="row">{section.label}</th>
               {companyColumns.map(({ company, summary, matrix }) => (
                 <td key={company.id}>
-                  {section.key === 'operationMatrix'
-                    ? section.value({ matrix })
-                    : summary.permissions?.[section.permission]
-                      ? section.value(summary)
-                      : '—'}
+                  {summary.permissions?.[section.permission] ? (
+                    <button
+                      type="button"
+                      className="company-summary-link"
+                      onClick={() => onOpenSection?.(section.key, company.id)}
+                      aria-label={`Open ${section.label} for ${company.label}`}
+                    >
+                      {section.value({ ...summary, matrix })}
+                    </button>
+                  ) : '—'}
                 </td>
               ))}
             </tr>
