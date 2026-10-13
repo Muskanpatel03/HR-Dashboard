@@ -220,7 +220,7 @@ router.get('/', async (req, res) => {
       hiring: whereForDateOrMonth(range, 'date_of_joining', "to_date(month, 'YYYY-MM')", year, requestedDate),
       separation: whereForDateOrMonth(range, 'last_working_day', "to_date(month, 'YYYY-MM')", year, requestedDate),
       training: whereFor(range, 'training_date', year, requestedDate),
-      healthcheck: whereFor(range, 'as_of_date', year, requestedDate),
+      healthcheck: whereFor(range, 'as_of_date', year, requestedDate, { monthGranularity: range === 'selectedMonth' }),
       retirement: whereFor(range, 'COALESCE(last_working_day, retirement_date)', year, requestedDate),
     };
     const scoped = (allowed, filter = '1=1') => allowed ? `${filter} AND company = ANY($1::text[])` : 'FALSE';
@@ -262,9 +262,9 @@ router.get('/', async (req, res) => {
         ) FROM retirement WHERE ${scoped(perm.retirement)}) AS retirement,
         (SELECT COUNT(*) FROM retirement WHERE ${scoped(perm.retirement, filters.retirement)}) AS retirement_count,
         (SELECT json_build_object(
-          'purchased', COALESCE(total_coupons_purchased, 0),
-          'available', COALESCE(total_coupons_available, 0)
-        ) FROM healthcheck WHERE ${scoped(perm.healthcheck, filters.healthcheck)} ORDER BY as_of_date DESC NULLS LAST LIMIT 1) AS healthcheck,
+          'purchased', COALESCE(SUM(total_coupons_purchased), 0),
+          'available', COALESCE(SUM(total_coupons_available), 0)
+        ) FROM healthcheck WHERE ${scoped(perm.healthcheck, filters.healthcheck)}) AS healthcheck,
         (SELECT COALESCE(json_agg(json_build_object(
           'unit', COALESCE(unit, '—'),
           'budget', budget,
@@ -506,11 +506,10 @@ router.get('/', async (req, res) => {
         perm.healthcheck,
         `
         SELECT
-          total_coupons_purchased,
-          total_coupons_available
+          COALESCE(SUM(total_coupons_purchased), 0) AS total_coupons_purchased,
+          COALESCE(SUM(total_coupons_available), 0) AS total_coupons_available
         FROM healthcheck
-        ORDER BY as_of_date DESC NULLS LAST
-        LIMIT 1
+        WHERE ${whereFor(range, 'as_of_date', year, requestedDate, { monthGranularity: range === 'selectedMonth' })}
         `
       ),
 
