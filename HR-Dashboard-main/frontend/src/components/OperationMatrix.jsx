@@ -103,7 +103,7 @@ function makeColumns(fiscalYearEnd, reportMonth, periodView) {
     : `${currentYearLabel}`;
 
   return [
-    ...[fiscalYearEnd - 3, fiscalYearEnd - 2, fiscalYearEnd - 1].map((priorFiscalYearEnd) => {
+    ...[fiscalYearEnd - 1].map((priorFiscalYearEnd) => {
       const priorCalendarYear = monthNumber >= 4 ? priorFiscalYearEnd - 1 : priorFiscalYearEnd;
       const priorMonth = `${priorCalendarYear}-${monthSuffix}`;
       return {

@@ -209,6 +209,10 @@ CREATE TABLE IF NOT EXISTS recruitment (
 
 CREATE TABLE IF NOT EXISTS hiring (
   id SERIAL PRIMARY KEY,
+  date_of_joining DATE,
+  employee_name TEXT,
+  designation TEXT,
+  opening_type TEXT,
   month TEXT,
   department TEXT,
   location TEXT,
@@ -219,6 +223,7 @@ CREATE TABLE IF NOT EXISTS hiring (
 
 CREATE TABLE IF NOT EXISTS separation (
   id SERIAL PRIMARY KEY,
+  employee_name TEXT,
   month TEXT,
   department TEXT,
   reason TEXT,
@@ -416,7 +421,12 @@ ALTER TABLE recruitment ADD COLUMN IF NOT EXISTS offered INTEGER DEFAULT 0;
 ALTER TABLE recruitment ADD COLUMN IF NOT EXISTS status TEXT;
 ALTER TABLE hiring ADD COLUMN IF NOT EXISTS month TEXT;
 ALTER TABLE hiring ADD COLUMN IF NOT EXISTS joined INTEGER DEFAULT 0;
+ALTER TABLE hiring ADD COLUMN IF NOT EXISTS date_of_joining DATE;
+ALTER TABLE hiring ADD COLUMN IF NOT EXISTS employee_name TEXT;
+ALTER TABLE hiring ADD COLUMN IF NOT EXISTS designation TEXT;
+ALTER TABLE hiring ADD COLUMN IF NOT EXISTS opening_type TEXT;
 ALTER TABLE separation ADD COLUMN IF NOT EXISTS month TEXT;
+ALTER TABLE separation ADD COLUMN IF NOT EXISTS employee_name TEXT;
 ALTER TABLE separation ADD COLUMN IF NOT EXISTS mode TEXT;
 ALTER TABLE separation ADD COLUMN IF NOT EXISTS last_working_day DATE;
 ALTER TABLE separation ADD COLUMN IF NOT EXISTS exit TEXT;

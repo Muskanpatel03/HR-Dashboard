@@ -146,12 +146,17 @@ export const MODULES = [
     { name: 'status', label: 'Stage', type: 'select', options: RECRUITMENT_STAGES },
   ]},
   { key: 'hiring', label: 'Joined', icon: UserPlus, showTotals: true, wrapHeaders: true, fields: [
+    { name: 'dateOfJoining', label: 'Date of Joining (DOJ)', type: 'date' },
+    { name: 'employeeName', label: 'Employee Name', type: 'text' },
+    { name: 'designation', label: 'Designation', type: 'text' },
+    { name: 'openingType', label: 'Joining Type', type: 'select', options: ['New', 'Replacement'] },
     { name: 'month', label: 'Month', type: 'month' },
     { name: 'department', label: 'Department', type: 'select', options: DEPARTMENTS },
     { name: 'location', label: 'Location', type: 'text' },
     { name: 'joined', label: 'Joined', type: 'number' },
   ]},
   { key: 'separation', label: 'Separation', icon: UserMinus, showTotals: true, wrapHeaders: true, fields: [
+    { name: 'employeeName', label: 'Name', type: 'text' },
     { name: 'month', label: 'Month', type: 'month' },
     { name: 'department', label: 'Department', type: 'select', options: DEPARTMENTS },
     { name: 'reason', label: 'Reason', type: 'text' },

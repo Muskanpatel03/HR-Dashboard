@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Download } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip,
   CartesianGrid, PieChart, Pie, Cell, Legend,
@@ -817,7 +817,34 @@ export function DashboardSummary({ allowedCompanies, onOpenSection }) {
       permission: 'training',
       value: (summary) => `${Number(summary.kpis?.trainingsCount || 0).toLocaleString('en-IN')} trainings`,
     },
-  ].filter((section) => section.key === 'operationMatrix' || summaries.some(({ summary }) => summary.permissions?.[section.permission]));
+  ].filter((section) => section.key !== 'operationMatrix' && summaries.some(({ summary }) => summary.permissions?.[section.permission]));
+
+  const exportSummaryCSV = () => {
+    const csvEscape = (value) => {
+      const text = String(value ?? '');
+      return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    };
+    const rows = [
+      ['Section', ...companyColumns.map(({ company }) => company.label)],
+      ...sectionRows.map((section) => [
+        section.label,
+        ...companyColumns.map(({ summary, matrix }) => (
+          summary.permissions?.[section.permission]
+            ? section.value({ ...summary, matrix })
+            : '—'
+        )),
+      ]),
+    ];
+    const csv = `\uFEFF${rows.map((row) => row.map(csvEscape).join(',')).join('\r\n')}`;
+    const blobUrl = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = `section-summary${summaryMonth ? `-${summaryMonth}` : financialYear ? `-${financialYear}-${Number(financialYear) + 1}` : ''}-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(blobUrl);
+  };
 
   return (
     <section className="company-summary" aria-labelledby="company-summary-title">
@@ -826,7 +853,24 @@ export function DashboardSummary({ allowedCompanies, onOpenSection }) {
           <div className="company-selector-kicker">Company portfolio</div>
           <h2 id="company-summary-title">Section Summary</h2>
         </div>
-        <span className="company-summary-count">{sectionRows.length} sections · {summaries.length} companies</span>
+        <div className="flex items-center gap-2">
+          <span className="company-summary-count">{sectionRows.length} sections · {summaries.length} companies</span>
+          <button
+            type="button"
+            onClick={exportSummaryCSV}
+            disabled={loading || sectionRows.length === 0 || companyColumns.length === 0}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm rounded"
+            style={{
+              border: `1px solid ${C.line}`,
+              color: loading || sectionRows.length === 0 || companyColumns.length === 0 ? C.ink2 : C.ink,
+              opacity: loading || sectionRows.length === 0 || companyColumns.length === 0 ? 0.5 : 1,
+              cursor: loading || sectionRows.length === 0 || companyColumns.length === 0 ? 'not-allowed' : 'pointer',
+            }}
+          >
+            <Download size={14} />
+            Export CSV
+          </button>
+        </div>
       </header>
       <div className="flex flex-wrap items-end gap-3 px-3 py-3">
         <label className="dashboard-filter-field">

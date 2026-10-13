@@ -152,6 +152,27 @@ const MODULES = {
 
     columns: [
       {
+        js: "dateOfJoining",
+        db: "date_of_joining",
+        type: "date",
+      },
+      {
+        js: "employeeName",
+        db: "employee_name",
+        type: "text",
+      },
+      {
+        js: "designation",
+        db: "designation",
+        type: "text",
+      },
+      {
+        js: "openingType",
+        db: "opening_type",
+        type: "select",
+        options: ['New', 'Replacement'],
+      },
+      {
         js: "month",
         db: "month",
         type: "month",
@@ -181,6 +202,11 @@ const MODULES = {
     table: "separation",
 
     columns: [
+      {
+        js: "employeeName",
+        db: "employee_name",
+        type: "text",
+      },
       {
         js: "month",
         db: "month",
