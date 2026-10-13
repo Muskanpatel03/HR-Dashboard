@@ -221,7 +221,7 @@ router.get('/', async (req, res) => {
       separation: whereForDateOrMonth(range, 'last_working_day', "to_date(month, 'YYYY-MM')", year, requestedDate),
       training: whereFor(range, 'training_date', year, requestedDate),
       healthcheck: whereFor(range, 'as_of_date', year, requestedDate),
-      retirement: whereFor(range, 'retirement_date', year, requestedDate),
+      retirement: whereFor(range, 'COALESCE(last_working_day, retirement_date)', year, requestedDate),
     };
     const scoped = (allowed, filter = '1=1') => allowed ? `${filter} AND company = ANY($1::text[])` : 'FALSE';
     const compactSql = `
@@ -445,7 +445,7 @@ router.get('/', async (req, res) => {
           retirement_date,
           date_of_birth
         FROM retirement
-        WHERE ${whereFor(range, 'retirement_date', year, requestedDate)}
+        WHERE ${whereFor(range, 'COALESCE(last_working_day, retirement_date)', year, requestedDate)}
         `
       ),
 
@@ -1074,6 +1074,7 @@ router.get('/', async (req, res) => {
         absenteeism,
 
         // Retirement
+        retirementsInPeriod: retirementRows.length,
         alreadyRetired,
         futureRetirements,
         retiringNext12Months,

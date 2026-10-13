@@ -51,7 +51,7 @@ function linkedSectionValue(particular, summary) {
     'Hiring': ['hiring', summary.kpis?.newJoiners],
     'Separation': ['separation', summary.kpis?.separations],
     'Attendance': ['attendance', summary.kpis?.absenteeism],
-    'Retirement': ['retirement', summary.kpis?.futureRetirements],
+    'Retirement': ['retirement', summary.kpis?.retirementsInPeriod],
     'Loan Summary': ['loanSummary', (summary.loanByUnit || []).reduce((total, unit) => total + (Number(unit.outstanding) || 0), 0)],
     'Electricity': ['electricity', summary.kpis?.electricityCost],
     'Canteen': ['canteen', summary.kpis?.canteenCost],
