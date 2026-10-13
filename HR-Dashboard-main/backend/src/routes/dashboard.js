@@ -220,7 +220,9 @@ router.get('/', async (req, res) => {
       hiring: whereForDateOrMonth(range, 'date_of_joining', "to_date(month, 'YYYY-MM')", year, requestedDate),
       separation: whereForDateOrMonth(range, 'last_working_day', "to_date(month, 'YYYY-MM')", year, requestedDate),
       training: whereFor(range, 'training_date', year, requestedDate),
-      healthcheck: whereFor(range, 'as_of_date', year, requestedDate, { monthGranularity: range === 'selectedMonth' }),
+      // Health Check usage belongs to the month it happened, not the later
+      // inventory snapshot date (as_of_date).
+      healthcheck: whereFor(range, 'date_of_usage', year, requestedDate, { monthGranularity: range === 'selectedMonth' }),
       retirement: whereFor(range, 'COALESCE(last_working_day, retirement_date)', year, requestedDate),
     };
     const scoped = (allowed, filter = '1=1') => allowed ? `${filter} AND company = ANY($1::text[])` : 'FALSE';
@@ -509,7 +511,7 @@ router.get('/', async (req, res) => {
           COALESCE(SUM(total_coupons_purchased), 0) AS total_coupons_purchased,
           COALESCE(SUM(total_coupons_available), 0) AS total_coupons_available
         FROM healthcheck
-        WHERE ${whereFor(range, 'as_of_date', year, requestedDate, { monthGranularity: range === 'selectedMonth' })}
+        WHERE ${whereFor(range, 'date_of_usage', year, requestedDate, { monthGranularity: range === 'selectedMonth' })}
         `
       ),
 
