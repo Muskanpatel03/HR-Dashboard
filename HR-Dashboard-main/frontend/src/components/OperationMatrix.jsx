@@ -42,24 +42,29 @@ function includeHrSectionRows(matrixData) {
   return { ...matrixData, particulars: [...rows, ...missing] };
 }
 
+function isHrSectionRow(row) {
+  const particular = String(row.particular || '').trim().toLocaleLowerCase();
+  return HR_SECTION_PARTICULARS.some((name) => name.toLocaleLowerCase() === particular);
+}
+
 function linkedSectionValue(particular, summary) {
   const definitions = {
-    'Manpower': ['manpower', summary.kpis?.totalManpower],
-    'Daily Manpower': ['manpower', summary.dailyManpowerRecords?.[0]?.total],
-    'Recruitment': ['recruitment', summary.kpis?.candidatesInPipeline],
-    'Open Position Recruitment': ['recruitment', summary.kpis?.openPositions],
-    'Hiring': ['hiring', summary.kpis?.newJoiners],
-    'Separation': ['separation', summary.kpis?.separations],
-    'Attendance': ['attendance', summary.kpis?.absenteeism],
-    'Retirement': ['retirement', summary.kpis?.retirementsInPeriod],
-    'Loan Summary': ['loanSummary', (summary.loanByUnit || []).reduce((total, unit) => total + (Number(unit.outstanding) || 0), 0)],
-    'Electricity': ['electricity', summary.kpis?.electricityCost],
-    'Canteen': ['canteen', summary.kpis?.canteenCost],
-    'Health Check': ['healthcheck', summary.kpis?.healthcheckUsed],
-    'Engagement': ['engagement', summary.kpis?.engagementCount],
-    'Training': ['training', summary.kpis?.trainingsCount],
+    'manpower': ['manpower', summary.kpis?.totalManpower],
+    'daily manpower': ['manpower', summary.dailyManpowerRecords?.[0]?.total],
+    'recruitment': ['recruitment', summary.kpis?.candidatesInPipeline],
+    'open position recruitment': ['recruitment', summary.kpis?.openPositions],
+    'hiring': ['hiring', summary.kpis?.newJoiners],
+    'separation': ['separation', summary.kpis?.separations],
+    'attendance': ['attendance', summary.kpis?.absenteeism],
+    'retirement': ['retirement', summary.kpis?.retirementsInPeriod],
+    'loan summary': ['loanSummary', (summary.loanByUnit || []).reduce((total, unit) => total + (Number(unit.outstanding) || 0), 0)],
+    'electricity': ['electricity', summary.kpis?.electricityCost],
+    'canteen': ['canteen', summary.kpis?.canteenCost],
+    'health check': ['healthcheck', summary.kpis?.healthcheckUsed],
+    'engagement': ['engagement', summary.kpis?.engagementCount],
+    'training': ['training', summary.kpis?.trainingsCount],
   };
-  const [permission, value] = definitions[particular] || [];
+  const [permission, value] = definitions[String(particular || '').trim().toLocaleLowerCase()] || [];
   return permission && summary.permissions?.[permission] ? Number(value) || 0 : null;
 }
 const matrixCache = new Map();
@@ -218,7 +223,7 @@ export default function OperationMatrix({ industry, label = industry, editable, 
     const financialYearStart = Number(data.fiscalYearEnd) - 1;
     let cancelled = false;
     const currentMonthNumber = Number(data.reportMonth.slice(5, 7));
-    const previousPeriods = [1, 2, 3].map((offset) => {
+    const previousPeriods = [1].map((offset) => {
       const previousEnd = Number(data.fiscalYearEnd) - offset;
       if (periodView === 'year') {
         return {
@@ -529,7 +534,7 @@ export default function OperationMatrix({ industry, label = industry, editable, 
                 </td>
                 {columns.map((column) => (
                   <td key={column.key}>
-                    {row.id.startsWith('hr-section-') && column.linkedPeriod ? (() => {
+                    {isHrSectionRow(row) && column.linkedPeriod ? (() => {
                       const source = column.linkedPeriod === 'previous'
                         ? linkedMetrics.previousPeriods[column.key]
                         : linkedMetrics[column.linkedPeriod];

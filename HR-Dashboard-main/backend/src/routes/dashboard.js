@@ -68,7 +68,7 @@ function whereFor(range, colExpr, year, selectedDate, { monthGranularity = false
 }
 
 function whereForDateOrMonth(range, dateColumn, monthExpr, year, selectedDate) {
-  const dateFilter = whereFor(range, dateColumn, year, selectedDate);
+  const dateFilter = whereFor(range, dateColumn, year, selectedDate, { monthGranularity: range === 'selectedMonth' });
   const monthFilter = whereFor(range, monthExpr, year, selectedDate, { monthGranularity: true });
   return `((${dateColumn} IS NOT NULL AND (${dateFilter})) OR (${dateColumn} IS NULL AND (${monthFilter})))`;
 }
@@ -217,7 +217,7 @@ router.get('/', async (req, res) => {
       electricity: whereFor(range, monthCol, year, requestedDate, { monthGranularity: true }),
       canteen: whereFor(range, monthCol, year, requestedDate),
       engagement: whereFor(range, 'date', year, requestedDate),
-      hiring: whereFor(range, "to_date(month, 'YYYY-MM')", year, requestedDate, { monthGranularity: true }),
+      hiring: whereForDateOrMonth(range, 'date_of_joining', "to_date(month, 'YYYY-MM')", year, requestedDate),
       separation: whereForDateOrMonth(range, 'last_working_day', "to_date(month, 'YYYY-MM')", year, requestedDate),
       training: whereFor(range, 'training_date', year, requestedDate),
       healthcheck: whereFor(range, 'as_of_date', year, requestedDate),
@@ -535,16 +535,16 @@ router.get('/', async (req, res) => {
       q(
         perm.hiring,
         `
-        SELECT month, department, location, joined
+        SELECT COALESCE(to_char(date_of_joining, 'YYYY-MM'), month) AS month, department, location, joined
         FROM hiring
-        WHERE ${whereFor(
+        WHERE ${whereForDateOrMonth(
           range,
+          'date_of_joining',
           "to_date(month, 'YYYY-MM')",
           year,
-          requestedDate,
-          { monthGranularity: true }
+          requestedDate
         )}
-        ORDER BY to_date(month, 'YYYY-MM') ASC NULLS LAST
+        ORDER BY COALESCE(date_of_joining, to_date(month, 'YYYY-MM')) ASC NULLS LAST
         `
       ),
 
