@@ -136,6 +136,7 @@ export const MODULES = [
   { key: 'recruitment', label: 'Recruitment', icon: Briefcase, showTotals: true, wrapHeaders: true, fields: [
     { name: 'openingType', label: 'Opening Type', type: 'select', options: ['New', 'Replacement'] },
     { name: 'openingPosition', label: 'Position Name', type: 'text' },
+    { name: 'designation', label: 'Designation', type: 'select', options: DESIGNATIONS_DISPLAY },
     { name: 'numberOfPositions', label: 'No. of Open Positions', type: 'number' },
     { name: 'remarks', label: 'Remarks', type: 'text' },
     { name: 'month', label: 'Month', type: 'month' },
@@ -148,7 +149,7 @@ export const MODULES = [
   { key: 'hiring', label: 'Joined', icon: UserPlus, showTotals: true, wrapHeaders: true, fields: [
     { name: 'dateOfJoining', label: 'Date of Joining (DOJ)', type: 'date' },
     { name: 'employeeName', label: 'Employee Name', type: 'text' },
-    { name: 'designation', label: 'Designation', type: 'text' },
+    { name: 'designation', label: 'Designation', type: 'select', options: DESIGNATIONS_DISPLAY },
     { name: 'openingType', label: 'Joining Type', type: 'select', options: ['New', 'Replacement'] },
     { name: 'month', label: 'Month', type: 'month' },
     { name: 'department', label: 'Department', type: 'select', options: DEPARTMENTS },
@@ -191,7 +192,7 @@ export const MODULES = [
     fields: [
       { name: 'employeeName', label: 'Employee', type: 'text' },
       { name: 'employeeId', label: 'Employee ID', type: 'text' },
-      { name: 'designation', label: 'Designation', type: 'text' },
+      { name: 'designation', label: 'Designation', type: 'select', options: DESIGNATIONS_DISPLAY },
       { name: 'department', label: 'Department', type: 'text' },
       { name: 'location', label: 'Location', type: 'text' },
       { name: 'criticality', label: 'Critical / General', type: 'select', options: ['Critical', 'General'] },

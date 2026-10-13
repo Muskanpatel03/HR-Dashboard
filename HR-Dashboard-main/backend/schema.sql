@@ -196,6 +196,7 @@ CREATE TABLE IF NOT EXISTS recruitment (
   id SERIAL PRIMARY KEY,
   opening_type TEXT,
   opening_position TEXT,
+  designation TEXT,
   number_of_positions INTEGER NOT NULL DEFAULT 1,
   remarks TEXT,
   month TEXT,
@@ -413,6 +414,7 @@ ALTER TABLE IF EXISTS retirement ADD COLUMN IF NOT EXISTS date_of_birth DATE;
 ALTER TABLE IF EXISTS retirement ADD COLUMN IF NOT EXISTS last_working_day DATE;
 
 ALTER TABLE recruitment ADD COLUMN IF NOT EXISTS opening_position TEXT;
+ALTER TABLE recruitment ADD COLUMN IF NOT EXISTS designation TEXT;
 ALTER TABLE recruitment ADD COLUMN IF NOT EXISTS opening_type TEXT;
 ALTER TABLE recruitment ADD COLUMN IF NOT EXISTS remarks TEXT;
 ALTER TABLE recruitment ADD COLUMN IF NOT EXISTS month TEXT;

@@ -6,6 +6,8 @@
 //
 // The type drives input validation/coercion.
 
+const { DESIGNATIONS } = require('./roles');
+
 const MODULES = {
   // ------------------------------------------------------------
   // MANPOWER
@@ -97,6 +99,12 @@ const MODULES = {
         type: "text",
       },
       {
+        js: "designation",
+        db: "designation",
+        type: "select",
+        options: DESIGNATIONS,
+      },
+      {
         js: "numberOfPositions",
         db: "number_of_positions",
         type: "number",
@@ -164,7 +172,8 @@ const MODULES = {
       {
         js: "designation",
         db: "designation",
-        type: "text",
+        type: "select",
+        options: DESIGNATIONS,
       },
       {
         js: "openingType",
@@ -318,7 +327,7 @@ const MODULES = {
     columns: [
       { js: 'employeeName', db: 'employee_name', type: 'text' },
       { js: 'employeeId', db: 'employee_id', type: 'text' },
-      { js: 'designation', db: 'designation', type: 'text' },
+      { js: 'designation', db: 'designation', type: 'select', options: DESIGNATIONS },
       { js: 'department', db: 'department', type: 'text' },
       { js: 'location', db: 'location', type: 'text' },
       { js: 'criticality', db: 'criticality', type: 'text' },
@@ -432,7 +441,8 @@ const MODULES = {
       {
         js: "designation",
         db: "designation",
-        type: "text",
+        type: "select",
+        options: DESIGNATIONS,
       },
       {
         js: "dateOfUsage",
