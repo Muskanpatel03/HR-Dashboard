@@ -19,9 +19,17 @@ export default function ManpowerHub({
   allowedCompanies,
   initialTab = 'total',
 }) {
-  const [active, setActive] = useState(initialTab);
+  const [active, setActive] = useState(() => {
+    if (initialTab === 'daily') return 'daily';
+    const savedTab = localStorage.getItem('automat_manpower_tab');
+    return TABS.some((tab) => tab.key === savedTab) ? savedTab : initialTab;
+  });
   const [dailyRecords, setDailyRecords] = useState([]);
   const canViewManpower = visibleModuleKeys.includes('manpower');
+
+  useEffect(() => {
+    if (initialTab === 'daily') localStorage.setItem('automat_manpower_tab', 'daily');
+  }, [initialTab]);
 
   useEffect(() => {
     if (!canViewManpower) return undefined;
@@ -76,7 +84,10 @@ export default function ManpowerHub({
           {TABS.map((tab) => (
             <button
               key={tab.key}
-              onClick={() => setActive(tab.key)}
+              onClick={() => {
+                setActive(tab.key);
+                localStorage.setItem('automat_manpower_tab', tab.key);
+              }}
               className="px-3 py-1.5 text-sm rounded"
               style={{
                 background:

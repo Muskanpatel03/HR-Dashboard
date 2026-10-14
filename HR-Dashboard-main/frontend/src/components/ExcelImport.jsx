@@ -4,7 +4,8 @@ import { AlertCircle, CheckCircle2, FileSpreadsheet, LoaderCircle, X } from 'luc
 import api from '../api';
 import { C, COMPANY_OPTIONS } from '../config';
 
-const MAX_ROWS = 500;
+const MAX_ROWS = 20000;
+const BATCH_SIZE = 100;
 const keyFor = (value) => String(value ?? '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
 const toIsoDate = (value, type) => {
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
@@ -18,6 +19,8 @@ const toIsoDate = (value, type) => {
   if ((type === 'date' || type === 'month') && typeof value === 'string') {
     const match = value.trim().match(/^(\d{4})[-/](\d{1,2})(?:[-/](\d{1,2}))?/);
     if (match) return `${match[1]}-${String(match[2]).padStart(2, '0')}${type === 'date' && match[3] ? `-${String(match[3]).padStart(2, '0')}` : type === 'date' ? '-01' : ''}`;
+    const localMatch = value.trim().match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+    if (type === 'date' && localMatch) return `${localMatch[3]}-${String(localMatch[2]).padStart(2, '0')}-${String(localMatch[1]).padStart(2, '0')}`;
   }
   return value == null ? '' : String(value).trim();
 };
@@ -27,6 +30,8 @@ export default function ExcelImport({ config, companyId, onClose, onImported }) 
   const [rows, setRows] = useState([]);
   const [fileName, setFileName] = useState('');
   const [defaultCompany, setDefaultCompany] = useState(companyId && companyId !== 'all' ? companyId : '');
+  const [dailyImportDate, setDailyImportDate] = useState('');
+  const [overrideDailyDates, setOverrideDailyDates] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState('');
@@ -77,9 +82,11 @@ export default function ExcelImport({ config, companyId, onClose, onImported }) 
     setError(''); setBusy(true); setResult(null);
     let imported = 0;
     const failures = [];
+    const validRows = [];
     try {
       for (let i = 0; i < rows.length; i += 1) {
         const record = Object.fromEntries(mapping.fields.map(({ field, index }) => [field.name, index >= 0 ? toIsoDate(rows[i][index], field.type) : '']));
+        if (config.key === 'dailyManpower' && dailyImportDate && (overrideDailyDates || !record.date)) record.date = dailyImportDate;
         if (record.company && companyId && companyId !== 'all' && record.company !== companyId) {
           failures.push({ row: i + 2, message: 'Company differs from the selected company.' });
           continue;
@@ -96,13 +103,35 @@ export default function ExcelImport({ config, companyId, onClose, onImported }) 
             continue;
           }
         }
-        if (config.key === 'dailyManpower' && !record.departmentType && record.departmentProduction) record.departmentType = 'Production';
-        setProgress(`Importing row ${i + 1} of ${rows.length}…`);
+        if (config.key === 'dailyManpower') {
+          if (!record.date || !record.departmentProduction) {
+            failures.push({ row: i + 2, message: 'Date and Department are required for date-wise daily manpower imports.' });
+            continue;
+          }
+          const departmentField = config.fields.find((field) => field.name === 'departmentProduction');
+          const production = departmentField.optionsFor({ departmentType: 'Production' });
+          const nonProduction = departmentField.optionsFor({ departmentType: 'Non-Production' });
+          if (production.includes(record.departmentProduction)) {
+            record.departmentType = 'Production';
+          } else if (nonProduction.includes(record.departmentProduction)) {
+            record.departmentType = 'Non-Production';
+          } else {
+            failures.push({ row: i + 2, message: 'Department does not match a predefined Daily Manpower department.' });
+            continue;
+          }
+        }
+        validRows.push({ row: i + 2, record });
+      }
+      for (let start = 0; start < validRows.length; start += BATCH_SIZE) {
+        const batch = validRows.slice(start, start + BATCH_SIZE);
+        setProgress(`Importing rows ${start + 1}-${start + batch.length} of ${validRows.length}...`);
         try {
-          await api.post(`/${config.key}`, record);
-          imported += 1;
+          const response = await api.post(`/${config.key}/import-batch`, { records: batch.map(({ record }) => record) });
+          imported += response.data.imported;
+          response.data.failures.forEach((failure) => failures.push({ row: batch[failure.index]?.row ?? '?', message: failure.message }));
         } catch (err) {
-          failures.push({ row: i + 2, message: err.response?.data?.error || 'Import failed.' });
+          const message = err.response?.data?.error || 'Import batch failed.';
+          batch.forEach(({ row }) => failures.push({ row, message }));
         }
       }
       setResult({ imported, failures });
@@ -121,11 +150,22 @@ export default function ExcelImport({ config, companyId, onClose, onImported }) 
         <div className="flex items-center gap-2" style={{ color: C.ink, fontWeight: 600 }}><FileSpreadsheet size={17} /> Import Excel into {config.label}</div>
         <button type="button" onClick={onClose} disabled={busy} aria-label="Close Excel import"><X size={17} /></button>
       </div>
-      <p className="text-xs" style={{ color: C.ink2 }}>The first worksheet is used. Columns are matched by field name or label; missing fields stay blank and unmatched columns are ignored. User imports require name, email, designation, and password. Up to {MAX_ROWS} rows per import.</p>
+      <p className="text-xs" style={{ color: C.ink2 }}>The first worksheet is used. Put one record per row. Dates in the sheet are kept unless you choose a date below and select “Use this date for every row.” The selected date also fills blank or missing dates. Imports support up to {MAX_ROWS.toLocaleString()} rows and are sent in batches.</p>
       <div className="flex flex-wrap items-end gap-3">
         <label className="text-xs space-y-1" style={{ color: C.ink2 }}>Excel file (.xlsx, .xls, .xlsm)
           <input type="file" accept=".xlsx,.xls,.xlsm" onChange={chooseFile} disabled={busy} className="block mt-1 text-sm" />
         </label>
+        {config.key === 'dailyManpower' && (
+          <label className="text-xs space-y-1" style={{ color: C.ink2 }}>Import date
+            <input type="date" value={dailyImportDate} onChange={(event) => setDailyImportDate(event.target.value)} disabled={busy} className="block mt-1 px-2 py-2 rounded text-sm" style={{ border: `1px solid ${C.line}`, color: C.ink }} />
+          </label>
+        )}
+        {config.key === 'dailyManpower' && (
+          <label className="flex items-center gap-2 pb-2 text-xs" style={{ color: C.ink2 }}>
+            <input type="checkbox" checked={overrideDailyDates} onChange={(event) => setOverrideDailyDates(event.target.checked)} disabled={busy || !dailyImportDate} />
+            Use this date for every row
+          </label>
+        )}
         {config.fields.some((field) => field.name === 'company') && (
           <label className="text-xs space-y-1" style={{ color: C.ink2 }}>Default company for rows without one
             <select value={defaultCompany} onChange={(event) => setDefaultCompany(event.target.value)} disabled={busy || (companyId && companyId !== 'all')} className="block mt-1 px-2 py-2 rounded text-sm" style={{ border: `1px solid ${C.line}`, color: C.ink }}>

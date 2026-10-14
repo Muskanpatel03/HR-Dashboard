@@ -160,6 +160,68 @@ router.get('/:module', async (req, res) => {
   }
 });
 
+router.post('/:module/import-batch', async (req, res) => {
+  const { module: moduleKey } = req.params;
+  const conf = MODULES[moduleKey];
+  const records = req.body?.records;
+  if (!conf) return res.status(404).json({ error: 'Unknown module' });
+  if (!Array.isArray(records) || records.length > 200) return res.status(400).json({ error: 'Send up to 200 records per import batch.' });
+  if (!canCreate(req.user.role, permissionModuleKey(moduleKey))) return res.status(403).json({ error: 'Not permitted to add records here' });
+  const columns = columnsFor(moduleKey, conf);
+  const dbCols = columns.map((column) => column.db);
+  const client = await pool.connect();
+  const failures = [];
+  let imported = 0;
+  try {
+    await client.query('BEGIN');
+    for (let index = 0; index < records.length; index += 1) {
+      const body = bodyForModule(moduleKey, records[index] || {});
+      if (moduleKey === 'usersmgmt' && !ASSIGNABLE_ROLES.includes(body.role)) {
+        failures.push({ index, message: 'Select a valid designation for this user.' });
+        continue;
+      }
+      if (isCompanyScoped(moduleKey) && !ALL_COMPANY_IDS.includes(body.company)) {
+        failures.push({ index, message: 'Select a company for this record' });
+        continue;
+      }
+      if (isCompanyScoped(moduleKey) && !canReadCompany(req.user.role, body.company)) {
+        failures.push({ index, message: 'Not permitted to access this company' });
+        continue;
+      }
+      const values = columns.map((column) => normalizeValue(body[column.js], column.type));
+      const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
+      await client.query(`SAVEPOINT import_row`);
+      try {
+        let insertCols = [...dbCols];
+        let insertVals = [...values];
+        if (moduleKey === 'usersmgmt' && body.password) {
+          insertCols.push('password_hash');
+          insertVals.push(await bcrypt.hash(String(body.password), 10));
+        }
+        const insertPlaceholders = insertVals.map((_, i) => `$${i + 1}`).join(', ');
+        const result = await client.query(
+          `INSERT INTO ${conf.table} (${insertCols.join(', ')}) VALUES (${insertPlaceholders}) RETURNING id, ${dbCols.join(', ')}`,
+          insertVals
+        );
+        await logAudit(client, { user: req.user, moduleKey, action: 'Created', detail: summarize(result.rows[0], columns), company: result.rows[0].company || null });
+        await client.query('RELEASE SAVEPOINT import_row');
+        imported += 1;
+      } catch (error) {
+        await client.query('ROLLBACK TO SAVEPOINT import_row');
+        failures.push({ index, message: error.code === '23505' ? 'A record with that unique value already exists.' : 'Import failed for this row.' });
+      }
+    }
+    await client.query('COMMIT');
+    res.status(200).json({ imported, failures });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error(error);
+    res.status(500).json({ error: 'Failed to import batch' });
+  } finally {
+    client.release();
+  }
+});
+
 router.post('/:module', async (req, res) => {
   const { module: moduleKey } = req.params;
   const conf = MODULES[moduleKey];
