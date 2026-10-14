@@ -280,12 +280,16 @@ router.get('/', async (req, res) => {
           FROM loan_summary WHERE ${scoped(perm.loanSummary)} GROUP BY unit
         ) loan_units) AS loan_by_unit,
         (SELECT COALESCE(json_agg(latest_row), '[]'::json) FROM (
-          SELECT to_char(date, 'YYYY-MM-DD') AS date, department_production AS "departmentProduction",
-                 COALESCE(fixed_manpower, 0) AS "fixedManpower", COALESCE(day_shift, 0) AS "dayShift",
-                 COALESCE(night_shift, 0) AS "nightShift", COALESCE(day_shift, 0) + COALESCE(night_shift, 0) AS total,
-                 COALESCE(absent, 0) AS absent, COALESCE(double_shift, 0) AS "doubleShift"
+          SELECT to_char(date, 'YYYY-MM-DD') AS date,
+                 'All Departments' AS "departmentProduction",
+                 COALESCE(SUM(fixed_manpower), 0) AS "fixedManpower",
+                 COALESCE(SUM(day_shift), 0) AS "dayShift",
+                 COALESCE(SUM(night_shift), 0) AS "nightShift",
+                 COALESCE(SUM(day_shift), 0) + COALESCE(SUM(night_shift), 0) AS total,
+                 COALESCE(SUM(absent), 0) AS absent,
+                 COALESCE(SUM(double_shift), 0) AS "doubleShift"
           FROM daily_manpower WHERE ${scoped(perm.manpower, filters.daily)}
-          ORDER BY date DESC, department_production ASC LIMIT 1
+          GROUP BY date ORDER BY date DESC LIMIT 1
         ) latest_row) AS daily_manpower_records,
         ${matrixCountSql} AS matrix_particular_count
     `;
@@ -710,22 +714,31 @@ router.get('/', async (req, res) => {
           indirect: dailyMap[key].indirect,
         }));
 
-    const dailyManpowerRecords = dailyManpower.rows.map((row) => {
+    const dailyManpowerByDate = new Map();
+    dailyManpower.rows.forEach((row) => {
       const date = String(row.date || '').slice(0, 10);
-      const dayShift = Number(row.day_shift) || 0;
-      const nightShift = Number(row.night_shift) || 0;
-      return {
+      if (!date) return;
+      const record = dailyManpowerByDate.get(date) || {
         date,
         fullDate: date,
-        departmentProduction: row.department_production || '—',
-        fixedManpower: Number(row.fixed_manpower) || 0,
-        dayShift,
-        nightShift,
-        total: dayShift + nightShift,
-        absent: Number(row.absent) || 0,
-        doubleShift: Number(row.double_shift) || 0,
+        departmentProduction: 'All Departments',
+        fixedManpower: 0,
+        dayShift: 0,
+        nightShift: 0,
+        total: 0,
+        absent: 0,
+        doubleShift: 0,
       };
+      record.fixedManpower += Number(row.fixed_manpower) || 0;
+      record.dayShift += Number(row.day_shift) || 0;
+      record.nightShift += Number(row.night_shift) || 0;
+      record.total += (Number(row.day_shift) || 0) + (Number(row.night_shift) || 0);
+      record.absent += Number(row.absent) || 0;
+      record.doubleShift += Number(row.double_shift) || 0;
+      dailyManpowerByDate.set(date, record);
     });
+    const dailyManpowerRecords = [...dailyManpowerByDate.values()]
+      .sort((a, b) => b.date.localeCompare(a.date));
 
     // =========================================================
     // RECRUITMENT

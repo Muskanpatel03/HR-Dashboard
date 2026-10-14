@@ -58,11 +58,15 @@ export default function ManpowerHub({
       const key = `${month}:${record.company}`;
       const current = snapshots.get(key);
       const total = (Number(record.dayShift) || 0) + (Number(record.nightShift) || 0);
+      const group = record.departmentType === 'Production' ? 'productionTotal' : 'nonProductionTotal';
 
       if (!current || date > current.date) {
-        snapshots.set(key, { month, company: record.company, date, total });
+        snapshots.set(key, { month, company: record.company, date, productionTotal: 0, nonProductionTotal: 0, total: 0 });
+        snapshots.get(key)[group] = total;
+        snapshots.get(key).total = total;
       } else if (date === current.date) {
         current.total += total;
+        current[group] += total;
       }
     });
 
@@ -116,7 +120,7 @@ export default function ManpowerHub({
           <table className="w-full text-sm">
             <thead>
               <tr style={{ color: C.ink2, background: C.paper }}>
-                {['Month', 'Company', 'Latest Daily Date', 'Total Manpower'].map((label) => (
+                {['Month', 'Company', 'Latest Daily Date', 'Production', 'Non-Production', 'Total Manpower'].map((label) => (
                   <th key={label} className="px-4 py-2 text-left font-medium">{label}</th>
                 ))}
               </tr>
@@ -127,10 +131,12 @@ export default function ManpowerHub({
                   <td className="px-4 py-2">{new Date(`${snapshot.month}-01T00:00:00`).toLocaleDateString('en', { month: 'long', year: 'numeric' })}</td>
                   <td className="px-4 py-2">{COMPANY_OPTIONS.find((company) => company.id === snapshot.company)?.label || snapshot.company}</td>
                   <td className="px-4 py-2">{snapshot.date}</td>
+                  <td className="px-4 py-2">{snapshot.productionTotal.toLocaleString('en-IN')}</td>
+                  <td className="px-4 py-2">{snapshot.nonProductionTotal.toLocaleString('en-IN')}</td>
                   <td className="px-4 py-2 font-semibold">{snapshot.total.toLocaleString('en-IN')}</td>
                 </tr>
               )) : (
-                <tr><td colSpan="4" className="px-4 py-4 text-center" style={{ color: C.ink2 }}>No daily manpower records for this company yet.</td></tr>
+                <tr><td colSpan="6" className="px-4 py-4 text-center" style={{ color: C.ink2 }}>No daily manpower records for this company yet.</td></tr>
               )}
             </tbody>
           </table>

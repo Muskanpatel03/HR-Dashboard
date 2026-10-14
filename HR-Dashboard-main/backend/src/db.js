@@ -87,10 +87,11 @@ async function ensureCurrentSchema() {
        AND (department IS NOT NULL OR production IS NOT NULL)`,
     `UPDATE daily_manpower
      SET department_type = CASE
-       WHEN department_production IN ('QC & RD', 'Water Flow Meter', 'ACCOUNTS_DAY', 'PURCHASE DAY', 'PROJECTS/WAREHOUSE', 'HR', 'ADMIN', 'PANTRY', 'GAURAD_SBD', 'DRIVER', 'GARDENER', 'HK', 'ABSOLUTE 4 SECURITY', 'IT', 'Hadar') THEN 'Non-Production'
-       ELSE 'Production'
+       WHEN LOWER(TRIM(department_production)) IN ('qc & rd', 'water flow meter', 'accounts_day', 'purchase day', 'purchase_day', 'projects/warehouse', 'projects/ warehouse', 'hr', 'admin', 'pantry', 'gaurad_sbd', 'driver', 'gardener', 'hk', 'absolute 4 security', 'it', 'hadar') THEN 'Non-Production'
+       WHEN LOWER(TRIM(department_production)) IN ('prod_aipl', 'prod_ind', 'prod_misc', 'dispatch', 'shop floor qc', 'shop floor_qc', 'o & m', 'inventory control / store', 'inventory control /store', 'others_romil_ji', 'others_romil ji', 'outsources welder & carpenter, other') THEN 'Production'
+       ELSE department_type
      END
-     WHERE department_type IS NULL AND department_production IS NOT NULL`,
+     WHERE LOWER(TRIM(department_production)) IN ('qc & rd', 'water flow meter', 'accounts_day', 'purchase day', 'purchase_day', 'projects/warehouse', 'projects/ warehouse', 'hr', 'admin', 'pantry', 'gaurad_sbd', 'driver', 'gardener', 'hk', 'absolute 4 security', 'it', 'hadar', 'prod_aipl', 'prod_ind', 'prod_misc', 'dispatch', 'shop floor qc', 'shop floor_qc', 'o & m', 'inventory control / store', 'inventory control /store', 'others_romil_ji', 'others_romil ji', 'outsources welder & carpenter, other')`,
     'ALTER TABLE recruitment ADD COLUMN IF NOT EXISTS opening_position TEXT',
     'ALTER TABLE recruitment ADD COLUMN IF NOT EXISTS designation TEXT',
     'ALTER TABLE recruitment ADD COLUMN IF NOT EXISTS number_of_positions INTEGER NOT NULL DEFAULT 1',

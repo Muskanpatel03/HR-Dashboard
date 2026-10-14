@@ -35,6 +35,7 @@ export default function ExcelImport({ config, companyId, onClose, onImported }) 
   const [fileName, setFileName] = useState('');
   const [defaultCompany, setDefaultCompany] = useState(companyId && companyId !== 'all' ? companyId : '');
   const [dailyImportDate, setDailyImportDate] = useState('');
+  const [dailyImportMonth, setDailyImportMonth] = useState('');
   const [overrideDailyDates, setOverrideDailyDates] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -78,9 +79,11 @@ export default function ExcelImport({ config, companyId, onClose, onImported }) 
         const sheetRows = matrix.slice(headerRow + 1).filter((row) => {
           if (!row.some((cell) => String(cell ?? '').trim() !== '')) return false;
           if (config.key !== 'dailyManpower' || departmentIndex < 0) return true;
-          return !['total', 'grandtotal'].includes(keyFor(row[departmentIndex]));
+          const departmentValue = keyFor(row[departmentIndex]);
+          const repeatedHeader = [ 'departmentProduction', ...(IMPORT_HEADER_ALIASES.departmentProduction || []) ].some((alias) => keyFor(alias) === departmentValue);
+          return !['total', 'grandtotal', 'summary'].includes(departmentValue) && !repeatedHeader;
         });
-        return { headers: sheetHeaders, rows: sheetRows };
+        return { sheetName, headers: sheetHeaders, rows: sheetRows };
       }).filter(Boolean);
       if (!parsedSheets.length) throw new Error(config.key === 'dailyManpower'
         ? 'No worksheet has a Department column. Use Department, Deptt, DEPTT_PRODUCTION, or DEPTT_NON PRODUCTION as the heading.'
@@ -90,12 +93,16 @@ export default function ExcelImport({ config, companyId, onClose, onImported }) 
         return field?.name || header;
       };
       const nextHeaders = [...new Set(parsedSheets.flatMap(({ headers: sheetHeaders }) => sheetHeaders.map(canonicalHeader)))];
-      const dataRows = parsedSheets.flatMap(({ headers: sheetHeaders, rows: sheetRows }) => {
+      const dataRows = parsedSheets.flatMap(({ sheetName, headers: sheetHeaders, rows: sheetRows }) => {
         const canonicalHeaders = sheetHeaders.map(canonicalHeader);
-        return sheetRows.map((row) => nextHeaders.map((header) => {
+        return sheetRows.map((row) => {
+          const mappedRow = nextHeaders.map((header) => {
           const index = canonicalHeaders.indexOf(header);
           return index >= 0 ? row[index] ?? '' : '';
-        }));
+          });
+          mappedRow.sourceSheet = sheetName;
+          return mappedRow;
+        });
       });
       if (!dataRows.length) throw new Error('No data rows were found below the headers.');
       if (dataRows.length > MAX_ROWS) throw new Error(`This import supports up to ${MAX_ROWS} rows at a time. Split the sheet and upload it in smaller batches.`);
@@ -122,6 +129,12 @@ export default function ExcelImport({ config, companyId, onClose, onImported }) 
     try {
       for (let i = 0; i < rows.length; i += 1) {
         const record = Object.fromEntries(mapping.fields.map(({ field, index }) => [field.name, index >= 0 ? toIsoDate(rows[i][index], field.type) : '']));
+        if (config.key === 'dailyManpower' && !overrideDailyDates && !record.date && dailyImportMonth && /^\d{1,2}$/.test(rows[i].sourceSheet || '')) {
+          const day = Number(rows[i].sourceSheet);
+          const date = `${dailyImportMonth}-${String(day).padStart(2, '0')}`;
+          const parsed = new Date(`${date}T00:00:00`);
+          if (parsed.getFullYear() === Number(dailyImportMonth.slice(0, 4)) && parsed.getMonth() + 1 === Number(dailyImportMonth.slice(5, 7)) && parsed.getDate() === day) record.date = date;
+        }
         if (config.key === 'dailyManpower' && dailyImportDate && (overrideDailyDates || !record.date)) record.date = dailyImportDate;
         if (record.company && companyId && companyId !== 'all' && record.company !== companyId) {
           failures.push({ row: i + 2, message: 'Company differs from the selected company.' });
@@ -187,7 +200,8 @@ export default function ExcelImport({ config, companyId, onClose, onImported }) 
   const companyRequired = config.fields.some((field) => field.name === 'company') && !defaultCompany && !mapping.fields.find((item) => item.field.name === 'company' && item.index >= 0);
   const dailyDateColumn = mapping.fields.find((item) => item.field.name === 'date');
   const dailyDateMissing = !dailyDateColumn || rows.some((row) => !toIsoDate(row[dailyDateColumn.index], 'date'));
-  const dailyDateRequired = config.key === 'dailyManpower' && dailyDateMissing && !dailyImportDate;
+  const numberedSheetDatesAvailable = rows.length > 0 && rows.every((row) => /^\d{1,2}$/.test(row.sourceSheet || '')) && Boolean(dailyImportMonth);
+  const dailyDateRequired = config.key === 'dailyManpower' && dailyDateMissing && !dailyImportDate && !numberedSheetDatesAvailable;
   const dailyDepartmentMapped = mapping.fields.some((item) => item.field.name === 'departmentProduction' && item.index >= 0);
   const dailyDepartmentRequired = config.key === 'dailyManpower' && !dailyDepartmentMapped;
 
@@ -197,7 +211,7 @@ export default function ExcelImport({ config, companyId, onClose, onImported }) 
         <div className="flex items-center gap-2" style={{ color: C.ink, fontWeight: 600 }}><FileSpreadsheet size={17} /> Import Excel into {config.label}</div>
         <button type="button" onClick={onClose} disabled={busy} aria-label="Close Excel import"><X size={17} /></button>
       </div>
-      <p className="text-xs" style={{ color: C.ink2 }}>{config.key === 'dailyManpower' ? 'All worksheets with a Department column are combined, so Production and Non-Production can be imported together. Put one record per row.' : 'The first worksheet is used.'} Dates in the sheet are kept unless you choose a date below and select ?Use this date for every row.? The selected date also fills blank or missing dates. Imports support up to {MAX_ROWS.toLocaleString()} rows and are sent in batches.</p>
+      <p className="text-xs" style={{ color: C.ink2 }}>{config.key === 'dailyManpower' ? 'All worksheets with a Department column are combined. For numbered day tabs such as 01-31, choose the month below so each tab becomes that date. Put one department record per row.' : 'The first worksheet is used.'} Dates in the sheet are kept unless you choose a date below and select "Use this date for every row." The selected date also fills blank or missing dates. Imports support up to {MAX_ROWS.toLocaleString()} rows and are sent in batches.</p>
       <div className="flex flex-wrap items-end gap-3">
         <label className="text-xs space-y-1" style={{ color: C.ink2 }}>Excel file (.xlsx, .xls, .xlsm)
           <input type="file" accept=".xlsx,.xls,.xlsm" onChange={chooseFile} disabled={busy} className="block mt-1 text-sm" />
@@ -205,6 +219,11 @@ export default function ExcelImport({ config, companyId, onClose, onImported }) 
         {config.key === 'dailyManpower' && (
           <label className="text-xs space-y-1" style={{ color: C.ink2 }}>Import date
             <input type="date" value={dailyImportDate} onChange={(event) => setDailyImportDate(event.target.value)} disabled={busy} className="block mt-1 px-2 py-2 rounded text-sm" style={{ border: `1px solid ${C.line}`, color: C.ink }} />
+          </label>
+        )}
+        {config.key === 'dailyManpower' && (
+          <label className="text-xs space-y-1" style={{ color: C.ink2 }}>Month for numbered worksheet tabs
+            <input type="month" value={dailyImportMonth} onChange={(event) => setDailyImportMonth(event.target.value)} disabled={busy} className="block mt-1 px-2 py-2 rounded text-sm" style={{ border: `1px solid ${C.line}`, color: C.ink }} />
           </label>
         )}
         {config.key === 'dailyManpower' && (
