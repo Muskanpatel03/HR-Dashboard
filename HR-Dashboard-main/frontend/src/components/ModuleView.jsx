@@ -1475,6 +1475,15 @@ export default function ModuleView({
                   return departments.includes(record.departmentProduction);
                 })
               : displayRows;
+            const rowsToRender = config.key === "dailyManpower"
+              ? DAILY_MANPOWER_CONFIG.fields
+                  .find((field) => field.name === "departmentProduction")
+                  .optionsFor({ departmentType: group.filterValue })
+                  .flatMap((department, index) => {
+                    const matching = groupRows.filter((row) => row.departmentProduction === department);
+                    return matching.length ? matching : [{ id: `preset-${group.filterValue}-${index}`, departmentProduction: department, __preset: true }];
+                  })
+              : groupRows;
               const showActions = canEditRows || (canDelete && (!periodField || period === "Monthly"));
 
             const groupColSpan =
@@ -1636,7 +1645,7 @@ export default function ModuleView({
                     {/* Empty */}
 
                     {!loading &&
-                      groupRows.length ===
+                      rowsToRender.length ===
                         0 && (
                         <tr>
                           <td
@@ -1660,7 +1669,7 @@ export default function ModuleView({
                     {/* Records */}
 
                     {!loading &&
-                      groupRows.map(
+                      rowsToRender.map(
                         (record, rowIndex) => (
                           <tr
                             key={
@@ -1687,13 +1696,13 @@ export default function ModuleView({
                                     minWidth: config.wrapHeaders && f.type !== "number" ? 120 : undefined,
                                   }}
                                 >
-                                  {f.type === "date"
-                                    ? formatDate(record[f.name])
-                                    : record[f.name] || "—"}
+                                  {record.__preset
+                                    ? f.name === "departmentProduction" ? record.departmentProduction : ""
+                                    : f.type === "date" ? formatDate(record[f.name]) : record[f.name] || "—"}
                                 </td>
                                 {showComputed && config.computedAfterField === f.name && computedFields.map((computed) => (
                                   <td key={computed.name} className="px-3 py-2 nowrap-cell" style={{ fontFamily: FONT_MONO, color: C.steel, minWidth: 110 }}>
-                                    {computed.compute(record)}
+                                    {record.__preset ? "" : computed.compute(record)}
                                   </td>
                                 ))}
                               </React.Fragment>
@@ -1730,7 +1739,7 @@ export default function ModuleView({
 
                             {/* Actions */}
 
-                            {showActions && (
+                            {showActions && !record.__preset && (
                               <td className="px-3 py-2">
                                 <div className="flex gap-2">
 
@@ -1773,8 +1782,7 @@ export default function ModuleView({
                     ================================================== */}
 
                     {config.showTotals &&
-                      groupRows.length >
-                        0 && (
+                      (groupRows.length > 0 || config.key === "dailyManpower") && (
                         <tr
                           style={{
                             background:
