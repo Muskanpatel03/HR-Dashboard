@@ -644,6 +644,7 @@ export default function ModuleView({
   defaultValues = {},
   companyId,
   onRecordsChange,
+  onSelectedDateChange,
 }) {
   const [records, setRecords] =
     useState([]);
@@ -686,6 +687,10 @@ export default function ModuleView({
     useState("all");
   const [selectedDate, setSelectedDate] = useState("");
   const [dailyMonth, setDailyMonth] = useState("all");
+
+  useEffect(() => {
+    if (config.key === "dailyManpower") onSelectedDateChange?.(selectedDate);
+  }, [config.key, selectedDate, onSelectedDateChange]);
 
   useEffect(() => {
     setSort(defaultSortFor(config));

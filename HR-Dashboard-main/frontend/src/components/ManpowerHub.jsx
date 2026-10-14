@@ -25,6 +25,7 @@ export default function ManpowerHub({
     return TABS.some((tab) => tab.key === savedTab) ? savedTab : initialTab;
   });
   const [dailyRecords, setDailyRecords] = useState([]);
+  const [selectedDailyDate, setSelectedDailyDate] = useState('');
   const canViewManpower = visibleModuleKeys.includes('manpower');
 
   useEffect(() => {
@@ -48,7 +49,10 @@ export default function ManpowerHub({
     const companies = companyId === 'all'
       ? allowedCompanies.map((company) => company.id)
       : [companyId];
-    const snapshots = new Map();
+    const monthlySnapshots = new Map();
+    const departmentField = DAILY_MANPOWER_CONFIG.fields.find((field) => field.name === 'departmentProduction');
+    const productionDepartments = new Set(departmentField.optionsFor({ departmentType: 'Production' }).map((department) => department.trim().toLowerCase()));
+    const nonProductionDepartments = new Set(departmentField.optionsFor({ departmentType: 'Non-Production' }).map((department) => department.trim().toLowerCase()));
 
     dailyRecords.forEach((record) => {
       if (!companies.includes(record.company)) return;
@@ -56,23 +60,52 @@ export default function ManpowerHub({
       if (!date) return;
       const month = date.slice(0, 7);
       const key = `${month}:${record.company}`;
-      const current = snapshots.get(key);
+      const current = monthlySnapshots.get(key) || { month, company: record.company, recordedDates: new Set(), productionTotal: 0, nonProductionTotal: 0, total: 0 };
       const total = (Number(record.dayShift) || 0) + (Number(record.nightShift) || 0);
-      const group = record.departmentType === 'Production' ? 'productionTotal' : 'nonProductionTotal';
-
-      if (!current || date > current.date) {
-        snapshots.set(key, { month, company: record.company, date, productionTotal: 0, nonProductionTotal: 0, total: 0 });
-        snapshots.get(key)[group] = total;
-        snapshots.get(key).total = total;
-      } else if (date === current.date) {
-        current.total += total;
-        current[group] += total;
-      }
+      const department = String(record.departmentProduction || '').trim().toLowerCase();
+      const group = productionDepartments.has(department) || (!nonProductionDepartments.has(department) && record.departmentType === 'Production')
+        ? 'productionTotal'
+        : 'nonProductionTotal';
+      current.total += total;
+      current[group] += total;
+      current.recordedDates.add(date);
+      monthlySnapshots.set(key, current);
     });
 
-    return [...snapshots.values()].sort((a, b) =>
+    return [...monthlySnapshots.values()].map((snapshot) => ({
+      ...snapshot,
+      recordedDays: snapshot.recordedDates.size,
+    })).sort((a, b) =>
       b.month.localeCompare(a.month) || a.company.localeCompare(b.company)
     );
+  }, [dailyRecords, companyId, allowedCompanies]);
+
+  const dailyCategoryTotals = useMemo(() => {
+    const companies = companyId === 'all'
+      ? allowedCompanies.map((company) => company.id)
+      : [companyId];
+    const departmentField = DAILY_MANPOWER_CONFIG.fields.find((field) => field.name === 'departmentProduction');
+    const productionDepartments = new Set(departmentField.optionsFor({ departmentType: 'Production' }).map((department) => department.trim().toLowerCase()));
+    const nonProductionDepartments = new Set(departmentField.optionsFor({ departmentType: 'Non-Production' }).map((department) => department.trim().toLowerCase()));
+    const totalsByDate = new Map();
+
+    dailyRecords.forEach((record) => {
+      if (!companies.includes(record.company)) return;
+      const date = String(record.date || '').slice(0, 10);
+      if (!date) return;
+      if (selectedDailyDate && date !== selectedDailyDate) return;
+      const totals = totalsByDate.get(date) || { date, production: 0, nonProduction: 0, total: 0 };
+      const headcount = (Number(record.dayShift) || 0) + (Number(record.nightShift) || 0);
+      const department = String(record.departmentProduction || '').trim().toLowerCase();
+      const isProduction = productionDepartments.has(department)
+        || (!nonProductionDepartments.has(department) && record.departmentType === 'Production');
+      if (isProduction) totals.production += headcount;
+      else totals.nonProduction += headcount;
+      totals.total += headcount;
+      totalsByDate.set(date, totals);
+    });
+
+    return [...totalsByDate.values()].sort((a, b) => b.date.localeCompare(a.date));
   }, [dailyRecords, companyId, allowedCompanies]);
 
   if (!canViewManpower) return null;
@@ -115,12 +148,12 @@ export default function ManpowerHub({
       {active === 'total' && (
         <section className="overflow-x-auto rounded" style={{ background: C.card, border: `1px solid ${C.line}` }}>
           <div className="px-4 py-3" style={{ borderBottom: `1px solid ${C.line}` }}>
-            <h2 className="text-sm font-semibold" style={{ color: C.ink }}>Latest Daily Manpower by Month</h2>
+            <h2 className="text-sm font-semibold" style={{ color: C.ink }}>Monthly Sum of Daily Manpower</h2>
           </div>
           <table className="w-full text-sm">
             <thead>
               <tr style={{ color: C.ink2, background: C.paper }}>
-                {['Month', 'Company', 'Latest Daily Date', 'Production', 'Non-Production', 'Total Manpower'].map((label) => (
+                {['Month', 'Company', 'Recorded Days', 'Production Monthly Sum', 'Non-Production Monthly Sum', 'Monthly Total'].map((label) => (
                   <th key={label} className="px-4 py-2 text-left font-medium">{label}</th>
                 ))}
               </tr>
@@ -130,7 +163,7 @@ export default function ManpowerHub({
                 <tr key={`${snapshot.month}:${snapshot.company}`} style={{ borderTop: `1px solid ${C.line}`, color: C.ink }}>
                   <td className="px-4 py-2">{new Date(`${snapshot.month}-01T00:00:00`).toLocaleDateString('en', { month: 'long', year: 'numeric' })}</td>
                   <td className="px-4 py-2">{COMPANY_OPTIONS.find((company) => company.id === snapshot.company)?.label || snapshot.company}</td>
-                  <td className="px-4 py-2">{snapshot.date}</td>
+                  <td className="px-4 py-2">{snapshot.recordedDays}</td>
                   <td className="px-4 py-2">{snapshot.productionTotal.toLocaleString('en-IN')}</td>
                   <td className="px-4 py-2">{snapshot.nonProductionTotal.toLocaleString('en-IN')}</td>
                   <td className="px-4 py-2 font-semibold">{snapshot.total.toLocaleString('en-IN')}</td>
@@ -142,6 +175,36 @@ export default function ManpowerHub({
           </table>
         </section>
       )}
+      {active === 'daily' && (
+        <section className="overflow-x-auto rounded" style={{ background: C.card, border: `1px solid ${C.line}` }}>
+          <div className="px-4 py-3" style={{ borderBottom: `1px solid ${C.line}` }}>
+            <h2 className="text-sm font-semibold" style={{ color: C.ink }}>Daily Production and Non-Production Totals</h2>
+          </div>
+          <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+            <table className="w-full text-sm">
+              <thead style={{ position: 'sticky', top: 0, background: C.paper, zIndex: 1 }}>
+                <tr style={{ color: C.ink2 }}>
+                  {['Date', 'Production Total', 'Non-Production Total', 'Daily Manpower Total'].map((label) => (
+                    <th key={label} className="px-4 py-2 text-left font-medium">{label}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {dailyCategoryTotals.length ? dailyCategoryTotals.map((row) => (
+                  <tr key={row.date} style={{ borderTop: `1px solid ${C.line}`, color: C.ink }}>
+                    <td className="px-4 py-2">{row.date}</td>
+                    <td className="px-4 py-2">{row.production.toLocaleString('en-IN')}</td>
+                    <td className="px-4 py-2">{row.nonProduction.toLocaleString('en-IN')}</td>
+                    <td className="px-4 py-2 font-semibold">{row.total.toLocaleString('en-IN')}</td>
+                  </tr>
+                )) : (
+                  <tr><td colSpan="4" className="px-4 py-4 text-center" style={{ color: C.ink2 }}>No daily manpower records for this company yet.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
       <ModuleView
         config={active === 'daily' ? DAILY_MANPOWER_CONFIG : MODULE_MAP.manpower}
         editable={canEditModule('manpower')}
@@ -149,6 +212,7 @@ export default function ManpowerHub({
         canDelete={canDelete}
         companyId={companyId}
         onRecordsChange={setDailyRecords}
+        onSelectedDateChange={setSelectedDailyDate}
       />
 
     </div>

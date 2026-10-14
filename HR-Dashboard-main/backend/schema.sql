@@ -173,6 +173,10 @@ CREATE TABLE IF NOT EXISTS daily_manpower (
 
 ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now();
 ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS direct_present INTEGER;
+ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS indirect_present INTEGER;
+ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS direct_absent INTEGER;
+ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS indirect_absent INTEGER;
 ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS production INTEGER;
 ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS fixed_manpower INTEGER;
 ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS day_shift INTEGER;
@@ -181,6 +185,13 @@ ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS absent INTEGER;
 ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS double_shift INTEGER;
 ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS department_production TEXT;
 ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS department_type TEXT;
+UPDATE daily_manpower
+SET day_shift = COALESCE(NULLIF(day_shift, 0), direct_present, 0),
+    night_shift = COALESCE(NULLIF(night_shift, 0), indirect_present, 0),
+    absent = COALESCE(NULLIF(absent, 0), COALESCE(direct_absent, 0) + COALESCE(indirect_absent, 0), 0)
+WHERE (COALESCE(day_shift, 0) = 0 AND COALESCE(direct_present, 0) <> 0)
+   OR (COALESCE(night_shift, 0) = 0 AND COALESCE(indirect_present, 0) <> 0)
+   OR (COALESCE(absent, 0) = 0 AND (COALESCE(direct_absent, 0) + COALESCE(indirect_absent, 0)) <> 0);
 UPDATE daily_manpower
 SET department_production = CONCAT_WS(' - ', NULLIF(department, ''), NULLIF(production::TEXT, ''))
 WHERE department_production IS NULL
