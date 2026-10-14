@@ -7,6 +7,10 @@ import { C, COMPANY_OPTIONS } from '../config';
 const MAX_ROWS = 20000;
 const BATCH_SIZE = 100;
 const keyFor = (value) => String(value ?? '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+const IMPORT_HEADER_ALIASES = {
+  date: ['Date', 'Daily Date', 'Manpower Date', 'Attendance Date'],
+  departmentProduction: ['Department', 'Department Name', 'Deptt', 'DEPTT_PRODUCTION', 'DEPTT_NON PRODUCTION'],
+};
 const toIsoDate = (value, type) => {
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
     const iso = value.toISOString().slice(0, 10);
@@ -41,7 +45,7 @@ export default function ExcelImport({ config, companyId, onClose, onImported }) 
     const used = new Set();
     const fields = config.fields;
     const mapped = fields.map((field) => {
-      const candidates = [field.name, field.label].map(keyFor);
+      const candidates = [field.name, field.label, ...(IMPORT_HEADER_ALIASES[field.name] || [])].map(keyFor);
       const index = headers.findIndex((header, i) => !used.has(i) && candidates.includes(keyFor(header)));
       if (index >= 0) used.add(index);
       return { field, index };
@@ -55,13 +59,45 @@ export default function ExcelImport({ config, companyId, onClose, onImported }) 
     if (!file) return;
     try {
       const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: true, blankrows: false });
-      const headerRow = matrix.findIndex((row) => row.some((cell) => String(cell ?? '').trim()));
-      if (headerRow < 0 || !matrix[headerRow + 1]) throw new Error('The first worksheet needs a header row and at least one data row.');
-      const nextHeaders = matrix[headerRow].map((cell) => String(cell ?? '').trim());
-      const dataRows = matrix.slice(headerRow + 1).filter((row) => row.some((cell) => String(cell ?? '').trim() !== '')).map((row) => row.slice(0, nextHeaders.length));
-      if (!dataRows.length) throw new Error('No data rows were found below the header.');
+      const acceptedHeaders = new Set(config.fields.flatMap((field) => [field.name, field.label, ...(IMPORT_HEADER_ALIASES[field.name] || [])].map(keyFor)));
+      const sheetNames = config.key === 'dailyManpower' ? workbook.SheetNames : workbook.SheetNames.slice(0, 1);
+      const parsedSheets = sheetNames.map((sheetName) => {
+        const matrix = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: '', raw: true, blankrows: false });
+        const headerCandidates = matrix.slice(0, 30).map((row, index) => ({
+          index,
+          score: row.reduce((total, cell) => total + (acceptedHeaders.has(keyFor(cell)) ? 1 : 0), 0),
+          hasContent: row.some((cell) => String(cell ?? '').trim()),
+        })).filter((candidate) => candidate.hasContent);
+        const bestHeader = headerCandidates.reduce((best, candidate) => candidate.score > best.score ? candidate : best, { index: -1, score: 0 });
+        const headerRow = bestHeader.score > 0 ? bestHeader.index : matrix.findIndex((row) => row.some((cell) => String(cell ?? '').trim()));
+        if (headerRow < 0 || !matrix[headerRow + 1]) return null;
+        const sheetHeaders = matrix[headerRow].map((cell) => String(cell ?? '').trim());
+        const departmentHeader = sheetHeaders.some((header) => [ 'departmentProduction', ...(IMPORT_HEADER_ALIASES.departmentProduction || []) ].some((alias) => keyFor(alias) === keyFor(header)));
+        if (config.key === 'dailyManpower' && !departmentHeader) return null;
+        const departmentIndex = sheetHeaders.findIndex((header) => [ 'departmentProduction', ...(IMPORT_HEADER_ALIASES.departmentProduction || []) ].some((alias) => keyFor(alias) === keyFor(header)));
+        const sheetRows = matrix.slice(headerRow + 1).filter((row) => {
+          if (!row.some((cell) => String(cell ?? '').trim() !== '')) return false;
+          if (config.key !== 'dailyManpower' || departmentIndex < 0) return true;
+          return !['total', 'grandtotal'].includes(keyFor(row[departmentIndex]));
+        });
+        return { headers: sheetHeaders, rows: sheetRows };
+      }).filter(Boolean);
+      if (!parsedSheets.length) throw new Error(config.key === 'dailyManpower'
+        ? 'No worksheet has a Department column. Use Department, Deptt, DEPTT_PRODUCTION, or DEPTT_NON PRODUCTION as the heading.'
+        : 'The first worksheet needs a header row and at least one data row.');
+      const canonicalHeader = (header) => {
+        const field = config.fields.find((candidate) => [candidate.name, candidate.label, ...(IMPORT_HEADER_ALIASES[candidate.name] || [])].some((alias) => keyFor(alias) === keyFor(header)));
+        return field?.name || header;
+      };
+      const nextHeaders = [...new Set(parsedSheets.flatMap(({ headers: sheetHeaders }) => sheetHeaders.map(canonicalHeader)))];
+      const dataRows = parsedSheets.flatMap(({ headers: sheetHeaders, rows: sheetRows }) => {
+        const canonicalHeaders = sheetHeaders.map(canonicalHeader);
+        return sheetRows.map((row) => nextHeaders.map((header) => {
+          const index = canonicalHeaders.indexOf(header);
+          return index >= 0 ? row[index] ?? '' : '';
+        }));
+      });
+      if (!dataRows.length) throw new Error('No data rows were found below the headers.');
       if (dataRows.length > MAX_ROWS) throw new Error(`This import supports up to ${MAX_ROWS} rows at a time. Split the sheet and upload it in smaller batches.`);
       setHeaders(nextHeaders); setRows(dataRows); setFileName(file.name);
     } catch (err) {
@@ -105,15 +141,21 @@ export default function ExcelImport({ config, companyId, onClose, onImported }) 
         }
         if (config.key === 'dailyManpower') {
           if (!record.date || !record.departmentProduction) {
-            failures.push({ row: i + 2, message: 'Date and Department are required for date-wise daily manpower imports.' });
+            const missing = [!record.date && 'Date', !record.departmentProduction && 'Department'].filter(Boolean);
+            failures.push({ row: i + 2, message: `${missing.join(' and ')} missing. Add a matching column or use the Import date picker for missing dates.` });
             continue;
           }
           const departmentField = config.fields.find((field) => field.name === 'departmentProduction');
           const production = departmentField.optionsFor({ departmentType: 'Production' });
           const nonProduction = departmentField.optionsFor({ departmentType: 'Non-Production' });
-          if (production.includes(record.departmentProduction)) {
+          const normalizedDepartment = keyFor(record.departmentProduction);
+          const productionDepartment = production.find((department) => keyFor(department) === normalizedDepartment);
+          const nonProductionDepartment = nonProduction.find((department) => keyFor(department) === normalizedDepartment);
+          if (productionDepartment) {
+            record.departmentProduction = productionDepartment;
             record.departmentType = 'Production';
-          } else if (nonProduction.includes(record.departmentProduction)) {
+          } else if (nonProductionDepartment) {
+            record.departmentProduction = nonProductionDepartment;
             record.departmentType = 'Non-Production';
           } else {
             failures.push({ row: i + 2, message: 'Department does not match a predefined Daily Manpower department.' });
@@ -143,6 +185,11 @@ export default function ExcelImport({ config, companyId, onClose, onImported }) 
 
   const previewFields = mapping.matched.filter(({ field }) => field.type !== 'password');
   const companyRequired = config.fields.some((field) => field.name === 'company') && !defaultCompany && !mapping.fields.find((item) => item.field.name === 'company' && item.index >= 0);
+  const dailyDateColumn = mapping.fields.find((item) => item.field.name === 'date');
+  const dailyDateMissing = !dailyDateColumn || rows.some((row) => !toIsoDate(row[dailyDateColumn.index], 'date'));
+  const dailyDateRequired = config.key === 'dailyManpower' && dailyDateMissing && !dailyImportDate;
+  const dailyDepartmentMapped = mapping.fields.some((item) => item.field.name === 'departmentProduction' && item.index >= 0);
+  const dailyDepartmentRequired = config.key === 'dailyManpower' && !dailyDepartmentMapped;
 
   return (
     <section className="rounded p-4 space-y-3" style={{ background: C.card, border: `1px solid ${C.line}` }}>
@@ -150,7 +197,7 @@ export default function ExcelImport({ config, companyId, onClose, onImported }) 
         <div className="flex items-center gap-2" style={{ color: C.ink, fontWeight: 600 }}><FileSpreadsheet size={17} /> Import Excel into {config.label}</div>
         <button type="button" onClick={onClose} disabled={busy} aria-label="Close Excel import"><X size={17} /></button>
       </div>
-      <p className="text-xs" style={{ color: C.ink2 }}>The first worksheet is used. Put one record per row. Dates in the sheet are kept unless you choose a date below and select “Use this date for every row.” The selected date also fills blank or missing dates. Imports support up to {MAX_ROWS.toLocaleString()} rows and are sent in batches.</p>
+      <p className="text-xs" style={{ color: C.ink2 }}>{config.key === 'dailyManpower' ? 'All worksheets with a Department column are combined, so Production and Non-Production can be imported together. Put one record per row.' : 'The first worksheet is used.'} Dates in the sheet are kept unless you choose a date below and select ?Use this date for every row.? The selected date also fills blank or missing dates. Imports support up to {MAX_ROWS.toLocaleString()} rows and are sent in batches.</p>
       <div className="flex flex-wrap items-end gap-3">
         <label className="text-xs space-y-1" style={{ color: C.ink2 }}>Excel file (.xlsx, .xls, .xlsm)
           <input type="file" accept=".xlsx,.xls,.xlsm" onChange={chooseFile} disabled={busy} className="block mt-1 text-sm" />
@@ -181,11 +228,13 @@ export default function ExcelImport({ config, companyId, onClose, onImported }) 
       )}
       {rows.length > 0 && !result && <div className="overflow-x-auto"><table className="text-xs w-full"><thead><tr>{previewFields.slice(0, 6).map(({ field }) => <th key={field.name} className="p-2 text-left" style={{ color: C.ink2 }}>{field.label}</th>)}</tr></thead><tbody>{rows.slice(0, 3).map((row, ri) => <tr key={ri} style={{ borderTop: `1px solid ${C.line}` }}>{previewFields.slice(0, 6).map(({ field, index }) => <td key={field.name} className="p-2" style={{ color: C.ink }}>{String(row[index] ?? '')}</td>)}</tr>)}</tbody></table></div>}
       {companyRequired && rows.length > 0 && <div className="text-xs" style={{ color: C.rust }}>Choose a default company or include a Company column before importing.</div>}
+      {dailyDateRequired && rows.length > 0 && <div className="text-xs" style={{ color: C.rust }}>Some rows have no Date. Choose an Import date to fill them, or add a Date column with one date per row.</div>}
+      {dailyDepartmentRequired && rows.length > 0 && <div className="text-xs" style={{ color: C.rust }}>Add a Department column. Accepted headings include Department, Deptt, DEPTT_PRODUCTION, and DEPTT_NON PRODUCTION.</div>}
       {error && <div className="flex gap-1.5 items-center text-sm" style={{ color: C.rust }}><AlertCircle size={15} />{error}</div>}
       {progress && <div className="flex gap-1.5 items-center text-sm" style={{ color: C.ink2 }}><LoaderCircle size={15} />{progress}</div>}
       {result && <div className="space-y-2 text-sm" aria-live="polite"><div className="flex gap-1.5 items-center" style={{ color: result.failures.length ? C.rust : C.moss }}><CheckCircle2 size={16} />Imported {result.imported} of {rows.length} rows{result.failures.length ? `; ${result.failures.length} failed.` : '.'}</div>{result.failures.length > 0 && <ul className="max-h-28 overflow-auto text-xs" style={{ color: C.rust }}>{result.failures.slice(0, 12).map((failure) => <li key={failure.row}>Row {failure.row}: {failure.message}</li>)}</ul>}</div>}
       <div className="flex gap-2">
-        {rows.length > 0 && !result && <button type="button" onClick={importRows} disabled={busy || !mapping.matched.length || companyRequired} className="px-3 py-2 text-sm rounded" style={{ background: C.steel, color: '#fff', opacity: busy || !mapping.matched.length || companyRequired ? 0.5 : 1 }}>Import {rows.length} rows</button>}
+        {rows.length > 0 && !result && <button type="button" onClick={importRows} disabled={busy || !mapping.matched.length || companyRequired || dailyDateRequired || dailyDepartmentRequired} className="px-3 py-2 text-sm rounded" style={{ background: C.steel, color: '#fff', opacity: busy || !mapping.matched.length || companyRequired || dailyDateRequired || dailyDepartmentRequired ? 0.5 : 1 }}>Import {rows.length} rows</button>}
         {result && <button type="button" onClick={onClose} className="px-3 py-2 text-sm rounded" style={{ border: `1px solid ${C.line}`, color: C.ink }}>Done</button>}
         <button type="button" onClick={onClose} disabled={busy} className="px-3 py-2 text-sm rounded" style={{ border: `1px solid ${C.line}`, color: C.ink2 }}>Cancel</button>
       </div>
