@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
   department TEXT,
   designation TEXT,
   location TEXT,
+  company TEXT,
   role TEXT NOT NULL DEFAULT 'Viewer',
   status TEXT NOT NULL DEFAULT 'Active',
   email_verified BOOLEAN NOT NULL DEFAULT false,
@@ -20,6 +21,7 @@ CREATE TABLE IF NOT EXISTS users (
 -- Safe to re-run on a database created before these columns existed.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS company TEXT;
 
 -- Admin-editable, role-wise read/write access control. "modules" = the JSON
 -- string "all" or a JSON array of module keys this role can VIEW; "edit" =

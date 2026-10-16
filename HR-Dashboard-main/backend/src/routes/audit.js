@@ -11,7 +11,7 @@ router.get('/', async (req, res) => {
     return res.status(403).json({ error: 'Not permitted to view the audit trail' });
   }
   try {
-    const companies = getRoleCompanies(req.user.role);
+    const companies = getRoleCompanies(req.user);
     const restricted = companies.length < ALL_COMPANY_IDS.length;
     const result = await pool.query(
       `SELECT id, time, user_name, role, module, action, detail

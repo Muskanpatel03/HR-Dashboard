@@ -134,7 +134,7 @@ router.get('/', async (req, res) => {
     attendance: canView(req.user.role, 'attendance'),
   };
 
-  const roleCompanies = getRoleCompanies(req.user.role);
+  const roleCompanies = getRoleCompanies(req.user);
   const requestedCompany = typeof req.query.company === 'string' ? req.query.company : '';
   if (requestedCompany && !ALL_COMPANY_IDS.includes(requestedCompany)) {
     return res.status(400).json({ error: 'Invalid company' });

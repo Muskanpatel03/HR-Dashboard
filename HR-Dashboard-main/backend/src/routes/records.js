@@ -11,6 +11,7 @@ const {
   canEdit,
   canAccessCompany,
   getRoleCompanies,
+  setUserCompanyAccess,
   ALL_COMPANY_IDS,
   ASSIGNABLE_ROLES,
 } = require('../config/roles');
@@ -33,13 +34,13 @@ function isCompanyScoped(moduleKey) {
   return moduleKey !== 'usersmgmt';
 }
 
-function canReadCompany(role, company) {
-  return ALL_COMPANY_IDS.includes(company) && canAccessCompany(role, company);
+function canReadCompany(user, company) {
+  return ALL_COMPANY_IDS.includes(company) && canAccessCompany(user, company);
 }
 
-function canManageRecordCompany(role, company) {
-  return (role === 'Administrator' && (company === null || company === undefined || company === '')) ||
-    canReadCompany(role, company);
+function canManageRecordCompany(user, company) {
+  return (user.role === 'Administrator' && (company === null || company === undefined || company === '')) ||
+    canReadCompany(user, company);
 }
 
 function normalizeValue(val, type) {
@@ -131,10 +132,10 @@ router.get('/:module', async (req, res) => {
     if (requestedCompany && !ALL_COMPANY_IDS.includes(requestedCompany)) {
       return res.status(400).json({ error: 'Invalid company' });
     }
-    if (requestedCompany && !canAccessCompany(req.user.role, requestedCompany)) {
+    if (requestedCompany && !canAccessCompany(req.user, requestedCompany)) {
       return res.status(403).json({ error: 'Not permitted to access this company' });
     }
-    const accessibleCompanies = getRoleCompanies(req.user.role);
+    const accessibleCompanies = getRoleCompanies(req.user);
     const companyIds = requestedCompany ? [requestedCompany] : accessibleCompanies;
     const companyFilter = isCompanyScoped(moduleKey) &&
       (Boolean(requestedCompany) || accessibleCompanies.length < ALL_COMPANY_IDS.length);
@@ -231,11 +232,14 @@ router.post('/:module', async (req, res) => {
   if (moduleKey === 'usersmgmt' && !ASSIGNABLE_ROLES.includes(body.role)) {
     return res.status(400).json({ error: 'Select a valid designation for this user.' });
   }
+  if (moduleKey === 'usersmgmt' && !ALL_COMPANY_IDS.includes(body.company)) {
+    return res.status(400).json({ error: 'Assign this user to one company' });
+  }
   if (isCompanyScoped(moduleKey)) {
     if (!ALL_COMPANY_IDS.includes(body.company)) {
       return res.status(400).json({ error: 'Select a company for this record' });
     }
-    if (!canReadCompany(req.user.role, body.company)) {
+    if (!canReadCompany(req.user, body.company)) {
       return res.status(403).json({ error: 'Not permitted to access this company' });
     }
   }
@@ -264,6 +268,7 @@ router.post('/:module', async (req, res) => {
     const row = toJsRow(result.rows[0], columns);
     await logAudit(client, { user: req.user, moduleKey, action: 'Created', detail: summarize(result.rows[0], columns), company: result.rows[0].company || null });
     await client.query('COMMIT');
+    if (moduleKey === 'usersmgmt') setUserCompanyAccess(row.id, row.company);
     res.status(201).json({ record: row });
   } catch (e) {
     await client.query('ROLLBACK');
@@ -284,11 +289,14 @@ router.put('/:module/:id', async (req, res) => {
   if (moduleKey === 'usersmgmt' && !ASSIGNABLE_ROLES.includes(body.role)) {
     return res.status(400).json({ error: 'Select a valid designation for this user.' });
   }
+  if (moduleKey === 'usersmgmt' && !ALL_COMPANY_IDS.includes(body.company)) {
+    return res.status(400).json({ error: 'Assign this user to one company' });
+  }
   if (isCompanyScoped(moduleKey)) {
     if (!ALL_COMPANY_IDS.includes(body.company)) {
       return res.status(400).json({ error: 'Select a company for this record' });
     }
-    if (!canReadCompany(req.user.role, body.company)) {
+    if (!canReadCompany(req.user, body.company)) {
       return res.status(403).json({ error: 'Not permitted to access this company' });
     }
   }
@@ -317,7 +325,7 @@ router.put('/:module/:id', async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Record not found' });
     }
-    if (isCompanyScoped(moduleKey) && !canManageRecordCompany(req.user.role, before.rows[0].company)) {
+    if (isCompanyScoped(moduleKey) && !canManageRecordCompany(req.user, before.rows[0].company)) {
       await client.query('ROLLBACK');
       return res.status(403).json({ error: 'Not permitted to access this company' });
     }
@@ -326,7 +334,7 @@ router.put('/:module/:id', async (req, res) => {
         await client.query('ROLLBACK');
         return res.status(400).json({ error: 'Select a company for this record' });
       }
-      if (!canReadCompany(req.user.role, body.company)) {
+      if (!canReadCompany(req.user, body.company)) {
         await client.query('ROLLBACK');
         return res.status(403).json({ error: 'Not permitted to access this company' });
       }
@@ -342,6 +350,7 @@ router.put('/:module/:id', async (req, res) => {
        const row = toJsRow(result.rows[0], columns);
     await logAudit(client, { user: req.user, moduleKey, action: 'Updated', detail: diffDetail(before.rows[0], result.rows[0], columns), company: result.rows[0].company || null });
     await client.query('COMMIT');
+    if (moduleKey === 'usersmgmt') setUserCompanyAccess(row.id, row.company);
     res.json({ record: row });
   } catch (e) {
     await client.query('ROLLBACK');

@@ -320,6 +320,7 @@ export const MODULES = [
     { name: 'email', label: 'Email', type: 'text' },
     { name: 'department', label: 'Department', type: 'select', options: DEPARTMENTS },
   { name: 'designation', label: 'Designation', type: 'select', options: DESIGNATIONS_DISPLAY },
+    { name: 'company', label: 'Company access', type: 'select', options: COMPANY_OPTIONS.map(({ id, label }) => ({ value: id, label })) },
     { name: 'location', label: 'Location', type: 'text' },
     { name: 'status', label: 'Status', type: 'select', options: ['Active', 'Pending', 'Inactive'] },
         { name: 'password', label: 'Set Password (optional)', type: 'password' },

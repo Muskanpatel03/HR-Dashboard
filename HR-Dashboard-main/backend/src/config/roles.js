@@ -159,6 +159,20 @@ const ASSIGNABLE_ROLES = ['Administrator', ...DESIGNATIONS];
 // Live, mutable permission state — seeded from DEFAULT_ROLES, overwritten by
 // loadRolesFromDb() at boot, and kept in sync by setRolePermissions().
 let STATE = JSON.parse(JSON.stringify(DEFAULT_ROLES));
+const USER_COMPANY_ACCESS = new Map();
+
+async function loadUserCompanyAccess() {
+  const { rows } = await pool.query('SELECT id, company FROM users');
+  USER_COMPANY_ACCESS.clear();
+  rows.forEach(({ id, company }) => {
+    if (company) USER_COMPANY_ACCESS.set(Number(id), company);
+  });
+}
+
+function setUserCompanyAccess(userId, company) {
+  if (company) USER_COMPANY_ACCESS.set(Number(userId), company);
+  else USER_COMPANY_ACCESS.delete(Number(userId));
+}
 
 function canView(role, moduleKey) {
   if (moduleKey === 'roles') return PRIVILEGED_ROLE_MANAGERS.includes(role);
@@ -182,13 +196,19 @@ function canCreate(role, moduleKey) {
 }
 
 function canAccessCompany(role, company) {
-  const perm = STATE[role];
+  const roleName = typeof role === 'object' && role ? role.role : role;
+  const perm = STATE[roleName];
   return Boolean(perm && getRoleCompanies(role).includes(company));
 }
 
-function getRoleCompanies(role) {
+function getRoleCompanies(roleOrUser) {
+  const user = typeof roleOrUser === 'object' && roleOrUser ? roleOrUser : null;
+  const role = user ? user.role : roleOrUser;
   const companies = STATE[role]?.companies;
-  return Array.isArray(companies) ? companies : [...ALL_COMPANY_IDS];
+  const roleCompanies = Array.isArray(companies) ? companies : [...ALL_COMPANY_IDS];
+  if (!user || role === 'Administrator') return roleCompanies;
+  const assignedCompany = USER_COMPANY_ACCESS.get(Number(user.id));
+  return assignedCompany && roleCompanies.includes(assignedCompany) ? [assignedCompany] : [];
 }
 
 // Returns the full live permission matrix, e.g. for the Access Control page
@@ -303,6 +323,8 @@ module.exports = {
   getRoleCompanies,
   getRoleMatrix,
   getRoleAccess,
+  loadUserCompanyAccess,
+  setUserCompanyAccess,
   loadRolesFromDb,
   setRolePermissions,
 };

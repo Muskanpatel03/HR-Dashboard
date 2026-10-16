@@ -665,6 +665,11 @@ const MODULES = {
         type: "text",
       },
       {
+        js: "company",
+        db: "company",
+        type: "text",
+      },
+      {
         js: "role",
         db: "role",
         type: "text",
