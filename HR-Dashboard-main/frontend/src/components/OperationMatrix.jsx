@@ -50,7 +50,7 @@ function isHrSectionRow(row) {
 function linkedSectionValue(particular, summary) {
   const definitions = {
     'manpower': ['manpower', summary.kpis?.totalManpower],
-    'daily manpower': ['manpower', summary.dailyManpowerRecords?.[0]?.total],
+    'daily manpower': ['manpower', summary.dailyManpowerPeriodTotal],
     'recruitment': ['recruitment', summary.kpis?.candidatesInPipeline],
     'open position recruitment': ['recruitment', summary.kpis?.openPositions],
     'hiring': ['hiring', summary.kpis?.newJoiners],

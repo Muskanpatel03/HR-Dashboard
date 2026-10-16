@@ -635,6 +635,10 @@ function ModuleChart({
 // MAIN MODULE VIEW
 // ============================================================
 
+// Keep recent section results in memory so returning to a section can render
+// immediately while its request refreshes the data in the background.
+const moduleRecordsCache = new Map();
+
 export default function ModuleView({
   config,
   editable,
@@ -646,11 +650,12 @@ export default function ModuleView({
   onRecordsChange,
   onSelectedDateChange,
 }) {
+  const recordsCacheKey = `${config.key}:${config.key !== 'usersmgmt' ? companyId || 'all' : 'all'}`;
   const [records, setRecords] =
     useState([]);
 
   const [loading, setLoading] =
-    useState(true);
+    useState(() => !moduleRecordsCache.has(recordsCacheKey));
 
   const [error, setError] =
     useState("");
@@ -728,7 +733,13 @@ export default function ModuleView({
 
   const load = useCallback(
     async () => {
-      setLoading(true);
+      const cachedRecords = moduleRecordsCache.get(recordsCacheKey);
+      if (cachedRecords) {
+        setRecords(cachedRecords);
+        if (config.key === "dailyManpower") onRecordsChange?.(cachedRecords);
+      } else {
+        setLoading(true);
+      }
       setError("");
 
       try {
@@ -738,6 +749,7 @@ export default function ModuleView({
         const { data } = await api.get(`/${config.key}`, { params });
 
         const loadedRecords = Array.isArray(data.records) ? data.records : [];
+        moduleRecordsCache.set(recordsCacheKey, loadedRecords);
         setRecords(loadedRecords);
         if (config.key === "dailyManpower") onRecordsChange?.(loadedRecords);
       } catch (err) {
@@ -749,7 +761,7 @@ export default function ModuleView({
         setLoading(false);
       }
     },
-    [config.key, onRecordsChange, companyId]
+    [config.key, onRecordsChange, companyId, recordsCacheKey]
   );
 
 

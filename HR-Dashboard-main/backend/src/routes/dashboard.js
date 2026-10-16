@@ -291,6 +291,8 @@ router.get('/', async (req, res) => {
           FROM daily_manpower WHERE ${scoped(perm.manpower, filters.daily)}
           GROUP BY date ORDER BY date DESC LIMIT 1
         ) latest_row) AS daily_manpower_records,
+        (SELECT COALESCE(SUM(COALESCE(day_shift, 0) + COALESCE(night_shift, 0)), 0)
+         FROM daily_manpower WHERE ${scoped(perm.manpower, filters.daily)}) AS daily_manpower_period_total,
         ${matrixCountSql} AS matrix_particular_count
     `;
 
@@ -342,6 +344,7 @@ router.get('/', async (req, res) => {
           trainingsCount: Number(summary.training_count || 0),
         },
         dailyManpowerRecords: summary.daily_manpower_records || [],
+        dailyManpowerPeriodTotal: Number(summary.daily_manpower_period_total || 0),
         loanByUnit: summary.loan_by_unit || [],
         matrix: { particularCount: Number(summary.matrix_particular_count || 0) },
       });

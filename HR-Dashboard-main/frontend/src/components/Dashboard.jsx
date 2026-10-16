@@ -680,6 +680,8 @@ export function DashboardSummary({ allowedCompanies, onOpenSection }) {
     const latestDailyTotal = summaries
       .map(({ summary }) => Number(summary?.dailyManpowerRecords?.[0]?.total) || 0)
       .reduce((sum, value) => sum + value, 0);
+    const dailyManpowerPeriodTotal = summaries
+      .reduce((sum, { summary }) => sum + (Number(summary?.dailyManpowerPeriodTotal) || 0), 0);
 
     return {
       company: { id: 'all', label: 'All companies' },
@@ -698,6 +700,7 @@ export function DashboardSummary({ allowedCompanies, onOpenSection }) {
         dailyManpowerRecords: latestDailyRecord
           ? [{ total: latestDailyTotal, date: latestDailyRecord.date }]
           : [],
+        dailyManpowerPeriodTotal,
       },
       matrix: { particularCount: matrixParticularCount },
     };
