@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import ModuleView from './ModuleView';
 import CompanySelector from './CompanySelector';
-import api from '../api';
 import { C, COMPANY_OPTIONS, DAILY_MANPOWER_CONFIG, MODULE_MAP } from '../config';
 
 const TABS = [
@@ -31,19 +30,6 @@ export default function ManpowerHub({
   useEffect(() => {
     if (initialTab === 'daily') localStorage.setItem('automat_manpower_tab', 'daily');
   }, [initialTab]);
-
-  useEffect(() => {
-    if (!canViewManpower) return undefined;
-    let mounted = true;
-    api.get('/dailyManpower')
-      .then(({ data }) => {
-        if (mounted) setDailyRecords(Array.isArray(data.records) ? data.records : []);
-      })
-      .catch(() => {
-        if (mounted) setDailyRecords([]);
-      });
-    return () => { mounted = false; };
-  }, [canViewManpower]);
 
   const monthlySnapshots = useMemo(() => {
     const companies = companyId === 'all'

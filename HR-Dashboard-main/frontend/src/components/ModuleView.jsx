@@ -903,6 +903,23 @@ export default function ModuleView({
     return [...new Set(dailyManpowerDates.map(({ date }) => date.slice(0, 7)))].sort().reverse();
   }, [config.key, dailyManpowerDates]);
 
+  // Keep the date picker compact as history grows. The newest month is the
+  // useful default, while older months remain available from the month menu.
+  useEffect(() => {
+    if (
+      config.key === "dailyManpower" &&
+      dailyManpowerMonths.length &&
+      (dailyMonth === "all" || !dailyManpowerMonths.includes(dailyMonth))
+    ) {
+      setDailyMonth(dailyManpowerMonths[0]);
+    }
+  }, [config.key, dailyMonth, dailyManpowerMonths]);
+
+  const visibleDailyManpowerDates = useMemo(() => {
+    if (dailyMonth === "all") return dailyManpowerDates;
+    return dailyManpowerDates.filter(({ date }) => date.slice(0, 7) === dailyMonth);
+  }, [dailyManpowerDates, dailyMonth]);
+
 
   // ==========================================================
   // MONTH FILTER + SEARCH + SORT
@@ -1384,7 +1401,7 @@ export default function ModuleView({
             )}
           </div>
           <div className="daily-manpower-date-grid">
-            {dailyManpowerDates.map(({ date, count }) => {
+            {visibleDailyManpowerDates.map(({ date, count }) => {
               const isSelected = selectedDate === date;
               return (
                 <button
