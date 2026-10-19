@@ -665,6 +665,12 @@ export default function ModuleView({
 
   const [showImport, setShowImport] = useState(false);
 
+  const [selectedIds, setSelectedIds] = useState(new Set());
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [config.key, companyId]);
+
   const [editingId, setEditingId] =
     useState(null);
 
@@ -874,6 +880,38 @@ export default function ModuleView({
       );
     }
   };
+
+  const bulkRemove = async () => {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+
+    const confirmed = window.confirm(
+      `Delete ${ids.length} selected record${ids.length !== 1 ? "s" : ""}? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    try {
+      await api.post(`/${config.key}/bulk-delete`, { ids });
+      setSelectedIds(new Set());
+      await load();
+    } catch (err) {
+      alert(err.response?.data?.error || "Bulk delete failed");
+    }
+  };
+
+  const toggleOne = (id) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
+  const toggleMany = (ids, checked) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => (checked ? next.add(id) : next.delete(id)));
+      return next;
+    });
 
 
   // ==========================================================
@@ -1092,6 +1130,7 @@ export default function ModuleView({
   );
   // Rolled-up rows aren't single DB records, so edit/delete only in Monthly view
   const canEditRows = editable && (!periodField || period === "Monthly");
+  const canBulk = canDelete && (!periodField || period === "Monthly");
   // ==========================================================
   // COLUMN GROUPS
   // ==========================================================
@@ -1322,6 +1361,18 @@ export default function ModuleView({
           </span>
 
 
+          {canBulk && selectedIds.size > 0 && (
+            <button
+              type="button"
+              onClick={bulkRemove}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm rounded"
+              style={{ background: C.rust, color: "#fff" }}
+            >
+              <Trash2 size={14} />
+              Delete selected ({selectedIds.size})
+            </button>
+          )}
+
           {/* Export CSV */}
 
           <button
@@ -1519,6 +1570,12 @@ export default function ModuleView({
                   })
               : groupRows;
               const showActions = canEditRows || (canDelete && (!periodField || period === "Monthly"));
+            const selectableIds = rowsToRender
+              .filter((row) => !row.__preset)
+              .map((row) => row.id);
+            const allSelected =
+              selectableIds.length > 0 &&
+              selectableIds.every((id) => selectedIds.has(id));
 
             const groupColSpan =
               group.fields.length +
@@ -1526,7 +1583,8 @@ export default function ModuleView({
               (showComputed
                 ? computedFields.length
                 : 0) +
-              (showActions ? 1 : 0);
+              (showActions ? 1 : 0) +
+              (canBulk ? 1 : 0);
 
             return (
               <div
@@ -1568,6 +1626,17 @@ export default function ModuleView({
                     <tr
                       className="module-record-table-heading"
                     >
+
+                      {canBulk && (
+                        <th className="px-3 py-2" style={{ width: 36 }}>
+                          <input
+                            type="checkbox"
+                            checked={allSelected}
+                            onChange={(e) => toggleMany(selectableIds, e.target.checked)}
+                            title="Select all"
+                          />
+                        </th>
+                      )}
 
                       {config.showSerialNumber && (
                         <th className="text-left px-3 py-2 font-medium nowrap-cell" style={{ color: C.ink, fontSize: 11.5 }}>S.No.</th>
@@ -1715,6 +1784,18 @@ export default function ModuleView({
                             }}
                           >
 
+                            {canBulk && (
+                              <td className="px-3 py-2">
+                                {!record.__preset && (
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedIds.has(record.id)}
+                                    onChange={() => toggleOne(record.id)}
+                                  />
+                                )}
+                              </td>
+                            )}
+
                             {config.showSerialNumber && (
                               <td className="px-3 py-2 nowrap-cell" style={{ color: C.ink2 }}>{rowIndex + 1}</td>
                             )}
@@ -1824,6 +1905,8 @@ export default function ModuleView({
                             fontWeight: 600,
                           }}
                         >
+
+                          {canBulk && <td className="px-3 py-2" />}
 
                           {config.showSerialNumber && <td className="px-3 py-2" />}
 

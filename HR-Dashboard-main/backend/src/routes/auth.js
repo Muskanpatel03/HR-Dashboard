@@ -21,7 +21,7 @@ const smtpPassword = String(process.env.SMTP_PASS || '').replace(/\s+/g, '');
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT),
+  port: smtpPort,
   secure: process.env.SMTP_SECURE === "true",
   family: 4,
   connectionTimeout: 10000,
@@ -29,7 +29,7 @@ const transporter = nodemailer.createTransport({
   socketTimeout: 15000,
   auth: {
     user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+    pass: smtpPassword,
   },
 });
 /*

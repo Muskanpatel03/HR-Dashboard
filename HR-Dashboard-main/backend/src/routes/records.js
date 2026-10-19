@@ -360,7 +360,70 @@ router.put('/:module/:id', async (req, res) => {
     client.release();
   }
 });
+// Bulk delete: POST /api/:module/bulk-delete  { ids: [1,2,3] }
+router.post('/:module/bulk-delete', async (req, res) => {
+  const { module: moduleKey } = req.params;
+  const conf = MODULES[moduleKey];
+  if (!conf) return res.status(404).json({ error: 'Unknown module' });
+  if (req.user.role !== 'Administrator') {
+    return res.status(403).json({ error: 'Only an Administrator can delete records' });
+  }
 
+  const rawIds = req.body?.ids;
+  if (!Array.isArray(rawIds) || rawIds.length === 0 || rawIds.length > 500) {
+    return res.status(400).json({ error: 'Send between 1 and 500 record ids.' });
+  }
+  const ids = [...new Set(rawIds.map(Number))].filter(Number.isInteger);
+  if (ids.length === 0) return res.status(400).json({ error: 'No valid ids sent.' });
+
+  // Safety: an admin must not delete their own login account by accident
+  if (moduleKey === 'usersmgmt' && ids.includes(Number(req.user.id))) {
+    return res.status(400).json({ error: 'You cannot delete your own user account.' });
+  }
+
+  const client = await pool.connect();
+  try {
+    const columns = columnsFor(moduleKey, conf);
+    await client.query('BEGIN');
+
+    const existing = await client.query(
+      `SELECT id, ${columns.map((c) => c.db).join(', ')} FROM ${conf.table} WHERE id = ANY($1::bigint[])`,
+      [ids]
+    );
+
+    if (isCompanyScoped(moduleKey)) {
+      const blocked = existing.rows.some((row) => !canManageRecordCompany(req.user, row.company));
+      if (blocked) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ error: 'Not permitted to access this company' });
+      }
+    }
+
+    await client.query(
+      `DELETE FROM ${conf.table} WHERE id = ANY($1::bigint[])`,
+      [existing.rows.map((row) => row.id)]
+    );
+
+    for (const row of existing.rows) {
+      await logAudit(client, {
+        user: req.user,
+        moduleKey,
+        action: 'Deleted',
+        detail: summarize(row, columns),
+        company: row.company || null,
+      });
+    }
+
+    await client.query('COMMIT');
+    res.json({ success: true, deleted: existing.rows.length });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error(e);
+    res.status(500).json({ error: 'Failed to delete records' });
+  } finally {
+    client.release();
+  }
+});
 router.delete('/:module/:id', async (req, res) => {
   const { module: moduleKey, id } = req.params;
   const conf = MODULES[moduleKey];
