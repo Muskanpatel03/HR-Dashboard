@@ -733,7 +733,8 @@ export default function ModuleView({
   const [monthFilter, setMonthFilter] =
     useState("all");
   const [selectedDate, setSelectedDate] = useState("");
-  const [dailyMonth, setDailyMonth] = useState("all");
+  // "" = not chosen yet (defaults to newest month once); "all" = user picked All months
+  const [dailyMonth, setDailyMonth] = useState("");
 
   useEffect(() => {
     if (config.key === "dailyManpower") onSelectedDateChange?.(selectedDate);
@@ -743,7 +744,7 @@ export default function ModuleView({
     setSort(defaultSortFor(config));
     setMonthFilter("all");
     setSelectedDate("");
-    setDailyMonth("all");
+    setDailyMonth("");
   }, [config.key]);
 
   useEffect(() => {
@@ -995,14 +996,15 @@ export default function ModuleView({
     if (
       config.key === "dailyManpower" &&
       dailyManpowerMonths.length &&
-      (dailyMonth === "all" || !dailyManpowerMonths.includes(dailyMonth))
+      dailyMonth !== "all" &&
+      !dailyManpowerMonths.includes(dailyMonth)
     ) {
       setDailyMonth(dailyManpowerMonths[0]);
     }
   }, [config.key, dailyMonth, dailyManpowerMonths]);
 
   const visibleDailyManpowerDates = useMemo(() => {
-    if (dailyMonth === "all") return dailyManpowerDates;
+    if (dailyMonth === "all" || dailyMonth === "") return dailyManpowerDates;
     return dailyManpowerDates.filter(({ date }) => date.slice(0, 7) === dailyMonth);
   }, [dailyManpowerDates, dailyMonth]);
 
@@ -1036,6 +1038,7 @@ export default function ModuleView({
         if (
           config.key === "dailyManpower" &&
           dailyMonth !== "all" &&
+          dailyMonth !== "" &&
           String(record.date || "").slice(0, 7) !== dailyMonth
         ) {
           return false;
