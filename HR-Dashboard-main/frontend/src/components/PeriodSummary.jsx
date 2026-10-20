@@ -32,6 +32,25 @@ function weightedAvg(rows, field) {
   return totalWeight > 0 ? weightedTotal / totalWeight : 0;
 }
 
+// Manpower headcount is a snapshot, not a flow: for a quarter / half-year / year
+// (or any group spanning several months) use only the LATEST month's headcount
+// instead of adding every month together. Inside that month the monthly entry is
+// used when present, otherwise the latest "Specific Day" entry (no double count).
+const effMonth = (r) =>
+  r.entryDate ? String(r.entryDate).slice(0, 7) : String(r.month || "").slice(0, 7);
+
+function latestSnapshotRows(rows) {
+  let latest = "";
+  rows.forEach((r) => { const m = effMonth(r); if (m > latest) latest = m; });
+  if (!latest) return rows;
+  const inMonth = rows.filter((r) => effMonth(r) === latest);
+  const monthly = inMonth.filter((r) => !r.entryDate);
+  if (monthly.length) return monthly;
+  let latestDay = "";
+  inMonth.forEach((r) => { const d = String(r.entryDate).slice(0, 10); if (d > latestDay) latestDay = d; });
+  return inMonth.filter((r) => String(r.entryDate).slice(0, 10) === latestDay);
+}
+
 function formatNumber(value) {
   return Number(value).toLocaleString("en-IN", { maximumFractionDigits: 2 });
 }
@@ -45,15 +64,20 @@ function bucketFor(monthStr, period) {
   if (!y || !m || m < 1 || m > 12) return null;
 
   if (period === "monthly") return { key: monthStr, label: `${MONTH_NAMES[m - 1]} ${y}` };
+
+  // Financial year = April to March (same as the rest of the dashboard).
+  const fy = m >= 4 ? y : y - 1;
+  const fyLabel = `FY${fy}-${String((fy + 1) % 100).padStart(2, "0")}`;
+  const idx = (m + 8) % 12; // Apr = 0 ... Mar = 11
   if (period === "quarterly") {
-    const q = Math.ceil(m / 3);
-    return { key: `${y}-Q${q}`, label: `Q${q} ${y}` };
+    const q = Math.floor(idx / 3) + 1;
+    return { key: `${fy}-Q${q}`, label: `Q${q} ${fyLabel}` };
   }
   if (period === "halfyearly") {
-    const h = m <= 6 ? 1 : 2;
-    return { key: `${y}-H${h}`, label: `H${h} ${y}` };
+    const h = idx < 6 ? 1 : 2;
+    return { key: `${fy}-H${h}`, label: `H${h} ${fyLabel}` };
   }
-  return { key: `${y}`, label: `${y}` }; // annual
+  return { key: `${fy}`, label: fyLabel }; // annual (financial year)
 }
 
 // Reuses each module's COMPUTED `total(rows)` roll-ups (see config.js) so the
@@ -68,6 +92,8 @@ export default function PeriodSummary({ config, records }) {
     [config.fields],
   );
   const computedFields = COMPUTED[config.key] || [];
+  // Manpower headcount = latest-month snapshot, never a sum of months
+  const headcountRows = (rows) => (config.key === "manpower" ? latestSnapshotRows(rows) : rows);
 
   const buckets = useMemo(() => {
     if (!monthField) return [];
@@ -171,7 +197,7 @@ export default function PeriodSummary({ config, records }) {
                 >
                   {formatNumber(f.noSum
                     ? weightedAvg(b.rows, f)
-                    : b.rows.reduce((s, r) => s + num(r[f.name]), 0))}
+                    : headcountRows(b.rows).reduce((s, r) => s + num(r[f.name]), 0))}
                 </td>
               ))}
               {computedFields.map((c) => (
@@ -180,7 +206,7 @@ export default function PeriodSummary({ config, records }) {
                   className="px-3 py-2 nowrap-cell"
                   style={{ fontFamily: FONT_MONO, color: C.steel }}
                 >
-                  {c.total ? c.total(b.rows) : "—"}
+                  {c.total ? c.total(headcountRows(b.rows)) : "—"}
                 </td>
               ))}
             </tr>
@@ -194,12 +220,12 @@ export default function PeriodSummary({ config, records }) {
                 <td key={f.name} className="px-3 py-2 nowrap-cell" style={{ fontFamily: FONT_MONO, color: C.ink }}>
                   {formatNumber(f.noSum
                     ? weightedAvg(records, f)
-                    : records.reduce((s, r) => s + num(r[f.name]), 0))}
+                    : headcountRows(records).reduce((s, r) => s + num(r[f.name]), 0))}
                 </td>
               ))}
               {computedFields.map((c) => (
                 <td key={c.name} className="px-3 py-2 nowrap-cell" style={{ fontFamily: FONT_MONO, color: C.ink }}>
-                  {c.total ? c.total(records) : ""}
+                  {c.total ? c.total(headcountRows(records)) : ""}
                 </td>
               ))}
             </tr>

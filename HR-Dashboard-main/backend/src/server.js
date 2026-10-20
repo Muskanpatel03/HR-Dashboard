@@ -12,6 +12,17 @@ const { loadRolesFromDb, loadUserCompanyAccess } = require('./config/roles');
 const { ensureCurrentSchema } = require('./db');
 
 const app = express();
+
+// PERFORMANCE: gzip API responses (optional - only active once you run
+// `npm install compression` in the backend folder; the app works without it).
+try {
+  // eslint-disable-next-line global-require
+  const compression = require('compression');
+  app.use(compression());
+} catch (e) {
+  console.log('compression package not installed - skipping gzip (run: npm install compression)');
+}
+
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
 app.use(express.json());
 

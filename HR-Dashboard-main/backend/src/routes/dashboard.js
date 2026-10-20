@@ -38,6 +38,43 @@ const RANGE_SQL = {
 
 const VALID_RANGES = Object.keys(RANGE_SQL);
 
+// FIX: manpower headcount is a snapshot, not a flow. When a period spans
+// several months, only the LATEST month's headcount is used (instead of adding
+// every month together). Inside that month, the monthly entry is used when it
+// exists, otherwise the latest "Specific Day" entry, so monthly + daily rows of
+// the same month are never double counted.
+const manpowerEffectiveMonth = (r) =>
+  r.entry_date ? String(r.entry_date).slice(0, 7) : String(r.month || '');
+
+function pickManpowerSnapshot(rows, preferDay = false) {
+  const days = rows.filter((r) => r.entry_date);
+  const latestDay = (list) => {
+    let max = '';
+    list.forEach((r) => {
+      const d = String(r.entry_date).slice(0, 10);
+      if (d > max) max = d;
+    });
+    return list.filter((r) => String(r.entry_date).slice(0, 10) === max);
+  };
+  if (preferDay && days.length) return latestDay(days);
+  const monthly = rows.filter((r) => !r.entry_date);
+  if (monthly.length) return monthly;
+  return days.length ? latestDay(days) : rows;
+}
+
+function latestManpowerSnapshot(rows, preferDay = false) {
+  let latest = '';
+  rows.forEach((r) => {
+    const m = manpowerEffectiveMonth(r);
+    if (m > latest) latest = m;
+  });
+  if (!latest) return rows;
+  return pickManpowerSnapshot(
+    rows.filter((r) => manpowerEffectiveMonth(r) === latest),
+    preferDay
+  );
+}
+
 function whereFor(range, colExpr, year, selectedDate, { monthGranularity = false } = {}) {
   if (selectedDate) {
     // Exact day picked in Daily mode — overrides range and year.
@@ -215,7 +252,7 @@ router.get('/', async (req, res) => {
       recruitment: whereFor(range, "to_date(month, 'YYYY-MM')", year, requestedDate, { monthGranularity: true }),
       attendance: whereFor(range, monthCol, year, requestedDate, { monthGranularity: true }),
       electricity: whereFor(range, monthCol, year, requestedDate, { monthGranularity: true }),
-      canteen: whereFor(range, monthCol, year, requestedDate),
+      canteen: whereFor(range, monthCol, year, requestedDate, { monthGranularity: true }),
       engagement: whereFor(range, 'date', year, requestedDate),
       hiring: whereForDateOrMonth(range, 'date_of_joining', "to_date(month, 'YYYY-MM')", year, requestedDate),
       separation: whereForDateOrMonth(range, 'last_working_day', "to_date(month, 'YYYY-MM')", year, requestedDate),
@@ -226,14 +263,31 @@ router.get('/', async (req, res) => {
       retirement: whereFor(range, 'COALESCE(last_working_day, retirement_date)', year, requestedDate),
     };
     const scoped = (allowed, filter = '1=1') => allowed ? `${filter} AND company = ANY($1::text[])` : 'FALSE';
+    const preferDay = Boolean(requestedDate) && range !== 'selectedMonth';
     const compactSql = `
+      WITH mp AS (
+        SELECT direct_count, indirect_count, planned_direct_count, planned_indirect_count, entry_date,
+               COALESCE(to_char(entry_date, 'YYYY-MM'), month) AS ym
+        FROM manpower WHERE ${scoped(perm.manpower, filters.manpower)}
+      ),
+      mp_month AS (SELECT * FROM mp WHERE ym = (SELECT MAX(ym) FROM mp)),
+      mp_snapshot AS (
+        SELECT * FROM mp_month WHERE
+          CASE
+            WHEN ${preferDay ? 'TRUE' : 'FALSE'} AND EXISTS (SELECT 1 FROM mp_month WHERE entry_date IS NOT NULL)
+              THEN entry_date = (SELECT MAX(entry_date) FROM mp_month)
+            WHEN EXISTS (SELECT 1 FROM mp_month WHERE entry_date IS NULL)
+              THEN entry_date IS NULL
+            ELSE entry_date = (SELECT MAX(entry_date) FROM mp_month)
+          END
+      )
       SELECT
         (SELECT json_build_object(
           'direct', COALESCE(SUM(direct_count), 0),
           'indirect', COALESCE(SUM(indirect_count), 0),
           'plannedDirect', COALESCE(SUM(planned_direct_count), 0),
           'plannedIndirect', COALESCE(SUM(planned_indirect_count), 0)
-        ) FROM manpower WHERE ${scoped(perm.manpower, filters.manpower)}) AS manpower,
+        ) FROM mp_snapshot) AS manpower,
         (SELECT json_build_object(
           'openPositions', COALESCE(SUM(CASE WHEN number_of_positions IS NULL THEN 1 ELSE GREATEST(number_of_positions, 0) END), 0),
           'candidates', COALESCE(SUM(shortlisted), 0)
@@ -251,7 +305,7 @@ router.get('/', async (req, res) => {
         (SELECT json_build_object(
           'joined', COALESCE(SUM(joined), 0)
         ) FROM hiring WHERE ${scoped(perm.hiring, filters.hiring)}) AS hiring,
-        (SELECT COUNT(*) FROM separation WHERE ${scoped(perm.separation, filters.separation)}) AS separation_count,
+        (SELECT COUNT(*) FROM separation WHERE ${scoped(perm.separation, filters.separation)} AND LOWER(COALESCE(exit, '')) <> 'no') AS separation_count,
         (SELECT json_build_object(
           'count', COUNT(*),
           'averageParticipation', COALESCE(ROUND(AVG(CASE WHEN eligible_employees > 0 THEN participants * 100.0 / eligible_employees ELSE 0 END)), 0)
@@ -488,7 +542,8 @@ router.get('/', async (req, res) => {
           range,
           monthCol,
           year,
-          requestedDate
+          requestedDate,
+          { monthGranularity: true }
         )}
         `
       ),
@@ -594,24 +649,27 @@ router.get('/', async (req, res) => {
     // =========================================================
 
     const mpRows = manpower.rows;
+    const preferDayRows = Boolean(requestedDate) && range !== 'selectedMonth';
+    // Headcount KPIs use the latest month's snapshot (see pickManpowerSnapshot)
+    const mpSnapshotRows = latestManpowerSnapshot(mpRows, preferDayRows);
 
-    const directManpower = mpRows.reduce(
+    const directManpower = mpSnapshotRows.reduce(
       (sum, r) => sum + (Number(r.direct_count) || 0),
       0
     );
 
-    const indirectManpower = mpRows.reduce(
+    const indirectManpower = mpSnapshotRows.reduce(
       (sum, r) => sum + (Number(r.indirect_count) || 0),
       0
     );
 
-    const plannedDirectManpower = mpRows.reduce(
+    const plannedDirectManpower = mpSnapshotRows.reduce(
       (sum, r) =>
         sum + (Number(r.planned_direct_count) || 0),
       0
     );
 
-    const plannedIndirectManpower = mpRows.reduce(
+    const plannedIndirectManpower = mpSnapshotRows.reduce(
       (sum, r) =>
         sum + (Number(r.planned_indirect_count) || 0),
       0
@@ -624,7 +682,7 @@ router.get('/', async (req, res) => {
     // Manpower by location
     const manpowerByLocationMap = {};
 
-    mpRows.forEach((r) => {
+    mpSnapshotRows.forEach((r) => {
       const location = r.location || '—';
 
       const total =
@@ -640,24 +698,27 @@ router.get('/', async (req, res) => {
     // =========================================================
 
     const monthlyMap = {};
+    const rowsByMonth = {};
 
     mpRows.forEach((r) => {
       if (!r.month) return;
+      if (!rowsByMonth[r.month]) rowsByMonth[r.month] = [];
+      rowsByMonth[r.month].push(r);
+    });
 
-      if (!monthlyMap[r.month]) {
-        monthlyMap[r.month] = {
-          planned: 0,
-          actual: 0,
-        };
-      }
+    Object.keys(rowsByMonth).forEach((monthKey) => {
+      monthlyMap[monthKey] = { planned: 0, actual: 0 };
 
-      monthlyMap[r.month].planned +=
-        (Number(r.planned_direct_count) || 0) +
-        (Number(r.planned_indirect_count) || 0);
+      // one snapshot per month: no double counting of monthly + daily rows
+      pickManpowerSnapshot(rowsByMonth[monthKey], preferDayRows).forEach((r) => {
+        monthlyMap[monthKey].planned +=
+          (Number(r.planned_direct_count) || 0) +
+          (Number(r.planned_indirect_count) || 0);
 
-      monthlyMap[r.month].actual +=
-        (Number(r.direct_count) || 0) +
-        (Number(r.indirect_count) || 0);
+        monthlyMap[monthKey].actual +=
+          (Number(r.direct_count) || 0) +
+          (Number(r.indirect_count) || 0);
+      });
     });
 
     const manpowerMonthlyTrend =
@@ -1085,7 +1146,9 @@ router.get('/', async (req, res) => {
 
         // Separation
         separations:
-          separation.rows.length,
+          separation.rows.filter(
+            (row) => String(row.exit || '').toLowerCase() !== 'no'
+          ).length,
 
         // Attendance
         absenteeism,

@@ -21,6 +21,10 @@ function explicitSslMode(connectionString) {
 
 const pool = new Pool({
   connectionString: explicitSslMode(process.env.DATABASE_URL),
+  max: 10,
+  keepAlive: true,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 20000,
 });
 
 pool.on('error', (err) => {
@@ -285,16 +289,21 @@ async function ensureCurrentSchema() {
     END $$`);
   });
 
-  for (const migration of migrations) {
-    for (let attempt = 0; ; attempt += 1) {
-      try {
-        await pool.query(migration);
-        break;
-      } catch (error) {
-        const retryable = ['ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT', '57P01', '08006'].includes(error.code);
-        if (!retryable || attempt >= 2) throw error;
-        await new Promise((resolve) => setTimeout(resolve, 500 * (2 ** attempt)));
-      }
+  // PERFORMANCE: send ALL migrations to PostgreSQL in ONE round trip instead of
+  // ~170 separate sequential queries (each one is a full network trip to the
+  // database, which made every server start/wake-up take very long).
+  const batchedMigrations = migrations
+    .map((migration) => migration.trim().replace(/;\s*$/, ''))
+    .join(';\n');
+
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      await pool.query(batchedMigrations);
+      break;
+    } catch (error) {
+      const retryable = ['ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT', '57P01', '08006'].includes(error.code);
+      if (!retryable || attempt >= 2) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 500 * (2 ** attempt)));
     }
   }
 }

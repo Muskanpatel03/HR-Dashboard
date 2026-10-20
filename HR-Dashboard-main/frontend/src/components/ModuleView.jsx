@@ -141,13 +141,42 @@ function defaultSortFor(config) {
     : null;
 }
 
+// Financial year = April to March (same as the rest of the dashboard).
+// Q1 = Apr-Jun, Q2 = Jul-Sep, Q3 = Oct-Dec, Q4 = Jan-Mar. H1 = Apr-Sep, H2 = Oct-Mar.
 function periodKey(monthStr, period) {
   const [y, m] = String(monthStr || "").split("-").map(Number);
   if (!y || !m) return { key: "0000", label: "Unspecified" };
-  if (period === "Quarterly") { const q = Math.ceil(m / 3); return { key: `${y}-Q${q}`, label: `Q${q} ${y}` }; }
-  if (period === "Half-Yearly") { const h = m <= 6 ? 1 : 2; return { key: `${y}-H${h}`, label: `H${h} ${y}` }; }
-  return { key: `${y}`, label: `${y}` };
+  const fy = m >= 4 ? y : y - 1;
+  const fyLabel = `FY${fy}-${String((fy + 1) % 100).padStart(2, "0")}`;
+  const idx = (m + 8) % 12; // Apr = 0 ... Mar = 11
+  if (period === "Quarterly") { const q = Math.floor(idx / 3) + 1; return { key: `${fy}-Q${q}`, label: `Q${q} ${fyLabel}` }; }
+  if (period === "Half-Yearly") { const h = idx < 6 ? 1 : 2; return { key: `${fy}-H${h}`, label: `H${h} ${fyLabel}` }; }
+  return { key: `${fy}`, label: fyLabel };
 }
+
+// Manpower headcount is a snapshot, not a flow: for a quarter / half-year / year
+// (or any group spanning several months) use only the LATEST month's headcount
+// instead of adding every month together. Inside that month the monthly entry is
+// used when present, otherwise the latest "Specific Day" entry (no double count).
+const effMonth = (r) =>
+  r.entryDate ? String(r.entryDate).slice(0, 7) : String(r.month || "").slice(0, 7);
+
+function latestSnapshotRows(rows) {
+  let latest = "";
+  rows.forEach((r) => { const m = effMonth(r); if (m > latest) latest = m; });
+  if (!latest) return rows;
+  const inMonth = rows.filter((r) => effMonth(r) === latest);
+  const monthly = inMonth.filter((r) => !r.entryDate);
+  if (monthly.length) return monthly;
+  let latestDay = "";
+  inMonth.forEach((r) => { const d = String(r.entryDate).slice(0, 10); if (d > latestDay) latestDay = d; });
+  return inMonth.filter((r) => String(r.entryDate).slice(0, 10) === latestDay);
+}
+
+// Fields that are headcount snapshots (not additive across months), per module.
+const SNAPSHOT_FIELDS = {
+  manpower: ["plannedDirectCount", "plannedIndirectCount", "directCount", "indirectCount"],
+};
 
 // Weighted average of a per-head rate field (noSum): sum(rate*weight)/sum(weight)
 function weightedAvg(rows, f) {
@@ -164,7 +193,7 @@ function weightedAvg(rows, f) {
 // Rolls monthly rows up to quarter / half-year / year.
 // Numbers are summed; noSum rate fields are blended by headcount.
 // Rows stay separate per location/department (every non-numeric column).
-function rollupByPeriod(rows, fields, periodName, period) {
+function rollupByPeriod(rows, fields, periodName, period, moduleKey) {
   const sums = fields.filter((f) => f.type === "number" && !f.noSum);
   const rates = fields.filter((f) => f.noSum && f.weightFields);
   const dims = fields.filter((f) => f.name !== periodName && f.type !== "number" && f.type !== "password");
@@ -182,7 +211,14 @@ function rollupByPeriod(rows, fields, periodName, period) {
     sums.forEach((f) => { g[f.name] += Number(r[f.name]) || 0; });
   });
   return Object.values(groups)
-    .map((g) => { rates.forEach((f) => { g[f.name] = weightedAvg(g._src, f); }); return g; })
+    .map((g) => {
+      rates.forEach((f) => { g[f.name] = weightedAvg(g._src, f); });
+      (SNAPSHOT_FIELDS[moduleKey] || []).forEach((name) => {
+        if (g[name] === undefined) return;
+        g[name] = latestSnapshotRows(g._src).reduce((s, r) => s + (Number(r[name]) || 0), 0);
+      });
+      return g;
+    })
     .sort((a, b) => a._key.localeCompare(b._key));
 }
 // ============================================================
@@ -1124,7 +1160,7 @@ export default function ModuleView({
   const displayRows = useMemo(
     () =>
       periodField && period !== "Monthly"
-        ? rollupByPeriod(filtered, config.fields, periodField.name, period)
+        ? rollupByPeriod(filtered, config.fields, periodField.name, period, config.key)
         : filtered,
     [filtered, config.fields, periodField, period],
   );
