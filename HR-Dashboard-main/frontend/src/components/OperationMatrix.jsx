@@ -28,13 +28,18 @@ const INITIAL_DATA = {
   particulars: [],
 };
 const HR_SECTION_PARTICULARS = [
-  'Manpower', 'Daily Manpower', 'Recruitment', 'Open Position Recruitment',
+  'Manpower', 'Daily Manpower', 'Open Position Recruitment',
   'Hiring', 'Separation', 'Attendance', 'Retirement', 'Loan Summary',
   'Electricity', 'Canteen', 'Health Check', 'Engagement', 'Training',
 ];
 
+// The separate "Recruitment" row was removed (Open Position Recruitment, Hiring and
+// Separation already cover it); drop it from periods that were saved with it.
+const REMOVED_PARTICULARS = new Set(['recruitment']);
+
 function includeHrSectionRows(matrixData) {
-  const rows = Array.isArray(matrixData.particulars) ? matrixData.particulars : [];
+  const allRows = Array.isArray(matrixData.particulars) ? matrixData.particulars : [];
+  const rows = allRows.filter((row) => !REMOVED_PARTICULARS.has(String(row.particular || '').trim().toLocaleLowerCase()));
   const existing = new Set(rows.map((row) => String(row.particular || '').trim().toLocaleLowerCase()));
   const missing = HR_SECTION_PARTICULARS
     .filter((name) => !existing.has(name.toLocaleLowerCase()))
@@ -51,7 +56,6 @@ function linkedSectionValue(particular, summary) {
   const definitions = {
     'manpower': ['manpower', summary.kpis?.totalManpower],
     'daily manpower': ['manpower', summary.dailyManpowerPeriodTotal],
-    'recruitment': ['recruitment', summary.kpis?.candidatesInPipeline],
     'open position recruitment': ['recruitment', summary.kpis?.openPositions],
     'hiring': ['hiring', summary.kpis?.newJoiners],
     'separation': ['separation', summary.kpis?.separations],
