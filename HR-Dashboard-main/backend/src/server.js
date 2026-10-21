@@ -4,6 +4,7 @@ const cors = require('cors');
 
 const authRoutes = require('./routes/auth');
 const recordRoutes = require('./routes/records');
+const separationDocumentRoutes = require('./routes/separationDocuments');
 const dashboardRoutes = require('./routes/dashboard');
 const auditRoutes = require('./routes/audit');
 const rolesRoutes = require('./routes/roles');
@@ -32,6 +33,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/roles', rolesRoutes);
 app.use('/api/operation-matrix', operationMatrixRoutes);
+app.use('/api/separation', separationDocumentRoutes);
 app.use('/api', recordRoutes);
 
 app.use((req, res) => res.status(404).json({ error: 'Not found' }));

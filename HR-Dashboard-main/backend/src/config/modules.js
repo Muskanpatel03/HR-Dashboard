@@ -203,7 +203,26 @@ const MODULES = {
       },
     ],
   },
-
+   recruitmentAnalysis: {
+     table: "recruitment_analysis",
+     columns: [
+       { js: "candidateName", db: "candidate_name", type: "text" },
+       { js: "position", db: "position", type: "text" },
+       { js: "department", db: "department", type: "text" },
+       { js: "location", db: "location", type: "text" },
+       { js: "mrfDate", db: "mrf_date", type: "date" },
+       { js: "hiringDate", db: "hiring_date", type: "date" },
+       { js: "source", db: "source", type: "text" },
+       { js: "offers", db: "offers", type: "text" },
+       { js: "joined", db: "joined", type: "text" },
+       { js: "hiringCost", db: "hiring_cost", type: "number" },
+       { js: "offerAccepted", db: "offer_accepted", type: "text" },
+       { js: "hireType", db: "hire_type", type: "text" },
+       { js: "retainedShort", db: "retained_short", type: "text" },
+{ js: "retainedLong", db: "retained_long", type: "text" },
+{ js: "leftWithin90", db: "left_within_90", type: "text" },
+     ],
+   },
   // ------------------------------------------------------------
   // SEPARATION
   // ------------------------------------------------------------

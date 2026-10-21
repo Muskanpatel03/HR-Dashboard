@@ -2,6 +2,10 @@ import {
   Factory, Briefcase, UserPlus, UserMinus, Landmark, Wallet, CalendarClock, Zap,
   UtensilsCrossed, HeartPulse, PartyPopper, ClipboardList, Shield, CalendarDays,
 } from 'lucide-react';
+import {
+  RETAIN_SHORT_MONTHS, RETAIN_LONG_MONTHS, EARLY_EXIT_DAYS,
+  timeToFill,
+} from './linkedData';
 
 export const C = {
   ink: '#20394E',       // primary text and heading color
@@ -394,6 +398,36 @@ export const DAILY_MANPOWER_CONFIG = {
 
 DAILY_MANPOWER_CONFIG.fields.unshift(companyField);
 
+// Recruitment Analysis — shown only as a tab inside Recruitment (it is NOT in
+// MODULES, so it gets no sidebar item of its own).
+export const RECRUITMENT_ANALYSIS_CONFIG = {
+  key: 'recruitmentAnalysis',
+  label: 'Recruitment Analysis',
+  showTotals: true,
+  wrapHeaders: true,
+  showSerialNumber: true,
+  totalLabelField: 'candidateName',
+  defaultSort: { field: 'mrfDate', dir: 'desc' },
+  fields: [
+    companyField,
+    { name: 'candidateName', label: 'Candidate Name', type: 'text' },
+    { name: 'position', label: 'Position', type: 'text' },
+    { name: 'department', label: 'Department', type: 'select', options: DEPARTMENTS },
+    { name: 'location', label: 'Location', type: 'text' },
+    { name: 'mrfDate', label: 'MRF Received Date', type: 'date' },
+    { name: 'hiringDate', label: 'Hiring Date', type: 'date' },
+    { name: 'source', label: 'Source', type: 'select', options: ['Naukri', 'LinkedIn', 'Employee Referral', 'Consultant', 'Walk-in', 'Campus', 'Internal Job Posting', 'Other'] },
+    { name: 'offers', label: 'Offers', type: 'select', options: ['Yes', 'No'] },
+    { name: 'joined', label: 'Joined', type: 'select', options: ['Yes', 'No'] },
+    { name: 'hiringCost', label: 'Hiring Cost (₹)', type: 'number' },
+    { name: 'offerAccepted', label: 'Offer Accepted', type: 'select', options: ['Yes', 'No'] },
+    { name: 'hireType', label: 'Hire Type', type: 'select', options: ['External', 'Internal'] },
+    { name: 'retainedShort', label: `Retained ${RETAIN_SHORT_MONTHS} Months`, type: 'select', options: ['Yes', 'No'] },
+    { name: 'retainedLong', label: `Retained ${RETAIN_LONG_MONTHS} Months`, type: 'select', options: ['Yes', 'No'] },
+    { name: 'leftWithin90', label: `Left within ${EARLY_EXIT_DAYS} Days`, type: 'select', options: ['Yes', 'No'] },
+  ],
+};
+
 export const MODULE_MAP = Object.fromEntries(MODULES.map((m) => [m.key, m]));
 export const ALL_KEYS = MODULES.map((m) => m.key);
 
@@ -418,6 +452,19 @@ function num(v) {
 // ratio from the aggregated totals (a correct weighted figure, not a plain
 // average of per-row percentages).
 export const COMPUTED = {
+  // Time to Fill is calculated (Hiring Date - MRF Received Date); the Joined
+  // tab's date of joining is used if Hiring Date is blank.
+  recruitmentAnalysis: [
+    {
+      name: 'timeToFill',
+      label: 'Time to Fill (days)',
+      compute: (v) => timeToFill(v) ?? '—',
+      total: (rows) => {
+        const t = rows.map(timeToFill).filter((x) => x !== null);
+        return t.length ? `Avg ${Math.round(t.reduce((x, y) => x + y, 0) / t.length)}` : '';
+      },
+    },
+  ],
   manpower: [
     {
       name: 'plannedTotal',

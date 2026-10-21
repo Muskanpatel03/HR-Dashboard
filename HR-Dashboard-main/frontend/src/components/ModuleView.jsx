@@ -15,6 +15,8 @@ import {
   AlertCircle,
   Download,
   Upload,
+  FileText,
+  Paperclip,
 } from "lucide-react";
 
 import {
@@ -36,6 +38,7 @@ import RecordForm from "./RecordForm";
 import PeriodSummary from "./PeriodSummary";
 
 const ExcelImport = lazy(() => import('./ExcelImport'));
+const PdfImport = lazy(() => import('./PdfImport'));
 
 import {
   C,
@@ -700,6 +703,11 @@ export default function ModuleView({
     useState(false);
 
   const [showImport, setShowImport] = useState(false);
+  const [showPdfImport, setShowPdfImport] = useState(false);
+
+  // Separation: PDF attached to each record (recordId -> { fileName, fileSize })
+  const [docs, setDocs] = useState({});
+  const [docBusyId, setDocBusyId] = useState(null);
 
   const [selectedIds, setSelectedIds] = useState(new Set());
 
@@ -811,6 +819,81 @@ export default function ModuleView({
   useEffect(() => {
     load();
   }, [load]);
+
+
+  // ==========================================================
+  // SEPARATION: PDF ATTACHMENTS
+  // ==========================================================
+
+  const loadDocs = useCallback(async () => {
+    if (config.key !== "separation") return;
+    try {
+      const { data } = await api.get("/separation/documents");
+      const map = {};
+      (data.documents || []).forEach((doc) => { map[doc.recordId] = doc; });
+      setDocs(map);
+    } catch {
+      // the PDF column simply shows no files if this fails
+    }
+  }, [config.key]);
+
+  useEffect(() => {
+    loadDocs();
+  }, [loadDocs]);
+
+  const uploadDoc = async (record, file) => {
+    if (!file) return;
+    if (file.type !== "application/pdf" && !/\.pdf$/i.test(file.name)) {
+      alert("Please choose a PDF file.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert("The PDF must be 5 MB or smaller.");
+      return;
+    }
+    setDocBusyId(record.id);
+    try {
+      await api.put(`/separation/${record.id}/document`, file, {
+        headers: {
+          "Content-Type": "application/pdf",
+          "X-File-Name": encodeURIComponent(file.name),
+        },
+      });
+      await loadDocs();
+    } catch (err) {
+      alert(err.response?.data?.error || "PDF upload failed");
+    } finally {
+      setDocBusyId(null);
+    }
+  };
+
+  const viewDoc = async (record) => {
+    // open the tab first so the browser does not block the pop-up
+    const tab = window.open("", "_blank");
+    try {
+      const res = await api.get(`/separation/${record.id}/document`, { responseType: "blob" });
+      const url = URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
+      if (tab) tab.location.href = url;
+      else window.open(url, "_blank");
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch {
+      if (tab) tab.close();
+      alert("Could not open the PDF.");
+    }
+  };
+
+  const removeDoc = async (record) => {
+    if (!window.confirm("Remove the PDF from this record?")) return;
+    setDocBusyId(record.id);
+    try {
+      await api.delete(`/separation/${record.id}/document`);
+      await loadDocs();
+    } catch (err) {
+      alert(err.response?.data?.error || "Could not remove the PDF");
+    } finally {
+      setDocBusyId(null);
+    }
+  };
 
 
   // ==========================================================
@@ -1170,6 +1253,8 @@ export default function ModuleView({
   // Rolled-up rows aren't single DB records, so edit/delete only in Monthly view
   const canEditRows = editable && (!periodField || period === "Monthly");
   const canBulk = canDelete && (!periodField || period === "Monthly");
+  const showPdfColumn = config.key === "separation" && period === "Monthly";
+  const canAttach = editable || creatable;
   // ==========================================================
   // COLUMN GROUPS
   // ==========================================================
@@ -1456,6 +1541,18 @@ export default function ModuleView({
             </button>
           )}
 
+          {config.key === "separation" && canAttach && (
+            <button
+              type="button"
+              onClick={() => setShowPdfImport(true)}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm rounded"
+              style={{ border: `1px solid ${C.line}`, color: C.ink }}
+            >
+              <FileText size={14} />
+              Import PDF
+            </button>
+          )}
+
           {/* Add record */}
 
           {creatable && (
@@ -1483,6 +1580,17 @@ export default function ModuleView({
             companyId={companyId}
             onClose={() => setShowImport(false)}
             onImported={load}
+          />
+        </Suspense>
+      )}
+
+      {showPdfImport && config.key === "separation" && canAttach && (
+        <Suspense fallback={null}>
+          <PdfImport
+            records={filtered}
+            docs={docs}
+            onClose={() => setShowPdfImport(false)}
+            onImported={loadDocs}
           />
         </Suspense>
       )}
@@ -1623,7 +1731,8 @@ export default function ModuleView({
                 ? computedFields.length
                 : 0) +
               (showActions ? 1 : 0) +
-              (canBulk ? 1 : 0);
+              (canBulk ? 1 : 0) +
+              (showPdfColumn ? 1 : 0);
 
             return (
               <div
@@ -1739,6 +1848,18 @@ export default function ModuleView({
                             </th>
                           )
                         )}
+
+
+                      {/* PDF header (Separation) */}
+
+                      {showPdfColumn && (
+                        <th
+                          className="text-left px-3 py-2 font-medium nowrap-cell align-bottom"
+                          style={{ color: C.ink, fontSize: 11.5, minWidth: 110 }}
+                        >
+                          PDF
+                        </th>
+                      )}
 
 
                       {/* Actions header */}
@@ -1891,6 +2012,77 @@ export default function ModuleView({
                               )}
 
 
+                            {/* PDF (Separation) */}
+
+                            {showPdfColumn && (
+                              <td className="px-3 py-2 nowrap-cell">
+                                {docs[record.id] ? (
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => viewDoc(record)}
+                                      title={docs[record.id].fileName}
+                                      className="flex items-center gap-1 text-xs underline"
+                                      style={{ color: C.steel }}
+                                    >
+                                      <FileText size={14} />
+                                      View
+                                    </button>
+                                    {canAttach && (
+                                      <>
+                                        <label
+                                          title="Replace PDF"
+                                          style={{ color: C.ink2, cursor: docBusyId === record.id ? "wait" : "pointer" }}
+                                        >
+                                          <Paperclip size={14} />
+                                          <input
+                                            type="file"
+                                            accept="application/pdf,.pdf"
+                                            hidden
+                                            disabled={docBusyId === record.id}
+                                            onChange={(event) => {
+                                              uploadDoc(record, event.target.files?.[0]);
+                                              event.target.value = "";
+                                            }}
+                                          />
+                                        </label>
+                                        <button
+                                          type="button"
+                                          onClick={() => removeDoc(record)}
+                                          disabled={docBusyId === record.id}
+                                          title="Remove PDF"
+                                          style={{ color: C.rust }}
+                                        >
+                                          <Trash2 size={14} />
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
+                                ) : canAttach ? (
+                                  <label
+                                    className="flex items-center gap-1 text-xs"
+                                    style={{ color: C.steel, cursor: docBusyId === record.id ? "wait" : "pointer" }}
+                                  >
+                                    <Paperclip size={14} />
+                                    {docBusyId === record.id ? "Uploading…" : "Attach PDF"}
+                                    <input
+                                      type="file"
+                                      accept="application/pdf,.pdf"
+                                      hidden
+                                      disabled={docBusyId === record.id}
+                                      onChange={(event) => {
+                                        uploadDoc(record, event.target.files?.[0]);
+                                        event.target.value = "";
+                                      }}
+                                    />
+                                  </label>
+                                ) : (
+                                  <span style={{ color: C.ink2 }}>—</span>
+                                )}
+                              </td>
+                            )}
+
+
                             {/* Actions */}
 
                             {showActions && !record.__preset && (
@@ -1997,6 +2189,9 @@ export default function ModuleView({
                                 </td>
                               )
                             )}
+
+
+                          {showPdfColumn && <td className="px-3 py-2" />}
 
 
                           {/* Action column */}

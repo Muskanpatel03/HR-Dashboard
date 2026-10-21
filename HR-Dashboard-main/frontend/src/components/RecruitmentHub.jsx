@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api';
 import ModuleView from './ModuleView';
+import RecruitmentAnalysis from './RecruitmentAnalysis';
 import CompanySelector from './CompanySelector';
 import { C, MODULE_MAP } from '../config';
 
@@ -8,15 +9,44 @@ import { C, MODULE_MAP } from '../config';
 // fields are genuinely different: candidate pipeline stages vs. joining
 // dates vs. exit reasons) — this just folds them into one sidebar section
 // with tabs, plus a quick "hired vs separated" count at a glance.
+// Recruitment Analysis is a candidate-level view linked to Joined + Separation.
 const TABS = [
   { key: 'recruitment', label: 'Open Position' },
   { key: 'hiring', label: 'Joined' },
   { key: 'separation', label: 'Separation' },
+  { key: 'recruitmentAnalysis', label: 'Recruitment Analysis' },
 ];
 
+// Recruitment Analysis shares the Recruitment permission.
+// Remember the last tab so a page reload stays on the same tab.
+const TAB_STORAGE_KEY = 'recruitment-hub-tab';
+const readStoredTab = () => {
+  try { return localStorage.getItem(TAB_STORAGE_KEY); } catch { return null; }
+};
+
+const permKey = (key) => (key === 'recruitmentAnalysis' ? 'recruitment' : key);
+
 export default function RecruitmentHub({ visibleModuleKeys, canEditModule, canCreateModule, canDelete, companyId, onCompanyChange, allowedCompanies, initialTab }) {
-  const availableTabs = TABS.filter((t) => visibleModuleKeys.includes(t.key));
-  const [active, setActive] = useState(availableTabs.some((tab) => tab.key === initialTab) ? initialTab : availableTabs[0]?.key || 'recruitment');
+  const availableTabs = TABS.filter((t) => visibleModuleKeys.includes(permKey(t.key)));
+  // The remembered tab wins over initialTab, so a re-render/remount after
+  // loading never bounces you back to the first tab.
+  const [active, setActive] = useState(() => {
+    const stored = readStoredTab();
+    if (TABS.some((tab) => tab.key === stored)) return stored;
+    if (TABS.some((tab) => tab.key === initialTab)) return initialTab;
+    return 'recruitment';
+  });
+
+  // If the remembered tab isn't allowed for this user, fall back to the first allowed one.
+  useEffect(() => {
+    if (availableTabs.length && !availableTabs.some((tab) => tab.key === active)) {
+      setActive(availableTabs[0].key);
+    }
+  }, [availableTabs, active]);
+
+  useEffect(() => {
+    try { localStorage.setItem(TAB_STORAGE_KEY, active); } catch { /* storage unavailable */ }
+  }, [active]);
   const [counts, setCounts] = useState({ hiring: null, separation: null });
 
   useEffect(() => {
@@ -39,6 +69,14 @@ export default function RecruitmentHub({ visibleModuleKeys, canEditModule, canCr
   }, [visibleModuleKeys, companyId]);
 
   if (availableTabs.length === 0) return null;
+
+  const perm = permKey(active);
+  const tableProps = {
+    editable: canEditModule(perm),
+    creatable: canCreateModule(perm),
+    canDelete,
+    companyId,
+  };
 
   return (
     <div className="space-y-4">
@@ -68,7 +106,11 @@ export default function RecruitmentHub({ visibleModuleKeys, canEditModule, canCr
         )}
       </div>
 
-      <ModuleView config={MODULE_MAP[active]} editable={canEditModule(active)} creatable={canCreateModule(active)} canDelete={canDelete} companyId={companyId} />
+      {active === 'recruitmentAnalysis' ? (
+        <RecruitmentAnalysis {...tableProps} />
+      ) : (
+        <ModuleView config={MODULE_MAP[active]} {...tableProps} />
+      )}
     </div>
   );
 }

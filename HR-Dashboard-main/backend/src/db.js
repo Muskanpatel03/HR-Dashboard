@@ -254,10 +254,44 @@ async function ensureCurrentSchema() {
      WHERE data->>'fiscalYearEnd' ~ '^[0-9]{4}$'
        AND data->>'reportMonth' ~ '^\\d{4}-(0[1-9]|1[0-2])$'
      ON CONFLICT (industry, fiscal_year_end, report_month) DO NOTHING`,
+    // PDF attachments for Separation records (one PDF per record)
+    `CREATE TABLE IF NOT EXISTS separation_documents (
+       separation_id INTEGER PRIMARY KEY REFERENCES separation(id) ON DELETE CASCADE,
+       file_name TEXT NOT NULL,
+       file_size INTEGER NOT NULL,
+       content BYTEA NOT NULL,
+       uploaded_by TEXT,
+       uploaded_at TIMESTAMPTZ NOT NULL DEFAULT now()
+     )`,
+    // Recruitment Analysis: one row per candidate (linked to Joined + Separation by name)
+    `CREATE TABLE IF NOT EXISTS recruitment_analysis (
+       id SERIAL PRIMARY KEY,
+       candidate_name TEXT,
+       position TEXT,
+       department TEXT,
+       location TEXT,
+       mrf_date DATE,
+       hiring_date DATE,
+       source TEXT,
+       offers TEXT,
+       joined TEXT,
+       hiring_cost NUMERIC,
+       offer_accepted TEXT,
+       hire_type TEXT,
+       retained_short TEXT,
+       retained_long TEXT,
+       left_within_90 TEXT,
+       company TEXT,
+       created_at TIMESTAMPTZ DEFAULT now(),
+       updated_at TIMESTAMPTZ DEFAULT now()
+     )`,
+    'ALTER TABLE recruitment_analysis ADD COLUMN IF NOT EXISTS retained_short TEXT',
+    'ALTER TABLE recruitment_analysis ADD COLUMN IF NOT EXISTS retained_long TEXT',
+    'ALTER TABLE recruitment_analysis ADD COLUMN IF NOT EXISTS left_within_90 TEXT',
   ];
 
   const companyTables = [
-    'manpower', 'daily_manpower', 'recruitment', 'hiring', 'separation',
+    'manpower', 'daily_manpower', 'recruitment', 'hiring', 'separation', 'recruitment_analysis',
     'loan_summary', 'retirement', 'electricity', 'canteen', 'healthcheck',
     'engagement', 'training', 'attendance',
   ];
