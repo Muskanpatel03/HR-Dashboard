@@ -264,6 +264,46 @@ router.get('/', async (req, res) => {
     };
     const scoped = (allowed, filter = '1=1') => allowed ? `${filter} AND company = ANY($1::text[])` : 'FALSE';
     const preferDay = Boolean(requestedDate) && range !== 'selectedMonth';
+    // Daily Manpower row of the Summary table.
+    // Whole month selected -> one record covering EVERY day of that month
+    // (average present per day; "monthTotal" holds the sum of all days).
+    // Any other period -> unchanged: the latest day in the period.
+    const dailyManpowerRecordsSql = range === 'selectedMonth'
+      ? `(SELECT COALESCE(json_agg(month_row), '[]'::json) FROM (
+          SELECT 'avg/day · ' || to_char(SUM(day_shift + night_shift), 'FM999,999,999') || ' total · ' || COUNT(*) || ' days' AS date,
+                 'All Departments' AS "departmentProduction",
+                 ROUND(AVG(fixed_manpower)) AS "fixedManpower",
+                 ROUND(AVG(day_shift)) AS "dayShift",
+                 ROUND(AVG(night_shift)) AS "nightShift",
+                 ROUND(AVG(day_shift + night_shift)) AS total,
+                 ROUND(AVG(absent)) AS absent,
+                 ROUND(AVG(double_shift)) AS "doubleShift",
+                 SUM(day_shift + night_shift) AS "monthTotal",
+                 COUNT(*) AS "daysCounted"
+          FROM (
+            SELECT date AS day,
+                   COALESCE(SUM(fixed_manpower), 0) AS fixed_manpower,
+                   COALESCE(SUM(day_shift), 0) AS day_shift,
+                   COALESCE(SUM(night_shift), 0) AS night_shift,
+                   COALESCE(SUM(absent), 0) AS absent,
+                   COALESCE(SUM(double_shift), 0) AS double_shift
+            FROM daily_manpower WHERE ${scoped(perm.manpower, filters.daily)}
+            GROUP BY date
+          ) per_day
+          HAVING COUNT(*) > 0
+        ) month_row)`
+      : `(SELECT COALESCE(json_agg(latest_row), '[]'::json) FROM (
+          SELECT to_char(date, 'YYYY-MM-DD') AS date,
+                 'All Departments' AS "departmentProduction",
+                 COALESCE(SUM(fixed_manpower), 0) AS "fixedManpower",
+                 COALESCE(SUM(day_shift), 0) AS "dayShift",
+                 COALESCE(SUM(night_shift), 0) AS "nightShift",
+                 COALESCE(SUM(day_shift), 0) + COALESCE(SUM(night_shift), 0) AS total,
+                 COALESCE(SUM(absent), 0) AS absent,
+                 COALESCE(SUM(double_shift), 0) AS "doubleShift"
+          FROM daily_manpower WHERE ${scoped(perm.manpower, filters.daily)}
+          GROUP BY date ORDER BY date DESC LIMIT 1
+        ) latest_row)`;
     const compactSql = `
       WITH mp AS (
         SELECT direct_count, indirect_count, planned_direct_count, planned_indirect_count, entry_date,
@@ -333,18 +373,7 @@ router.get('/', async (req, res) => {
                  ${loanOutstandingAvailable ? 'SUM(outstanding_till_jul26)' : 'NULL'} AS outstanding
           FROM loan_summary WHERE ${scoped(perm.loanSummary)} GROUP BY unit
         ) loan_units) AS loan_by_unit,
-        (SELECT COALESCE(json_agg(latest_row), '[]'::json) FROM (
-          SELECT to_char(date, 'YYYY-MM-DD') AS date,
-                 'All Departments' AS "departmentProduction",
-                 COALESCE(SUM(fixed_manpower), 0) AS "fixedManpower",
-                 COALESCE(SUM(day_shift), 0) AS "dayShift",
-                 COALESCE(SUM(night_shift), 0) AS "nightShift",
-                 COALESCE(SUM(day_shift), 0) + COALESCE(SUM(night_shift), 0) AS total,
-                 COALESCE(SUM(absent), 0) AS absent,
-                 COALESCE(SUM(double_shift), 0) AS "doubleShift"
-          FROM daily_manpower WHERE ${scoped(perm.manpower, filters.daily)}
-          GROUP BY date ORDER BY date DESC LIMIT 1
-        ) latest_row) AS daily_manpower_records,
+        ${dailyManpowerRecordsSql} AS daily_manpower_records,
         (SELECT COALESCE(SUM(COALESCE(day_shift, 0) + COALESCE(night_shift, 0)), 0)
          FROM daily_manpower WHERE ${scoped(perm.manpower, filters.daily)}) AS daily_manpower_period_total,
         ${matrixCountSql} AS matrix_particular_count
