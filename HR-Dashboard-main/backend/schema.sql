@@ -371,7 +371,7 @@ CREATE TABLE IF NOT EXISTS attendance (
   total_working_days INTEGER,
   employee_strength INTEGER,
   absent_days INTEGER,
-  leave_days INTEGER,
+  leave_days NUMERIC,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );

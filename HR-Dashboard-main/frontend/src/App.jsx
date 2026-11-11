@@ -4,15 +4,43 @@ import { BarChart3, LayoutGrid, History, LogOut, Shield } from 'lucide-react';
 import Login from './components/Login';
 import api from './api';
 
-const Dashboard = lazy(() => import('./components/Dashboard'));
-const DashboardSummary = lazy(() => import('./components/Dashboard').then((module) => ({ default: module.DashboardSummary })));
-const ModuleView = lazy(() => import('./components/ModuleView'));
-const ManpowerHub = lazy(() => import('./components/ManpowerHub'));
-const RecruitmentHub = lazy(() => import('./components/RecruitmentHub'));
-const TrainingHub = lazy(() => import('./components/TrainingHub'));
-const AuditView = lazy(() => import('./components/AuditView'));
-const AccessControl = lazy(() => import('./components/AccessControl'));
-const CompanySelector = lazy(() => import('./components/CompanySelector'));
+const loadDashboard = () => import('./components/Dashboard');
+const loadModuleView = () => import('./components/ModuleView');
+const loadManpowerHub = () => import('./components/ManpowerHub');
+const loadRecruitmentHub = () => import('./components/RecruitmentHub');
+const loadTrainingHub = () => import('./components/TrainingHub');
+const loadAuditView = () => import('./components/AuditView');
+const loadAccessControl = () => import('./components/AccessControl');
+const loadCompanySelector = () => import('./components/CompanySelector');
+
+const Dashboard = lazy(loadDashboard);
+const DashboardSummary = lazy(() => loadDashboard().then((module) => ({ default: module.DashboardSummary })));
+const ModuleView = lazy(loadModuleView);
+const ManpowerHub = lazy(loadManpowerHub);
+const RecruitmentHub = lazy(loadRecruitmentHub);
+const TrainingHub = lazy(loadTrainingHub);
+const AuditView = lazy(loadAuditView);
+const AccessControl = lazy(loadAccessControl);
+const CompanySelector = lazy(loadCompanySelector);
+
+function preloadPage(key) {
+  if (key === 'dashboard' || key === 'summary') return loadDashboard();
+  if (key === 'manpower') return loadManpowerHub();
+  if (key === 'recruitment') return loadRecruitmentHub();
+  if (key === 'training') return loadTrainingHub();
+  if (key === 'audit') return loadAuditView();
+  if (key === 'roles') return loadAccessControl();
+  if (MODULES.some((module) => module.key === key)) {
+    return Promise.all([loadModuleView(), loadCompanySelector()]);
+  }
+  return Promise.resolve();
+}
+
+function warmPage(key) {
+  preloadPage(key).catch((error) => {
+    console.error(`Failed to preload ${key} page`, error);
+  });
+}
 
 import {
   C,
@@ -513,6 +541,8 @@ export default function App() {
               <button
                 key={item.key}
                 type="button"
+                onMouseEnter={() => warmPage(item.key)}
+                onFocus={() => warmPage(item.key)}
                 onClick={() =>
                   handleNavigation(item.key)
                 }
@@ -644,7 +674,12 @@ export default function App() {
 
         {/* PAGE CONTENT */}
 
-        <Suspense fallback={null}>
+        <Suspense fallback={
+          <div role="status" aria-live="polite" className="p-5">
+            <div className="h-5 w-48 rounded bg-slate-200 animate-pulse" />
+            <div className="mt-4 h-24 rounded bg-slate-100 animate-pulse" />
+          </div>
+        }>
         <div className="p-5 w-full" style={{ maxWidth: 1500, margin: '0 auto' }}>
 
           {active === 'dashboard' && canSeeDashboard && (

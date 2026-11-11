@@ -301,6 +301,19 @@ async function ensureCurrentSchema() {
     migrations.push(`UPDATE ${table} SET company = 'Smith' WHERE company = 'Smith3'`);
   });
 
+  migrations.push(`DO $$ BEGIN
+    IF EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'attendance'
+        AND column_name = 'leave_days'
+        AND data_type <> 'numeric'
+    ) THEN
+      ALTER TABLE attendance ALTER COLUMN leave_days TYPE NUMERIC USING leave_days::NUMERIC;
+    END IF;
+  END $$`);
+
   const reportingIndexes = [
     ['manpower', 'company, month'],
     ['daily_manpower', 'company, date'],

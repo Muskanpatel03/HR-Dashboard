@@ -5,11 +5,7 @@ import RecruitmentAnalysis from './RecruitmentAnalysis';
 import CompanySelector from './CompanySelector';
 import { C, MODULE_MAP } from '../config';
 
-// Recruitment, Hiring, and Separation stay separate database tables (their
-// fields are genuinely different: candidate pipeline stages vs. joining
-// dates vs. exit reasons) — this just folds them into one sidebar section
-// with tabs, plus a quick "hired vs separated" count at a glance.
-// Recruitment Analysis is a candidate-level view linked to Joined + Separation.
+
 const TABS = [
   { key: 'recruitment', label: 'Open Position' },
   { key: 'hiring', label: 'Joined' },
@@ -17,8 +13,6 @@ const TABS = [
   { key: 'recruitmentAnalysis', label: 'Recruitment Analysis' },
 ];
 
-// Recruitment Analysis shares the Recruitment permission.
-// Remember the last tab so a page reload stays on the same tab.
 const TAB_STORAGE_KEY = 'recruitment-hub-tab';
 const readStoredTab = () => {
   try { return localStorage.getItem(TAB_STORAGE_KEY); } catch { return null; }
@@ -28,8 +22,7 @@ const permKey = (key) => (key === 'recruitmentAnalysis' ? 'recruitment' : key);
 
 export default function RecruitmentHub({ visibleModuleKeys, canEditModule, canCreateModule, canDelete, companyId, onCompanyChange, allowedCompanies, initialTab }) {
   const availableTabs = TABS.filter((t) => visibleModuleKeys.includes(permKey(t.key)));
-  // The remembered tab wins over initialTab, so a re-render/remount after
-  // loading never bounces you back to the first tab.
+  
   const [active, setActive] = useState(() => {
     const stored = readStoredTab();
     if (TABS.some((tab) => tab.key === stored)) return stored;
@@ -37,7 +30,6 @@ export default function RecruitmentHub({ visibleModuleKeys, canEditModule, canCr
     return 'recruitment';
   });
 
-  // If the remembered tab isn't allowed for this user, fall back to the first allowed one.
   useEffect(() => {
     if (availableTabs.length && !availableTabs.some((tab) => tab.key === active)) {
       setActive(availableTabs[0].key);

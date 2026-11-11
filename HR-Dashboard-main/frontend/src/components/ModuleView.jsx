@@ -946,19 +946,28 @@ export default function ModuleView({
 
   const submit = async (addAnother = false) => {
     try {
+      let savedRecord;
       if (editingId) {
-        await api.put(
+        const { data } = await api.put(
           `/${config.key}/${editingId}`,
           formValues
         );
+        savedRecord = data.record;
       } else {
-        await api.post(
+        const { data } = await api.post(
           `/${config.key}`,
           formValues
         );
+        savedRecord = data.record;
       }
 
-      await load();
+      const nextRecords = editingId
+        ? records.map((record) => record.id === savedRecord.id ? savedRecord : record)
+        : [savedRecord, ...records];
+      moduleRecordsCache.set(recordsCacheKey, nextRecords);
+      setRecords(nextRecords);
+      if (config.key === "dailyManpower") onRecordsChange?.(nextRecords);
+
       if (addAnother && !editingId) {
         setFormValues(newRecordValues());
       } else {
