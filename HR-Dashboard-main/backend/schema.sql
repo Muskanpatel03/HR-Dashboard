@@ -368,13 +368,45 @@ CREATE TABLE IF NOT EXISTS attendance (
   month TEXT,
   department TEXT,
   location TEXT,
-  total_working_days INTEGER,
+  total_working_days NUMERIC(10,2),
   employee_strength INTEGER,
-  absent_days INTEGER,
-  leave_days NUMERIC,
+  absent_days NUMERIC(10,2),
+  leave_days NUMERIC(10,2),
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS month TEXT;
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS department TEXT;
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS location TEXT;
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS total_working_days NUMERIC(10,2);
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS employee_strength INTEGER;
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS absent_days NUMERIC(10,2);
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS leave_days NUMERIC(10,2);
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now();
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM attendance
+    WHERE (total_working_days IS NOT NULL AND (
+             total_working_days::numeric <> round(total_working_days::numeric, 2)
+             OR abs(total_working_days::numeric) > 99999999.99
+           ))
+       OR (absent_days IS NOT NULL AND (
+             absent_days::numeric <> round(absent_days::numeric, 2)
+             OR abs(absent_days::numeric) > 99999999.99
+           ))
+       OR (leave_days IS NOT NULL AND (
+             leave_days::numeric <> round(leave_days::numeric, 2)
+             OR abs(leave_days::numeric) > 99999999.99
+           ))
+  ) THEN
+    RAISE EXCEPTION 'Attendance values exceed NUMERIC(10,2) without rounding';
+  END IF;
+END;
+$$;
+ALTER TABLE attendance ALTER COLUMN total_working_days TYPE NUMERIC(10,2) USING total_working_days::NUMERIC(10,2);
+ALTER TABLE attendance ALTER COLUMN absent_days TYPE NUMERIC(10,2) USING absent_days::NUMERIC(10,2);
+ALTER TABLE attendance ALTER COLUMN leave_days TYPE NUMERIC(10,2) USING leave_days::NUMERIC(10,2);
 CREATE TABLE IF NOT EXISTS training (
   id SERIAL PRIMARY KEY,
   section TEXT,

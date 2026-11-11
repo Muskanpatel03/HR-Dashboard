@@ -313,10 +313,10 @@ export const MODULES = [
     { name: 'month', label: 'Month', type: 'month' },
     { name: 'department', label: 'Department', type: 'select', options: DEPARTMENTS },
     { name: 'location', label: 'Office / Location', type: 'select', options: ['Industries', 'Sales Project', 'Head Office (HO)', 'Corporate Office'] },
-    { name: 'totalWorkingDays', label: 'Working Days', type: 'number' },
+    { name: 'totalWorkingDays', label: 'Working Days', type: 'number', step: '0.01' },
     { name: 'employeeStrength', label: 'Employee Strength', type: 'number' },
-    { name: 'absentDays', label: 'Absent Employee-Days', type: 'number' },
-    { name: 'leave', label: 'Leave Days', type: 'number' },
+    { name: 'absentDays', label: 'Absent Employee-Days', type: 'number', step: '0.01' },
+    { name: 'leave', label: 'Leave Days', type: 'number', step: '0.01' },
   ]},
   
   { key: 'usersmgmt', label: 'User Management', icon: Shield, showTotals: true, wrapHeaders: true, fields: [

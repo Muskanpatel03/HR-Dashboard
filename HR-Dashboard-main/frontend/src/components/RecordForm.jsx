@@ -47,6 +47,7 @@ export default function RecordForm({ config, values, setValues, onCancel, onSubm
             ) : (
               <input
                 type={f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : f.type === 'password' ? 'password' : 'text'}
+                step={f.step}
                 value={values[f.name] ?? ''}
                 onChange={(e) => set(f.name, e.target.value)}
                 autoComplete={f.type === 'password' ? 'new-password' : 'off'}

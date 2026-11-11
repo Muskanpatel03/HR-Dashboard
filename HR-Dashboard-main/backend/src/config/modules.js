@@ -631,7 +631,7 @@ const MODULES = {
       {
         js: "totalWorkingDays",
         db: "total_working_days",
-        type: "number",
+        type: "decimal",
       },
       {
         js: "employeeStrength",
@@ -641,12 +641,12 @@ const MODULES = {
       {
         js: "absentDays",
         db: "absent_days",
-        type: "number",
+        type: "decimal",
       },
       {
         js: "leave",
         db: "leave_days",
-        type: "number",
+        type: "decimal",
       },
     ],
   },

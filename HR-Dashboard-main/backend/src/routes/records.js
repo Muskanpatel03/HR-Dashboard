@@ -45,11 +45,39 @@ function canManageRecordCompany(user, company) {
 
 function normalizeValue(val, type) {
   if (val === undefined || val === null || val === '') return null;
-  if (type === 'number') {
+  if (type === 'number' || type === 'decimal') {
     const n = Number(val);
     return Number.isFinite(n) ? n : null;
   }
   return val;
+}
+
+function decimalValueError(val) {
+  if (val === undefined || val === null || val === '') return null;
+  const text = String(val).trim();
+  const match = text.match(/^([+-]?)(\d+)(?:\.(\d+))?$/);
+  if (!match) return 'Must be a valid number with up to 2 decimal places.';
+  const [, , integerPart, fractionPart = ''] = match;
+  if (fractionPart.length > 2 && /[1-9]/.test(fractionPart.slice(2))) {
+    return 'Must be a valid number with up to 2 decimal places.';
+  }
+  if (Number(text) > 99999999.99 || Number(text) < -99999999.99) {
+    return 'Must be between -99999999.99 and 99999999.99.';
+  }
+  if (integerPart.replace(/^0+/, '').length > 8) {
+    return 'Must be between -99999999.99 and 99999999.99.';
+  }
+  return null;
+}
+
+function decimalFieldError(moduleKey, conf, body) {
+  if (moduleKey !== 'attendance') return null;
+  for (const column of conf.columns) {
+    if (column.type !== 'decimal') continue;
+    const error = decimalValueError(body[column.js]);
+    if (error) return `${column.js}: ${error}`;
+  }
+  return null;
 }
 
 function bodyForModule(moduleKey, body) {
@@ -177,6 +205,11 @@ router.post('/:module/import-batch', async (req, res) => {
     await client.query('BEGIN');
     for (let index = 0; index < records.length; index += 1) {
       const body = bodyForModule(moduleKey, records[index] || {});
+      const decimalError = decimalFieldError(moduleKey, conf, body);
+      if (decimalError) {
+        failures.push({ index, message: decimalError });
+        continue;
+      }
       if (moduleKey === 'usersmgmt' && !ASSIGNABLE_ROLES.includes(body.role)) {
         failures.push({ index, message: 'Select a valid designation for this user.' });
         continue;
@@ -229,6 +262,8 @@ router.post('/:module', async (req, res) => {
   if (!conf) return res.status(404).json({ error: 'Unknown module' });
   if (!canCreate(req.user.role, permissionModuleKey(moduleKey))) return res.status(403).json({ error: 'Not permitted to add records here' });
   const body = bodyForModule(moduleKey, req.body);
+  const decimalError = decimalFieldError(moduleKey, conf, body);
+  if (decimalError) return res.status(400).json({ error: decimalError });
   if (moduleKey === 'usersmgmt' && !ASSIGNABLE_ROLES.includes(body.role)) {
     return res.status(400).json({ error: 'Select a valid designation for this user.' });
   }
@@ -286,6 +321,8 @@ router.put('/:module/:id', async (req, res) => {
   if (!conf) return res.status(404).json({ error: 'Unknown module' });
   if (!canEdit(req.user.role, permissionModuleKey(moduleKey))) return res.status(403).json({ error: 'Not permitted to edit records here' });
   const body = bodyForModule(moduleKey, req.body);
+  const decimalError = decimalFieldError(moduleKey, conf, body);
+  if (decimalError) return res.status(400).json({ error: decimalError });
   if (moduleKey === 'usersmgmt' && !ASSIGNABLE_ROLES.includes(body.role)) {
     return res.status(400).json({ error: 'Select a valid designation for this user.' });
   }
