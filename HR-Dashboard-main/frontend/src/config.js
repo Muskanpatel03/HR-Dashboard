@@ -354,8 +354,8 @@ const NON_PRODUCTION_DAILY_DEPARTMENTS = [
 
 const SMITH_PRODUCTION_DAILY_DEPARTMENTS = [
   'Visual', 'CNC', 'Tool Room', 'Press Shop', 'Sliding Head', 'Traub', 'Prod-Secondary',
-  'Marking', 'SPM', 'Vibroning & buffing', 'Sec-Hobbing', 'Cent. Grinding',
-  'Clamp Assembly', 'Mov. Assembly', 'Pres. Gauage', 'Elec and Maint.',
+  'Marking', 'SPM', 'Vibroning & Buffing', 'Sec-Hobbing', 'Cent. Grinding',
+  'Clamp Assembly', 'Mov. Assembly', 'Pres. Gauge', 'Elec. and Maint.',
 ];
 
 const SMITH_NON_PRODUCTION_DAILY_DEPARTMENTS = [
