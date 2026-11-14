@@ -18,7 +18,13 @@ const RANGES = [
   { key: 'year', label: 'This year' },
 ];
 
-const PIE_COLORS = [C.steel, C.amber, C.moss, C.rust];
+const CHART_COLORS = {
+  purple: C.steel,
+  green: C.moss,
+  lightPurple: '#9477B5',
+  lightGreen: '#70A478',
+};
+const PIE_COLORS = [CHART_COLORS.purple, CHART_COLORS.green, CHART_COLORS.lightPurple, CHART_COLORS.lightGreen];
 const DASHBOARD_PANEL_STYLE = {
   background: C.card,
   border: `1px solid ${C.line}`,
@@ -229,7 +235,7 @@ function LegacyDashboard({ onNavigate, companyId }) {
                 <XAxis type="number" tick={{ fontSize: 11, fill: C.ink2 }} allowDecimals={false} />
                 <YAxis type="category" dataKey="stage" tick={{ fontSize: 10.5, fill: C.ink2 }} width={110} />
                 <Tooltip />
-                <Bar dataKey="count" fill={C.amber} radius={[0, 3, 3, 0]} />
+                <Bar dataKey="count" fill={CHART_COLORS.green} radius={[0, 3, 3, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -245,8 +251,8 @@ function LegacyDashboard({ onNavigate, companyId }) {
                 <Tooltip formatter={(value) => [`₹${Number(value || 0).toLocaleString('en-IN')} Lac`]} />
                 <Legend wrapperStyle={{ fontSize: 11.5 }} />
                 <Bar dataKey="budget" name="Budget" fill={C.steel} radius={[3, 3, 0, 0]} />
-                <Bar dataKey="taken" name="Taken" fill={C.amber} radius={[3, 3, 0, 0]} />
-                <Bar dataKey="outstanding" name="Outstanding" fill={C.rust} radius={[3, 3, 0, 0]} />
+                <Bar dataKey="taken" name="Taken" fill={CHART_COLORS.green} radius={[3, 3, 0, 0]} />
+                <Bar dataKey="outstanding" name="Outstanding" fill={CHART_COLORS.lightPurple} radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -266,7 +272,7 @@ function LegacyDashboard({ onNavigate, companyId }) {
                   <Tooltip labelFormatter={monthLabel} />
                   <Legend wrapperStyle={{ fontSize: 11.5 }} />
                   <Bar dataKey="shortlisted" name="Shortlisted" fill={C.steel} radius={[3, 3, 0, 0]} />
-                  <Bar dataKey="offered" name="Offered" fill={C.amber} radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="offered" name="Offered" fill={CHART_COLORS.green} radius={[3, 3, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -294,7 +300,7 @@ function LegacyDashboard({ onNavigate, companyId }) {
                   <XAxis dataKey="month" tickFormatter={monthLabel} tick={{ fontSize: 11, fill: C.ink2 }} />
                   <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: C.ink2 }} />
                   <Tooltip labelFormatter={monthLabel} />
-                  <Bar dataKey="separations" name="Separations" fill={C.rust} radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="separations" name="Separations" fill={CHART_COLORS.lightPurple} radius={[3, 3, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -314,7 +320,7 @@ function LegacyDashboard({ onNavigate, companyId }) {
                   <YAxis tick={{ fontSize: 12, fill: C.ink2 }} />
                   <Tooltip />
                   <Legend wrapperStyle={{ fontSize: 11.5 }} />
-                  <Line type="monotone" dataKey="planned" name="Planned" stroke={C.amber} strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="planned" name="Planned" stroke={CHART_COLORS.green} strokeWidth={2} dot={false} />
                   <Line type="monotone" dataKey="actual" name="Actual" stroke={C.steel} strokeWidth={2} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
@@ -483,7 +489,7 @@ function LegacyDashboard({ onNavigate, companyId }) {
                         type="monotone"
                         dataKey={(row) => getNightValue(row)}
                         name="Night Shift"
-                        stroke={C.rust}
+                        stroke={CHART_COLORS.purple}
                         strokeWidth={2}
                         dot={{ r: 2 }}
                       />
@@ -544,7 +550,7 @@ function LegacyDashboard({ onNavigate, companyId }) {
                             >
                               <td className="px-2 py-1.5 nowrap-cell" style={{ fontFamily: FONT_HEAD, color: C.ink }}>{rowDate}</td>
                               <td className="px-2 py-1.5 nowrap-cell" style={{ color: C.moss }}>{dayValue}</td>
-                              <td className="px-2 py-1.5 nowrap-cell" style={{ color: C.rust }}>{nightValue}</td>
+                              <td className="px-2 py-1.5 nowrap-cell" style={{ color: CHART_COLORS.purple }}>{nightValue}</td>
                               <td className="px-2 py-1.5 nowrap-cell" style={{ fontWeight: 600, color: C.ink }}>{total}</td>
                             </tr>
                           );

@@ -158,10 +158,10 @@ export default function AccessControl() {
         className="w-full px-3 py-2 text-sm rounded"
         style={{
           border: `1px solid ${C.line}`,
-          background: 'rgba(17,29,42,0.85)',
-          color: '#edf5ff',
+          background: C.card,
+          color: C.ink,
           borderRadius: 10,
-          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05)',
+          boxShadow: `0 4px 14px ${C.navy}14`,
         }}
       />
 
@@ -177,11 +177,11 @@ export default function AccessControl() {
           <div
             key={role}
             style={{
-              background: 'linear-gradient(180deg, rgba(17,29,42,0.96), rgba(11,19,28,0.99))',
-              border: '1px solid rgba(142,197,255,0.18)',
-              borderRadius: 16,
+              background: C.card,
+              border: `1px solid ${C.navyLine}`,
+              borderRadius: 8,
               padding: 16,
-              boxShadow: '0 18px 32px rgba(2, 8, 14, 0.35)',
+              boxShadow: `0 8px 20px ${C.navy}14`,
             }}
           >
             <div className="flex items-center justify-between mb-3 gap-3">
@@ -198,21 +198,21 @@ export default function AccessControl() {
                   gap: 12,
                   padding: '10px 12px',
                   borderRadius: 12,
-                  border: '1px solid rgba(142,197,255,0.14)',
-                  background: 'rgba(13, 22, 31, 0.9)',
-                  color: '#edf5ff',
+                  border: `1px solid ${C.navyLine}`,
+                  background: C.navyTint,
+                  color: C.ink,
                   textAlign: 'left',
                 }}
               >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
-                  <span style={{ fontFamily: FONT_HEAD, fontSize: 15, color: '#edf5ff' }}>{role}</span>
+                  <span style={{ fontFamily: FONT_HEAD, fontSize: 15, color: C.ink }}>{role}</span>
                   {isProtected && (
-                    <span style={{ fontSize: 11, color: '#9bb4c9' }} className="font-normal">
+                    <span style={{ fontSize: 11, color: C.ink2 }} className="font-normal">
                       Full access (protected)
                     </span>
                   )}
                 </div>
-                <span style={{ fontSize: 11, color: '#9bb4c9' }} className="font-normal">
+                <span style={{ fontSize: 11, color: C.ink2 }} className="font-normal">
                   {perm.modules === 'all' ? 'All modules' : `${viewList.length} modules`} · {companyList.length} companies · {openRole === role ? 'Collapse' : 'Expand'}
                 </span>
               </button>
@@ -222,14 +222,14 @@ export default function AccessControl() {
                   disabled={savingRole === role}
                   className="flex items-center justify-center gap-1.5 rounded text-xs font-medium"
                   style={{
-                    background: savedRole === role ? 'linear-gradient(180deg, #2d8c63, #246b52)' : 'linear-gradient(180deg, #3e5c73, #2d4a61)',
+                    background: savedRole === role ? C.moss : `linear-gradient(180deg, ${C.steel}, ${C.navyBorder})`,
                     color: '#fff',
                     opacity: savingRole === role ? 0.6 : 1,
                     minWidth: 96,
                     minHeight: 38,
                     padding: '0 14px',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    boxShadow: '0 8px 18px rgba(24, 52, 73, 0.38)',
+                    border: `1px solid ${C.navyBorder}`,
+                    boxShadow: `0 8px 18px ${C.navy}24`,
                   }}
                 >
                   {savedRole === role ? <Check size={13} /> : <Save size={13} />}
@@ -239,12 +239,12 @@ export default function AccessControl() {
             </div>
 
             {openRole === role && (
-              <div className="overflow-x-auto" style={{ borderTop: '1px solid rgba(142,197,255,0.12)', paddingTop: 14 }}>
-                <fieldset className="mb-4" style={{ border: '1px solid rgba(142,197,255,0.12)', borderRadius: 12, padding: '12px 14px' }}>
-                  <legend style={{ color: '#edf5ff', fontSize: 12, fontWeight: 600, padding: '0 6px' }}>Company access</legend>
+              <div className="overflow-x-auto" style={{ borderTop: `1px solid ${C.line}`, paddingTop: 14 }}>
+                <fieldset className="mb-4" style={{ border: `1px solid ${C.line}`, borderRadius: 8, padding: '12px 14px' }}>
+                  <legend style={{ color: C.ink, fontSize: 12, fontWeight: 600, padding: '0 6px' }}>Company access</legend>
                   <div className="flex flex-wrap justify-center gap-x-5 gap-y-2">
                     {COMPANY_OPTIONS.map((company) => (
-                      <label key={company.id} className="flex items-center gap-1.5" style={{ color: '#cfe1f2', fontSize: 12 }}>
+                      <label key={company.id} className="flex items-center gap-1.5" style={{ color: C.ink2, fontSize: 12 }}>
                         <input
                           type="checkbox"
                           checked={companyList.includes(company.id)}
@@ -261,11 +261,11 @@ export default function AccessControl() {
                   <table className="text-sm" style={{ minWidth: 560, width: '100%', maxWidth: 760, borderCollapse: 'collapse', tableLayout: 'fixed', textAlign: 'center' }}>
                     <thead>
                       <tr>
-                        <th style={{ color: '#edf5ff', fontSize: 11, background: 'rgba(30,48,63,0.95)', padding: '10px 12px', textAlign: 'center' }} className="pb-1 font-medium">Module</th>
-                        <th style={{ color: '#edf5ff', fontSize: 11, background: 'rgba(30,48,63,0.95)', padding: '10px 12px', textAlign: 'center' }} className="px-3 pb-1 font-medium">View</th>
-                        <th style={{ color: '#edf5ff', fontSize: 11, background: 'rgba(30,48,63,0.95)', padding: '10px 12px', textAlign: 'center' }} className="px-3 pb-1 font-medium">Create</th>
-                        <th style={{ color: '#edf5ff', fontSize: 11, background: 'rgba(30,48,63,0.95)', padding: '10px 12px', textAlign: 'center' }} className="px-3 pb-1 font-medium">Edit / Change</th>
-                        <th style={{ color: '#edf5ff', fontSize: 11, background: 'rgba(30,48,63,0.95)', padding: '10px 12px', textAlign: 'center' }} className="px-3 pb-1 font-medium">Delete</th>
+                        <th style={{ color: C.panel, fontSize: 11, background: C.navy, padding: '10px 12px', textAlign: 'center' }} className="pb-1 font-medium">Module</th>
+                        <th style={{ color: C.panel, fontSize: 11, background: C.navy, padding: '10px 12px', textAlign: 'center' }} className="px-3 pb-1 font-medium">View</th>
+                        <th style={{ color: C.panel, fontSize: 11, background: C.navy, padding: '10px 12px', textAlign: 'center' }} className="px-3 pb-1 font-medium">Create</th>
+                        <th style={{ color: C.panel, fontSize: 11, background: C.navy, padding: '10px 12px', textAlign: 'center' }} className="px-3 pb-1 font-medium">Edit / Change</th>
+                        <th style={{ color: C.panel, fontSize: 11, background: C.navy, padding: '10px 12px', textAlign: 'center' }} className="px-3 pb-1 font-medium">Delete</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -275,8 +275,8 @@ export default function AccessControl() {
                         const canEdit = perm.edit === 'all' || editList.includes(m);
                         const manageLocked = ALWAYS_ADMIN_MANAGE.includes(m);
                         return (
-                          <tr key={m} style={{ borderTop: '1px solid rgba(142,197,255,0.12)' }}>
-                            <td className="py-1.5" style={{ color: '#edf5ff', textAlign: 'center', padding: '10px 12px', verticalAlign: 'middle' }}>{labelFor(m)}</td>
+                          <tr key={m} style={{ borderTop: `1px solid ${C.line}` }}>
+                            <td className="py-1.5" style={{ color: C.ink, textAlign: 'center', padding: '10px 12px', verticalAlign: 'middle' }}>{labelFor(m)}</td>
                             <td className="px-3 py-1.5" style={{ textAlign: 'center', padding: '10px 12px', verticalAlign: 'middle' }}>
                               <input
                                 type="checkbox"
@@ -306,7 +306,7 @@ export default function AccessControl() {
                                 onChange={() => toggle(role, 'edit', m)}
                               />
                             </td>
-                            <td className="px-3 py-1.5" style={{ color: isProtected ? '#8cd4aa' : '#9bb4c9', textAlign: 'center', padding: '10px 12px', verticalAlign: 'middle', fontSize: 11 }}>
+                            <td className="px-3 py-1.5" style={{ color: isProtected ? C.moss : C.ink2, textAlign: 'center', padding: '10px 12px', verticalAlign: 'middle', fontSize: 11 }}>
                               {isProtected ? 'Allowed' : 'Admin only'}
                             </td>
                           </tr>

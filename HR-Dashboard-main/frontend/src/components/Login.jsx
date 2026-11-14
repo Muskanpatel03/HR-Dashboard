@@ -112,7 +112,7 @@ export default function Login({ onLogin }) {
 
   return (
     <div style={{ background: C.navyTint, minHeight: '100vh', fontFamily: FONT_BODY }} className="flex items-center justify-center px-4">
-      <form onSubmit={mode === 'signin' ? submitSignIn : mode === 'signup' ? submitSignUp : submitOtp} style={{ background: C.card, border: `1px solid ${C.navyLine}`, boxShadow: '0 18px 44px rgba(32, 57, 78, 0.12)', width: 380 }} className="p-7 rounded">
+      <form onSubmit={mode === 'signin' ? submitSignIn : mode === 'signup' ? submitSignUp : submitOtp} style={{ background: C.card, border: `1px solid ${C.navyLine}`, boxShadow: `0 18px 44px ${C.navy}1f`, width: 380 }} className="p-7 rounded">
         <div
   className="flex items-center justify-center px-3 py-4 border-b"
   style={{ borderColor: C.navyLine }}

@@ -34,7 +34,7 @@ export default function AuditView() {
               <td className="px-3 py-2">
                 <span
                   style={{
-                    background: a.action === 'Deleted' ? '#F5DEDA' : a.action === 'Created' ? '#DCEAE4' : '#EDEAE0',
+                    background: a.action === 'Deleted' ? '#F5DEDA' : a.action === 'Created' ? C.moss + '24' : C.steelTint,
                     color: a.action === 'Deleted' ? C.rust : a.action === 'Created' ? C.moss : C.ink2,
                     fontSize: 11,
                   }}

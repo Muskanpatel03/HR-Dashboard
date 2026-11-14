@@ -8,28 +8,28 @@ import {
 } from './linkedData';
 
 export const C = {
-  ink: '#20394E',       // primary text and heading color
-  navy: '#20394E',
-  navyHover: '#2D4A61',
-  navyActive: '#3B607D',
-  navyBorder: '#34536A',
-  navyHighlight: '#9BD1F0',
-  navyTint: '#E4EDF3',
-  navyWash: '#F3F7FA',
-  navyLine: '#C3D3DF',
-  navyText: '#DCE7EE',
-  navyMuted: '#B6CBD9',
+  ink: '#38264D',       // primary text and heading color
+  navy: '#4C2B83',
+  navyHover: '#5A3A91',
+  navyActive: '#684AA0',
+  navyBorder: '#3E216F',
+  navyHighlight: '#BDA8D7',
+  navyTint: '#EEE8F5',
+  navyWash: '#F7F4FA',
+  navyLine: '#D9CFE5',
+  navyText: '#E7DFF0',
+  navyMuted: '#C7B7D9',
   panel: '#FFFFFF',     // sidebar / header background
-  paper: '#F5F3EE',     // page background (warm light)
+  paper: '#F7F4FA',     // page background
   card: '#FFFFFF',
-  line: '#E1DDD2',
-  steel: '#3E5C73',     // primary accent
-  steelTint: '#EAF0F4', // light steel wash for active nav / badges
+  line: '#D9CFE5',
+  steel: '#4C2B83',     // primary accent
+  steelTint: '#F0EAF7', // light purple wash for active nav / badges
   amber: '#C97F1E',
   amberTint: '#FBF1DF',
   rust: '#B04A34',
-  moss: '#4B7A67',
-  ink2: '#6B6F76',
+  moss: '#347B43',
+  ink2: '#746B7D',
 };
 
 export const FONT_HEAD = "'Barlow Semi Condensed', 'Arial Narrow', sans-serif";
@@ -37,10 +37,10 @@ export const FONT_BODY = "'Inter', system-ui, sans-serif";
 export const FONT_MONO = "'IBM Plex Mono', 'Courier New', monospace";
 
 export const COMPANY_OPTIONS = [
-  { id: 'Automat Industries (Site 4)', label: 'Automat Industries (Site 4)', shortLabel: 'Site 4', accent: 'hsl(207, 42%, 53%)' },
-  { id: 'Automat Irrigation', label: 'Automat Irrigation', shortLabel: 'Irrigation', accent: 'hsl(184, 42%, 43%)' },
-  { id: 'Smith', label: 'Smith', shortLabel: 'Smith', accent: 'hsl(31, 65%, 48%)' },
-  { id: 'HO', label: 'HO', shortLabel: 'Head Office', accent: 'hsl(145, 32%, 43%)' },
+  { id: 'Automat Industries (Site 4)', label: 'Automat Industries (Site 4)', shortLabel: 'Site 4', accent: 'hsl(267, 50%, 42%)' },
+  { id: 'Automat Irrigation', label: 'Automat Irrigation', shortLabel: 'Irrigation', accent: 'hsl(132, 41%, 37%)' },
+  { id: 'Smith', label: 'Smith', shortLabel: 'Smith', accent: 'hsl(270, 32%, 56%)' },
+  { id: 'HO', label: 'HO', shortLabel: 'Head Office', accent: 'hsl(140, 24%, 44%)' },
 ];
 
 
@@ -532,6 +532,12 @@ export const COMPUTED = {
     },
   ],
   dailyManpower: [
+    {
+      name: 'present',
+      label: 'Present',
+      compute: (row) => (num(row.dayShift) + (row.company === 'Smith' ? 0 : num(row.nightShift))).toLocaleString('en-IN'),
+      total: (rows) => rows.reduce((sum, row) => sum + num(row.dayShift) + (row.company === 'Smith' ? 0 : num(row.nightShift)), 0).toLocaleString('en-IN'),
+    },
     {
       name: 'total',
       label: 'Total',
