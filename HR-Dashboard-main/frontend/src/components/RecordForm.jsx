@@ -19,44 +19,57 @@ export default function RecordForm({ config, values, setValues, onCancel, onSubm
         <button onClick={onCancel}><X size={16} style={{ color: C.ink2 }} /></button>
       </div>
       <div className="record-entry-grid grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' }}>
-        {config.fields.map((f) => (
-          <div key={f.name} className="record-entry-field">
-            <label className="record-entry-label" style={{ color: C.ink2, fontSize: 11.5 }}>{f.label}</label>
-            {f.type === 'select' ? (
-              <select
-                value={values[f.name] || ''}
-                onChange={(e) => set(f.name, e.target.value, f.resetOnChange)}
-                className="record-entry-control w-full mt-1 px-2.5 py-1.5 text-sm rounded"
-                style={{ border: `1px solid ${C.line}` }}
-              >
-                <option value="">Select…</option>
-                {(f.optionsFor ? f.optionsFor(values) : f.options).map((option) => {
-                  const optionValue = typeof option === 'object' ? option.value : option;
-                  const optionLabel = typeof option === 'object' ? option.label : option;
-                  return <option key={optionValue} value={optionValue}>{optionLabel}</option>;
-                })}
-              </select>
-            ) : f.type === 'month' ? (
-              <input
-                type="month"
-                value={values[f.name] || ''}
-                onChange={(e) => set(f.name, e.target.value)}
-                className="record-entry-control w-full mt-1 px-2.5 py-1.5 text-sm rounded"
-                style={{ border: `1px solid ${C.line}` }}
-              />
-            ) : (
-              <input
-                type={f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : f.type === 'password' ? 'password' : 'text'}
-                step={f.step}
-                value={values[f.name] ?? ''}
-                onChange={(e) => set(f.name, e.target.value)}
-                autoComplete={f.type === 'password' ? 'new-password' : 'off'}
-                className="record-entry-control w-full mt-1 px-2.5 py-1.5 text-sm rounded"
-                style={{ border: `1px solid ${C.line}` }}
-              />
-            )}
-          </div>
-        ))}
+        {config.fields
+          .filter((field) => !(config.key === 'dailyManpower' && values.company === 'Smith' && field.name === 'nightShift'))
+          .map((originalField) => {
+            const f = config.key === 'dailyManpower' && values.company === 'Smith' && originalField.name === 'dayShift'
+              ? { ...originalField, label: 'Shift' }
+              : originalField;
+            return (
+              <div key={f.name} className="record-entry-field">
+                <label className="record-entry-label" style={{ color: C.ink2, fontSize: 11.5 }}>{f.label}</label>
+                {f.type === 'select' ? (
+                  <select
+                    value={values[f.name] || ''}
+                    onChange={(e) => set(
+                      f.name,
+                      e.target.value,
+                      config.key === 'dailyManpower' && f.name === 'company'
+                        ? ['departmentType', 'departmentProduction', 'nightShift']
+                        : f.resetOnChange,
+                    )}
+                    className="record-entry-control w-full mt-1 px-2.5 py-1.5 text-sm rounded"
+                    style={{ border: `1px solid ${C.line}` }}
+                  >
+                    <option value="">Select…</option>
+                    {(f.optionsFor ? f.optionsFor(values) : f.options).map((option) => {
+                      const optionValue = typeof option === 'object' ? option.value : option;
+                      const optionLabel = typeof option === 'object' ? option.label : option;
+                      return <option key={optionValue} value={optionValue}>{optionLabel}</option>;
+                    })}
+                  </select>
+                ) : f.type === 'month' ? (
+                  <input
+                    type="month"
+                    value={values[f.name] || ''}
+                    onChange={(e) => set(f.name, e.target.value)}
+                    className="record-entry-control w-full mt-1 px-2.5 py-1.5 text-sm rounded"
+                    style={{ border: `1px solid ${C.line}` }}
+                  />
+                ) : (
+                  <input
+                    type={f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : f.type === 'password' ? 'password' : 'text'}
+                    step={f.step}
+                    value={values[f.name] ?? ''}
+                    onChange={(e) => set(f.name, e.target.value)}
+                    autoComplete={f.type === 'password' ? 'new-password' : 'off'}
+                    className="record-entry-control w-full mt-1 px-2.5 py-1.5 text-sm rounded"
+                    style={{ border: `1px solid ${C.line}` }}
+                  />
+                )}
+              </div>
+            );
+          })}
       </div>
 
       {computedFields.length > 0 && (

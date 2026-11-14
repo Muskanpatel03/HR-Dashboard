@@ -99,8 +99,10 @@ function LegacyDashboard({ onNavigate, companyId }) {
     const dailyTableRows = (d.dailyManpowerRecords || d.manpowerDailyTrend || []).slice();
     const getRowDate = (row) => row?.fullDate || row?.date || '';
     const getDayValue = (row) => Number(row?.dayShift ?? row?.direct ?? row?.day_shift ?? 0);
-    const getNightValue = (row) => Number(row?.nightShift ?? row?.indirect ?? row?.night_shift ?? 0);
-    const getTotal = (row) => Number(row?.total ?? getDayValue(row) + getNightValue(row));
+    const getNightValue = (row) => row?.company === 'Smith' ? 0 : Number(row?.nightShift ?? row?.indirect ?? row?.night_shift ?? 0);
+    const getTotal = (row) => row?.company === 'Smith'
+      ? getDayValue(row)
+      : Number(row?.total ?? getDayValue(row) + getNightValue(row));
 
   return (
     <div className="dashboard-layout">

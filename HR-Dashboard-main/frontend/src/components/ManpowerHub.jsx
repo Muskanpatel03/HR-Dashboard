@@ -37,8 +37,8 @@ export default function ManpowerHub({
       : [companyId];
     const monthlySnapshots = new Map();
     const departmentField = DAILY_MANPOWER_CONFIG.fields.find((field) => field.name === 'departmentProduction');
-    const productionDepartments = new Set(departmentField.optionsFor({ departmentType: 'Production' }).map((department) => department.trim().toLowerCase()));
-    const nonProductionDepartments = new Set(departmentField.optionsFor({ departmentType: 'Non-Production' }).map((department) => department.trim().toLowerCase()));
+    const productionDepartments = new Set(departmentField.optionsFor({ company: 'all', departmentType: 'Production' }).map((department) => department.trim().toLowerCase()));
+    const nonProductionDepartments = new Set(departmentField.optionsFor({ company: 'all', departmentType: 'Non-Production' }).map((department) => department.trim().toLowerCase()));
 
     dailyRecords.forEach((record) => {
       if (!companies.includes(record.company)) return;
@@ -47,7 +47,7 @@ export default function ManpowerHub({
       const month = date.slice(0, 7);
       const key = `${month}:${record.company}`;
       const current = monthlySnapshots.get(key) || { month, company: record.company, recordedDates: new Set(), productionTotal: 0, nonProductionTotal: 0, total: 0 };
-      const total = (Number(record.dayShift) || 0) + (Number(record.nightShift) || 0);
+      const total = (Number(record.dayShift) || 0) + (record.company === 'Smith' ? 0 : (Number(record.nightShift) || 0));
       const department = String(record.departmentProduction || '').trim().toLowerCase();
       const group = productionDepartments.has(department) || (!nonProductionDepartments.has(department) && record.departmentType === 'Production')
         ? 'productionTotal'
@@ -71,8 +71,8 @@ export default function ManpowerHub({
       ? allowedCompanies.map((company) => company.id)
       : [companyId];
     const departmentField = DAILY_MANPOWER_CONFIG.fields.find((field) => field.name === 'departmentProduction');
-    const productionDepartments = new Set(departmentField.optionsFor({ departmentType: 'Production' }).map((department) => department.trim().toLowerCase()));
-    const nonProductionDepartments = new Set(departmentField.optionsFor({ departmentType: 'Non-Production' }).map((department) => department.trim().toLowerCase()));
+    const productionDepartments = new Set(departmentField.optionsFor({ company: 'all', departmentType: 'Production' }).map((department) => department.trim().toLowerCase()));
+    const nonProductionDepartments = new Set(departmentField.optionsFor({ company: 'all', departmentType: 'Non-Production' }).map((department) => department.trim().toLowerCase()));
     const totalsByPeriod = new Map();
 
     dailyRecords.forEach((record) => {
@@ -82,7 +82,7 @@ export default function ManpowerHub({
       if (selectedDailyDate && date !== selectedDailyDate) return;
       const period = selectedDailyDate ? date : date.slice(0, 7);
       const totals = totalsByPeriod.get(period) || { period, production: 0, nonProduction: 0, total: 0 };
-      const headcount = (Number(record.dayShift) || 0) + (Number(record.nightShift) || 0);
+      const headcount = (Number(record.dayShift) || 0) + (record.company === 'Smith' ? 0 : (Number(record.nightShift) || 0));
       const department = String(record.departmentProduction || '').trim().toLowerCase();
       const isProduction = productionDepartments.has(department)
         || (!nonProductionDepartments.has(department) && record.departmentType === 'Production');

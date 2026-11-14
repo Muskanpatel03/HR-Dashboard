@@ -947,16 +947,19 @@ export default function ModuleView({
   const submit = async (addAnother = false) => {
     try {
       let savedRecord;
+      const recordValues = config.key === 'dailyManpower' && formValues.company === 'Smith'
+        ? { ...formValues, nightShift: 0 }
+        : formValues;
       if (editingId) {
         const { data } = await api.put(
           `/${config.key}/${editingId}`,
-          formValues
+          recordValues
         );
         savedRecord = data.record;
       } else {
         const { data } = await api.post(
           `/${config.key}`,
-          formValues
+          recordValues
         );
         savedRecord = data.record;
       }
@@ -1278,11 +1281,22 @@ export default function ModuleView({
       ];
     }
 
-    return config.columnGroups.map(
+    const companyGroups = config.key === 'dailyManpower' && (!companyId || companyId === 'all')
+      ? config.columnGroups.flatMap((group) => [
+          { ...group, title: `${group.title} - Other companies`, companyFilter: 'nonSmith' },
+          { ...group, title: `${group.title} - Smith`, companyFilter: 'Smith' },
+        ])
+      : config.columnGroups.map((group) => ({
+          ...group,
+          ...(config.key === 'dailyManpower' && companyId === 'Smith' ? { companyFilter: 'Smith' } : {}),
+        }));
+
+    return companyGroups.map(
       (group) => ({
         title: group.title,
         filterField: group.filterField,
         filterValue: group.filterValue,
+        companyFilter: group.companyFilter,
 
         fields: group.fields
           .map((fieldName) =>
@@ -1292,12 +1306,18 @@ export default function ModuleView({
                 fieldName
             )
           )
-          .filter(Boolean),
+          .filter(Boolean)
+          .filter((field) => !(group.companyFilter === 'Smith' && field.name === 'nightShift'))
+          .map((field) => group.companyFilter === 'Smith' && field.name === 'dayShift'
+            ? { ...field, label: 'Shift' }
+            : field),
       })
     );
   }, [
     config.columnGroups,
     visibleFields,
+    config.key,
+    companyId,
   ]);
 
 
@@ -1706,23 +1726,31 @@ export default function ModuleView({
               groupIndex ===
               groups.length - 1;
             const showComputed = isLast || config.key === "dailyManpower";
+            const groupCompany = group.companyFilter === 'nonSmith'
+              ? 'nonSmith'
+              : group.companyFilter || companyId;
+            const computedAfterField = group.companyFilter === 'Smith'
+              ? 'dayShift'
+              : config.computedAfterField;
             const groupRows = group.filterField
               ? displayRows.filter((record) => {
+                  if (group.companyFilter === 'Smith' && record.company !== 'Smith') return false;
+                  if (group.companyFilter === 'nonSmith' && record.company === 'Smith') return false;
                   const value = record[group.filterField];
                   if (value) return value === group.filterValue;
                   const departments = group.filterValue === 'Production'
-                    ? DAILY_MANPOWER_CONFIG.fields.find((field) => field.name === 'departmentProduction').optionsFor({ departmentType: 'Production' })
-                    : DAILY_MANPOWER_CONFIG.fields.find((field) => field.name === 'departmentProduction').optionsFor({ departmentType: 'Non-Production' });
+                    ? DAILY_MANPOWER_CONFIG.fields.find((field) => field.name === 'departmentProduction').optionsFor({ company: groupCompany, departmentType: 'Production' })
+                    : DAILY_MANPOWER_CONFIG.fields.find((field) => field.name === 'departmentProduction').optionsFor({ company: groupCompany, departmentType: 'Non-Production' });
                   return departments.includes(record.departmentProduction);
                 })
               : displayRows;
             const rowsToRender = config.key === "dailyManpower"
               ? DAILY_MANPOWER_CONFIG.fields
                   .find((field) => field.name === "departmentProduction")
-                  .optionsFor({ departmentType: group.filterValue })
+                  .optionsFor({ company: groupCompany, departmentType: group.filterValue })
                   .flatMap((department, index) => {
                     const matching = groupRows.filter((row) => row.departmentProduction === department);
-                    return matching.length ? matching : [{ id: `preset-${group.filterValue}-${index}`, departmentProduction: department, __preset: true }];
+                    return matching.length ? matching : [{ id: `preset-${group.companyFilter || group.filterValue}-${index}`, departmentProduction: department, __preset: true }];
                   })
               : groupRows;
               const showActions = canEditRows || (canDelete && (!periodField || period === "Monthly"));
@@ -1824,7 +1852,7 @@ export default function ModuleView({
                               ? sort.dir === "asc" ? " ▲" : " ▼"
                               : ""}
                           </th>
-                          {showComputed && config.computedAfterField === field.name && computedFields.map((computed) => (
+                          {showComputed && computedAfterField === field.name && computedFields.map((computed) => (
                             <th key={computed.name} style={{ color: C.steel, fontSize: 11.5, minWidth: 110 }} className="text-left px-3 py-2 font-medium whitespace-normal break-words leading-tight align-bottom">
                               {computed.label}
                             </th>
@@ -1984,7 +2012,7 @@ export default function ModuleView({
                                     ? f.name === "departmentProduction" ? record.departmentProduction : ""
                                     : f.type === "date" ? formatDate(record[f.name]) : record[f.name] || "—"}
                                 </td>
-                                {showComputed && config.computedAfterField === f.name && computedFields.map((computed) => (
+                                {showComputed && computedAfterField === f.name && computedFields.map((computed) => (
                                   <td key={computed.name} className="px-3 py-2 nowrap-cell" style={{ fontFamily: FONT_MONO, color: C.steel, minWidth: 110 }}>
                                     {record.__preset ? "" : computed.compute(record)}
                                   </td>
@@ -2164,7 +2192,7 @@ export default function ModuleView({
                                       : groupRows.reduce((sum, record) => sum + (Number(record[field.name]) || 0), 0).toLocaleString("en-IN")
                                     : ""}
                               </td>
-                              {showComputed && config.computedAfterField === field.name && computedFields.map((computed) => (
+                              {showComputed && computedAfterField === field.name && computedFields.map((computed) => (
                                 <td key={computed.name} className="px-3 py-2 nowrap-cell" style={{ fontFamily: FONT_MONO, color: C.steel }}>
                                   {computed.total ? computed.total(groupRows) : ""}
                                 </td>

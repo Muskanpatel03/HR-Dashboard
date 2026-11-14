@@ -10,6 +10,7 @@ const keyFor = (value) => String(value ?? '').trim().toLowerCase().replace(/[^a-
 const IMPORT_HEADER_ALIASES = {
   date: ['Date', 'Daily Date', 'Manpower Date', 'Attendance Date'],
   departmentProduction: ['Department', 'Department Name', 'Deptt', 'DEPTT_PRODUCTION', 'DEPTT_NON PRODUCTION'],
+  dayShift: ['Shift'],
 };
 const toIsoDate = (value, type) => {
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
@@ -141,6 +142,7 @@ export default function ExcelImport({ config, companyId, onClose, onImported }) 
           continue;
         }
         if (!record.company) record.company = defaultCompany;
+        if (config.key === 'dailyManpower' && record.company === 'Smith') record.nightShift = 0;
         if (config.fields.some((field) => field.name === 'company') && !record.company) {
           failures.push({ row: i + 2, message: 'Company is blank; choose a default company or fill the Company column.' });
           continue;
@@ -159,8 +161,8 @@ export default function ExcelImport({ config, companyId, onClose, onImported }) 
             continue;
           }
           const departmentField = config.fields.find((field) => field.name === 'departmentProduction');
-          const production = departmentField.optionsFor({ departmentType: 'Production' });
-          const nonProduction = departmentField.optionsFor({ departmentType: 'Non-Production' });
+          const production = departmentField.optionsFor({ company: record.company, departmentType: 'Production' });
+          const nonProduction = departmentField.optionsFor({ company: record.company, departmentType: 'Non-Production' });
           const normalizedDepartment = keyFor(record.departmentProduction);
           const productionDepartment = production.find((department) => keyFor(department) === normalizedDepartment);
           const nonProductionDepartment = nonProduction.find((department) => keyFor(department) === normalizedDepartment);

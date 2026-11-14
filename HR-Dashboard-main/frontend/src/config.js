@@ -352,6 +352,34 @@ const NON_PRODUCTION_DAILY_DEPARTMENTS = [
   'HR', 'ADMIN', 'PANTRY', 'GAURAD_SBD', 'DRIVER', 'GARDENER', 'HK', 'ABSOLUTE 4 SECURITY', 'IT', 'Hadar',
 ];
 
+const SMITH_PRODUCTION_DAILY_DEPARTMENTS = [
+  'Visual', 'CNC', 'Tool Room', 'Press Shop', 'Sliding Head', 'Traub', 'Prod-Secondary',
+  'Marking', 'SPM', 'Vibroning & buffing', 'Sec-Hobbing', 'Cent. Grinding',
+  'Clamp Assembly', 'Mov. Assembly', 'Pres. Gauage', 'Elec and Maint.',
+];
+
+const SMITH_NON_PRODUCTION_DAILY_DEPARTMENTS = [
+  'Commercial Staff', 'Product Development', 'PPC', 'Quality', 'Admin Security',
+  'Store', 'Canteen', 'House Keeping', 'Packing',
+];
+
+const getDailyManpowerDepartments = (company, departmentType) => {
+  const production = company === 'Smith'
+    ? SMITH_PRODUCTION_DAILY_DEPARTMENTS
+    : company === 'all'
+      ? [...PRODUCTION_DAILY_DEPARTMENTS, ...SMITH_PRODUCTION_DAILY_DEPARTMENTS]
+      : PRODUCTION_DAILY_DEPARTMENTS;
+  const nonProduction = company === 'Smith'
+    ? SMITH_NON_PRODUCTION_DAILY_DEPARTMENTS
+    : company === 'all'
+      ? [...NON_PRODUCTION_DAILY_DEPARTMENTS, ...SMITH_NON_PRODUCTION_DAILY_DEPARTMENTS]
+      : NON_PRODUCTION_DAILY_DEPARTMENTS;
+
+  if (departmentType === 'Production') return production;
+  if (departmentType === 'Non-Production') return nonProduction;
+  return [...production, ...nonProduction];
+};
+
 export const DAILY_MANPOWER_CONFIG = {
   key: 'dailyManpower',
   label: 'Daily Manpower',
@@ -381,11 +409,7 @@ export const DAILY_MANPOWER_CONFIG = {
       name: 'departmentProduction',
       label: 'Department',
       type: 'select',
-      optionsFor: (values) => values.departmentType === 'Non-Production'
-        ? NON_PRODUCTION_DAILY_DEPARTMENTS
-        : values.departmentType === 'Production'
-          ? PRODUCTION_DAILY_DEPARTMENTS
-          : [...PRODUCTION_DAILY_DEPARTMENTS, ...NON_PRODUCTION_DAILY_DEPARTMENTS],
+      optionsFor: (values) => getDailyManpowerDepartments(values.company, values.departmentType),
       resetOnChange: ['departmentType'],
     },
     { name: 'fixedManpower', label: 'Fix Manpower', type: 'number' },
@@ -511,8 +535,8 @@ export const COMPUTED = {
     {
       name: 'total',
       label: 'Total',
-      compute: (row) => (num(row.dayShift) + num(row.nightShift)).toLocaleString('en-IN'),
-      total: (rows) => rows.reduce((sum, row) => sum + num(row.dayShift) + num(row.nightShift), 0).toLocaleString('en-IN'),
+      compute: (row) => (num(row.dayShift) + (row.company === 'Smith' ? 0 : num(row.nightShift))).toLocaleString('en-IN'),
+      total: (rows) => rows.reduce((sum, row) => sum + num(row.dayShift) + (row.company === 'Smith' ? 0 : num(row.nightShift)), 0).toLocaleString('en-IN'),
     },
   ],
    retirement: [
