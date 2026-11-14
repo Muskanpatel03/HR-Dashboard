@@ -1,7 +1,7 @@
 import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { AlertCircle, ArrowDownAZ, ArrowUpAZ, Check, FileSpreadsheet, Plus, Save, Search, Trash2 } from 'lucide-react';
 import api from '../api';
-import { C, FONT_HEAD } from '../config';
+import { C, FONT_HEAD, fmtMoney } from '../config';
 
 const OperationMatrixExcelImport = lazy(() => import('./OperationMatrixExcelImport'));
 
@@ -50,6 +50,12 @@ function includeHrSectionRows(matrixData) {
 function isHrSectionRow(row) {
   const particular = String(row.particular || '').trim().toLocaleLowerCase();
   return HR_SECTION_PARTICULARS.some((name) => name.toLocaleLowerCase() === particular);
+}
+
+function isCurrencyParticular(row) {
+  return ['loan summary', 'electricity', 'canteen'].includes(
+    String(row.particular || '').trim().toLocaleLowerCase(),
+  );
 }
 
 function linkedSectionValue(particular, summary) {
@@ -545,7 +551,7 @@ export default function OperationMatrix({ industry, label = industry, editable, 
                       const value = source ? linkedSectionValue(row.particular, source) : null;
                       return value === null
                         ? <span className="operation-matrix-number" title="No linked data available">—</span>
-                        : <span className="operation-matrix-number" title="Linked from this company’s dashboard data">{value.toLocaleString('en-IN', { maximumFractionDigits: 1 })}</span>;
+                        : <span className="operation-matrix-number" title="Linked from this company’s dashboard data">{isCurrencyParticular(row) ? fmtMoney(value) : value.toLocaleString('en-IN', { maximumFractionDigits: 1 })}</span>;
                     })() : editable ? (
                       <input
                         type="number"
@@ -562,7 +568,7 @@ export default function OperationMatrix({ industry, label = industry, editable, 
                         {row.values?.[column.key] === undefined || row.values?.[column.key] === ''
                           ? ''
                           : Number.isFinite(Number(row.values[column.key]))
-                            ? Number(row.values[column.key]).toLocaleString('en-IN')
+                            ? isCurrencyParticular(row) ? fmtMoney(row.values[column.key]) : Number(row.values[column.key]).toLocaleString('en-IN')
                             : row.values[column.key]}
                       </span>
                     )}

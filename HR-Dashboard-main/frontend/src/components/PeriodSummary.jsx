@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { C, FONT_HEAD, FONT_MONO, FONT_BODY, COMPUTED } from "../config";
+import { C, FONT_HEAD, FONT_MONO, FONT_BODY, COMPUTED, fmtMoney } from "../config";
 
 // Four fixed roll-up periods, in the order the user switches between them.
 const PERIODS = [
@@ -53,6 +53,10 @@ function latestSnapshotRows(rows) {
 
 function formatNumber(value) {
   return Number(value).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+}
+
+function formatFieldNumber(value, field) {
+  return field.currency ? fmtMoney(value) : formatNumber(value);
 }
 
 // A record's "month" field is "YYYY-MM" (native <input type="month"> value).
@@ -195,9 +199,9 @@ export default function PeriodSummary({ config, records }) {
                   className="px-3 py-2 nowrap-cell"
                   style={{ fontFamily: FONT_MONO }}
                 >
-                  {formatNumber(f.noSum
+                  {formatFieldNumber(f.noSum
                     ? weightedAvg(b.rows, f)
-                    : headcountRows(b.rows).reduce((s, r) => s + num(r[f.name]), 0))}
+                    : headcountRows(b.rows).reduce((s, r) => s + num(r[f.name]), 0), f)}
                 </td>
               ))}
               {computedFields.map((c) => (
@@ -218,9 +222,9 @@ export default function PeriodSummary({ config, records }) {
               </td>
               {numericFields.map((f) => (
                 <td key={f.name} className="px-3 py-2 nowrap-cell" style={{ fontFamily: FONT_MONO, color: C.ink }}>
-                  {formatNumber(f.noSum
+                  {formatFieldNumber(f.noSum
                     ? weightedAvg(records, f)
-                    : headcountRows(records).reduce((s, r) => s + num(r[f.name]), 0))}
+                    : headcountRows(records).reduce((s, r) => s + num(r[f.name]), 0), f)}
                 </td>
               ))}
               {computedFields.map((c) => (

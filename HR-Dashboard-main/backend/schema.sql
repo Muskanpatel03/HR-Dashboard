@@ -165,8 +165,10 @@ CREATE TABLE IF NOT EXISTS daily_manpower (
   production INTEGER,
   fixed_manpower INTEGER,
   day_shift INTEGER,
+  present INTEGER,
   night_shift INTEGER,
   absent INTEGER,
+  total_manpower INTEGER,
   double_shift INTEGER,
   department_type TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),
@@ -182,8 +184,10 @@ ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS indirect_absent INTEGER;
 ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS production INTEGER;
 ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS fixed_manpower INTEGER;
 ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS day_shift INTEGER;
+ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS present INTEGER;
 ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS night_shift INTEGER;
 ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS absent INTEGER;
+ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS total_manpower INTEGER;
 ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS double_shift INTEGER;
 ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS department_production TEXT;
 ALTER TABLE daily_manpower ADD COLUMN IF NOT EXISTS department_type TEXT;

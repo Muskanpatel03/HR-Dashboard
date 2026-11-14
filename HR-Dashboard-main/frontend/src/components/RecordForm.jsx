@@ -8,7 +8,9 @@ export default function RecordForm({ config, values, setValues, onCancel, onSubm
     resetOnChange.forEach((fieldName) => { next[fieldName] = ''; });
     return next;
   });
-  const computedFields = COMPUTED[config.key] || [];
+  const computedFields = config.key === 'dailyManpower' && values.company === 'Smith'
+    ? []
+    : COMPUTED[config.key] || [];
 
   return (
     <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="record-entry-form p-4 rounded">
@@ -20,7 +22,11 @@ export default function RecordForm({ config, values, setValues, onCancel, onSubm
       </div>
       <div className="record-entry-grid grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' }}>
         {config.fields
-          .filter((field) => !(config.key === 'dailyManpower' && values.company === 'Smith' && field.name === 'nightShift'))
+          .filter((field) => {
+            if (config.key !== 'dailyManpower') return true;
+            if (values.company === 'Smith') return field.name !== 'nightShift';
+            return !['present', 'totalManpower'].includes(field.name);
+          })
           .map((originalField) => {
             const f = config.key === 'dailyManpower' && values.company === 'Smith' && originalField.name === 'dayShift'
               ? { ...originalField, label: 'Shift' }
@@ -35,7 +41,7 @@ export default function RecordForm({ config, values, setValues, onCancel, onSubm
                       f.name,
                       e.target.value,
                       config.key === 'dailyManpower' && f.name === 'company'
-                        ? ['departmentType', 'departmentProduction', 'nightShift']
+                        ? ['departmentType', 'departmentProduction', 'nightShift', 'present', 'totalManpower']
                         : f.resetOnChange,
                     )}
                     className="record-entry-control w-full mt-1 px-2.5 py-1.5 text-sm rounded"

@@ -76,8 +76,10 @@ const MODULES = {
     { js: 'departmentProduction', db: 'department_production', type: 'text' },
     { js: 'fixedManpower', db: 'fixed_manpower', type: 'number' },
     { js: 'dayShift', db: 'day_shift', type: 'number' },
+    { js: 'present', db: 'present', type: 'number' },
     { js: 'nightShift', db: 'night_shift', type: 'number' },
     { js: 'absent', db: 'absent', type: 'number' },
+    { js: 'totalManpower', db: 'total_manpower', type: 'number' },
     { js: 'doubleShift', db: 'double_shift', type: 'number' },
   ]
 },

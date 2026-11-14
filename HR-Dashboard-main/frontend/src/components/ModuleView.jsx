@@ -49,6 +49,7 @@ import {
   CHARTS,
   COMPANY_OPTIONS,
   DAILY_MANPOWER_CONFIG,
+  fmtMoney,
 } from "../config";
 
 
@@ -476,6 +477,10 @@ function ModuleChart({
       sum + (item.value || 0),
     0
   );
+  const isCurrencyChart = config.key === 'loanSummary' || config.key === 'electricity';
+  const formatChartCurrency = (value) => config.key === 'loanSummary'
+    ? `${fmtMoney(value)} Lac`
+    : fmtMoney(value);
 
   return (
     <div
@@ -550,7 +555,7 @@ function ModuleChart({
                 )}
               </Pie>
 
-              <Tooltip />
+              <Tooltip formatter={isCurrencyChart ? (value) => formatChartCurrency(value) : undefined} />
 
               <Legend
                 wrapperStyle={{
@@ -581,10 +586,11 @@ function ModuleChart({
                   fontSize: 11,
                   fill: C.ink2,
                 }}
+                tickFormatter={isCurrencyChart ? formatChartCurrency : undefined}
                 allowDecimals={false}
               />
 
-              <Tooltip />
+              <Tooltip formatter={isCurrencyChart ? (value) => formatChartCurrency(value) : undefined} />
 
               {chartConf.series ? (
                 <>
@@ -1308,6 +1314,7 @@ export default function ModuleView({
           )
           .filter(Boolean)
           .filter((field) => !(group.companyFilter === 'Smith' && field.name === 'nightShift'))
+          .filter((field) => !(group.companyFilter !== 'Smith' && ['present', 'totalManpower'].includes(field.name)))
           .map((field) => group.companyFilter === 'Smith' && field.name === 'dayShift'
             ? { ...field, label: 'Shift' }
             : field),
@@ -1726,8 +1733,8 @@ export default function ModuleView({
               groupIndex ===
               groups.length - 1;
             const showComputed = isLast || config.key === "dailyManpower";
-            const groupComputedFields = config.key === 'dailyManpower' && group.companyFilter !== 'Smith'
-              ? computedFields.filter((computed) => computed.name !== 'present')
+            const groupComputedFields = config.key === 'dailyManpower' && group.companyFilter === 'Smith'
+              ? computedFields.filter((computed) => computed.name !== 'total')
               : computedFields;
             const groupCompany = group.companyFilter === 'nonSmith'
               ? 'nonSmith'
@@ -1735,10 +1742,6 @@ export default function ModuleView({
             const computedAfterField = group.companyFilter === 'Smith'
               ? 'dayShift'
               : config.computedAfterField;
-            const getComputedAfterField = (computed) =>
-              group.companyFilter === 'Smith' && computed.name === 'total'
-                ? 'absent'
-                : computedAfterField;
             const groupRows = group.filterField
               ? displayRows.filter((record) => {
                   if (group.companyFilter === 'Smith' && record.company !== 'Smith') return false;
@@ -1859,7 +1862,7 @@ export default function ModuleView({
                               ? sort.dir === "asc" ? " ▲" : " ▼"
                               : ""}
                           </th>
-                          {showComputed && groupComputedFields.filter((computed) => getComputedAfterField(computed) === field.name).map((computed) => (
+                          {showComputed && groupComputedFields.filter(() => computedAfterField === field.name).map((computed) => (
                             <th key={computed.name} style={{ color: C.steel, fontSize: 11.5, minWidth: 110 }} className="text-left px-3 py-2 font-medium whitespace-normal break-words leading-tight align-bottom">
                               {computed.label}
                             </th>
@@ -2017,9 +2020,13 @@ export default function ModuleView({
                                 >
                                   {record.__preset
                                     ? f.name === "departmentProduction" ? record.departmentProduction : ""
-                                    : f.type === "date" ? formatDate(record[f.name]) : record[f.name] || "—"}
+                                    : f.type === "date"
+                                      ? formatDate(record[f.name])
+                                      : f.currency && record[f.name] !== undefined && record[f.name] !== null && record[f.name] !== ''
+                                        ? fmtMoney(record[f.name])
+                                        : record[f.name] || "—"}
                                 </td>
-                                {showComputed && groupComputedFields.filter((computed) => getComputedAfterField(computed) === f.name).map((computed) => (
+                                {showComputed && groupComputedFields.filter(() => computedAfterField === f.name).map((computed) => (
                                   <td key={computed.name} className="px-3 py-2 nowrap-cell" style={{ fontFamily: FONT_MONO, color: C.steel, minWidth: 110 }}>
                                     {record.__preset ? "" : computed.compute(record)}
                                   </td>
@@ -2195,11 +2202,15 @@ export default function ModuleView({
                                   ? "Total"
                                   : field.type === "number"
                                     ? field.noSum
-                                      ? weightedAvg(groupRows, field).toLocaleString("en-IN", { maximumFractionDigits: 2 })
-                                      : groupRows.reduce((sum, record) => sum + (Number(record[field.name]) || 0), 0).toLocaleString("en-IN")
+                                      ? field.currency
+                                        ? fmtMoney(weightedAvg(groupRows, field))
+                                        : weightedAvg(groupRows, field).toLocaleString("en-IN", { maximumFractionDigits: 2 })
+                                      : field.currency
+                                        ? fmtMoney(groupRows.reduce((sum, record) => sum + (Number(record[field.name]) || 0), 0))
+                                        : groupRows.reduce((sum, record) => sum + (Number(record[field.name]) || 0), 0).toLocaleString("en-IN")
                                     : ""}
                               </td>
-                              {showComputed && groupComputedFields.filter((computed) => getComputedAfterField(computed) === field.name).map((computed) => (
+                              {showComputed && groupComputedFields.filter(() => computedAfterField === field.name).map((computed) => (
                                 <td key={computed.name} className="px-3 py-2 nowrap-cell" style={{ fontFamily: FONT_MONO, color: C.steel }}>
                                   {computed.total ? computed.total(groupRows) : ""}
                                 </td>
