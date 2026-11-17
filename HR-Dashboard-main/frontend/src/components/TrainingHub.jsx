@@ -5,7 +5,6 @@ import { C, MODULE_MAP } from '../config';
 
 const SECTIONS = [
   { key: 'Behavioural', label: 'Behavioural' },
-  { key: 'Technical (Site 4)', label: 'Technical (Site 4)' },
   { key: 'SME', label: 'SME' },
   { key: 'Coach In', label: 'Coach In' },
   { key: 'EHS', label: 'EHS' },
