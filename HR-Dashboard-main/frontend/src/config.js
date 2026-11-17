@@ -299,7 +299,7 @@ export const MODULES = [
   label: 'Training',
   icon: CalendarDays,
   showTotals: true, wrapHeaders: true, fields: [
-    { name: 'section', label: 'Training Section', type: 'select', options: ['Behavioural', 'Technical (Site 4)', 'SME', 'Coach In', 'EHS'] },
+    { name: 'section', label: 'Training Section', type: 'select', options: ['Behavioural', 'Technical', 'SME', 'Coach In', 'EHS'] },
     { name: 'trainingName', label: 'Training Name', type: 'text' },
     { name: 'location', label: 'Location', type: 'text' },
     { name: 'trainingDate', label: 'Training Date', type: 'date' },
