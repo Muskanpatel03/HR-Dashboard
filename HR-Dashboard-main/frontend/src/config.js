@@ -174,7 +174,7 @@ export const MODULES = [
     { title: 'Budget & Corpus Position', fields: ['unit', 'budgetPersonal', 'budgetHome', 'availablePersonal', 'availableHome', 'takenPersonal', 'takenHome'] },
     { title: 'Recovery & Outstanding', fields: ['unit', 'recoveredFY2526', 'takenFY2526', 'takenFY2425', 'outstandingTillJul26'] },
   ], fields: [
-        { name: 'unit', label: 'Unit', type: 'select', options: ['Industries (Factory)', 'Corporate', 'Sales'] },
+        { name: 'unit', label: 'Unit', type: 'select', options: ['Site 4', 'Irrigation', 'Smith', 'Corporate'] },
     { name: 'budgetPersonal', label: 'Budget FY26-27 – Personal (₹ Lac)', type: 'number', currency: true },
     { name: 'budgetHome', label: 'Budget FY26-27 – Home (₹ Lac)', type: 'number', currency: true },
     { name: 'availablePersonal', label: 'Available Corpus Till Aug-26 – Personal (₹ Lac)', type: 'number', currency: true },
