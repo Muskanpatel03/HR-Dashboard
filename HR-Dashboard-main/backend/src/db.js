@@ -313,6 +313,37 @@ async function ensureCurrentSchema() {
     'ALTER TABLE recruitment_analysis ADD COLUMN IF NOT EXISTS retained_short TEXT',
     'ALTER TABLE recruitment_analysis ADD COLUMN IF NOT EXISTS retained_long TEXT',
     'ALTER TABLE recruitment_analysis ADD COLUMN IF NOT EXISTS left_within_90 TEXT',
+
+    // LICENSE MODULE
+`CREATE TABLE IF NOT EXISTS licenses (
+  id SERIAL PRIMARY KEY,
+  license_name TEXT NOT NULL,
+  description TEXT,
+  renewal_date DATE,
+  remarks TEXT,
+  company TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+)`,
+
+// COMPLIANCES MODULE
+`CREATE TABLE IF NOT EXISTS compliances (
+  id SERIAL PRIMARY KEY,
+  compliance_name TEXT NOT NULL,
+  description TEXT,
+  renewal_date DATE,
+  remarks TEXT,
+  company TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+)`,
+
+// RENEWAL REMINDER INDEXES
+`CREATE INDEX IF NOT EXISTS idx_licenses_company_renewal
+ ON licenses (company, renewal_date)`,
+
+`CREATE INDEX IF NOT EXISTS idx_compliances_company_renewal
+ ON compliances (company, renewal_date)`,
   ];
 
   const companyTables = [

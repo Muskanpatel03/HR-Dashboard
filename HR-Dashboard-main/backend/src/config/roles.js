@@ -135,9 +135,25 @@ Object.values(DEFAULT_ROLES).forEach((permissions) => {
 // checkbox matrix and to validate PUT /api/roles payloads. Keep in sync
 // with backend/src/config/modules.js + the frontend/backend nav lists.
 const ALL_MODULE_KEYS = [
-  'dashboard', 'manpower', 'recruitment', 'hiring', 'separation',
-  'loanSummary', 'retirement', 'electricity', 'canteen', 'healthcheck',
-  'engagement', 'training', 'attendance', 'operationMatrix', 'usersmgmt', 'audit', 'roles',
+  'dashboard',
+  'manpower',
+  'recruitment',
+  'hiring',
+  'separation',
+  'loanSummary',
+  'retirement',
+  'electricity',
+  'canteen',
+  'healthcheck',
+  'engagement',
+  'training',
+  'attendance',
+  'license',
+  'compliances',
+  'operationMatrix',
+  'usersmgmt',
+  'audit',
+  'roles',
 ];
 
 // Roles whose permissions can NEVER be edited via the Access Control UI —

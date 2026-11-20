@@ -1,9 +1,25 @@
 import {
-  Factory, Briefcase, UserPlus, UserMinus, Landmark, Wallet, CalendarClock, Zap,
-  UtensilsCrossed, HeartPulse, PartyPopper, ClipboardList, Shield, CalendarDays,
+  Factory,
+  Briefcase,
+  UserPlus,
+  UserMinus,
+  Landmark,
+  Wallet,
+  CalendarClock,
+  Zap,
+  UtensilsCrossed,
+  HeartPulse,
+  PartyPopper,
+  ClipboardList,
+  Shield,
+  CalendarDays,
+  FileCheck,
 } from 'lucide-react';
+
 import {
-  RETAIN_SHORT_MONTHS, RETAIN_LONG_MONTHS, EARLY_EXIT_DAYS,
+  RETAIN_SHORT_MONTHS,
+  RETAIN_LONG_MONTHS,
+  EARLY_EXIT_DAYS,
   timeToFill,
 } from './linkedData';
 
@@ -329,6 +345,68 @@ export const MODULES = [
     { name: 'status', label: 'Status', type: 'select', options: ['Active', 'Pending', 'Inactive'] },
         { name: 'password', label: 'Set Password (optional)', type: 'password' },
   ]},
+
+  // LICENSE
+{
+  key: 'license',
+  label: 'License',
+  icon: FileCheck,
+  showTotals: false,
+  wrapHeaders: true,
+  fields: [
+    {
+      name: 'licenseName',
+      label: 'License Name',
+      type: 'text',
+    },
+    {
+      name: 'description',
+      label: 'Description',
+      type: 'text',
+    },
+    {
+      name: 'renewalDate',
+      label: 'Renewal Date',
+      type: 'date',
+    },
+    {
+      name: 'remarks',
+      label: 'Remarks',
+      type: 'text',
+    },
+  ],
+},
+
+// COMPLIANCES
+{
+  key: 'compliances',
+  label: 'Compliances',
+  icon: Shield,
+  showTotals: false,
+  wrapHeaders: true,
+  fields: [
+    {
+      name: 'complianceName',
+      label: 'Compliance Name',
+      type: 'text',
+    },
+    {
+      name: 'description',
+      label: 'Description',
+      type: 'text',
+    },
+    {
+      name: 'renewalDate',
+      label: 'Renewal Date',
+      type: 'date',
+    },
+    {
+      name: 'remarks',
+      label: 'Remarks',
+      type: 'text',
+    },
+  ],
+},
 ];
 
 const companyField = {

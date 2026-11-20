@@ -702,6 +702,63 @@ const MODULES = {
       },
     ],
   },
+  // LICENSE MODULE
+license: {
+  table: "licenses",
+  columns: [
+    {
+      js: "licenseName",
+      db: "license_name",
+      type: "text",
+    },
+    {
+      js: "description",
+      db: "description",
+      type: "text",
+    },
+    {
+      js: "renewalDate",
+      db: "renewal_date",
+      type: "date",
+    },
+    {
+      js: "remarks",
+      db: "remarks",
+      type: "text",
+    },
+  ],
+},
+
+// COMPLIANCES MODULE
+compliances: {
+  table: "compliances",
+  columns: [
+    {
+      js: "complianceName",
+      db: "compliance_name",
+      type: "text",
+    },
+    {
+      js: "description",
+      db: "description",
+      type: "text",
+    },
+    {
+      js: "renewalDate",
+      db: "renewal_date",
+      type: "date",
+    },
+    {
+      js: "remarks",
+      db: "remarks",
+      type: "text",
+    },
+  ],
+},
+
+  
 };
+
+
 
 module.exports = { MODULES };
