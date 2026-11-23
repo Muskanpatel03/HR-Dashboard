@@ -703,6 +703,8 @@ const MODULES = {
     ],
   },
   // LICENSE MODULE
+
+
 license: {
   table: "licenses",
   columns: [
@@ -712,8 +714,18 @@ license: {
       type: "text",
     },
     {
-      js: "description",
-      db: "description",
+      js: "validFrom",
+      db: "valid_from",
+      type: "date",
+    },
+    {
+      js: "validTill",
+      db: "valid_till",
+      type: "date",
+    },
+    {
+      js: "timePeriod",
+      db: "time_period",
       type: "text",
     },
     {
@@ -722,12 +734,18 @@ license: {
       type: "date",
     },
     {
+      js: "description",
+      db: "description",
+      type: "text",
+    },
+    {
       js: "remarks",
       db: "remarks",
       type: "text",
     },
   ],
 },
+
 
 // COMPLIANCES MODULE
 compliances: {

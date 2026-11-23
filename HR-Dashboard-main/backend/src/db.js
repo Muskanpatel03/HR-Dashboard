@@ -319,12 +319,16 @@ async function ensureCurrentSchema() {
   id SERIAL PRIMARY KEY,
   license_name TEXT NOT NULL,
   description TEXT,
+  valid_from DATE,
+  valid_till DATE,
+  time_period TEXT,
   renewal_date DATE,
   remarks TEXT,
   company TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 )`,
+
 
 // COMPLIANCES MODULE
 `CREATE TABLE IF NOT EXISTS compliances (

@@ -540,3 +540,30 @@ CREATE INDEX IF NOT EXISTS idx_engagement_company_period ON engagement (company,
 CREATE INDEX IF NOT EXISTS idx_training_company_period ON training (company, training_date);
 CREATE INDEX IF NOT EXISTS idx_retirement_company_period ON retirement (company, retirement_date);
 CREATE INDEX IF NOT EXISTS idx_healthcheck_company_period ON healthcheck (company, as_of_date);
+
+-- LEGAL DOCUMENTS MODULE
+CREATE TABLE IF NOT EXISTS licenses (
+  id SERIAL PRIMARY KEY,
+  license_name TEXT NOT NULL,
+  description TEXT,
+  valid_from DATE,
+  valid_till DATE,
+  time_period TEXT,
+  renewal_date DATE,
+  remarks TEXT,
+  company TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Ensure columns exist in databases created earlier
+ALTER TABLE licenses ADD COLUMN IF NOT EXISTS license_name TEXT;
+ALTER TABLE licenses ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE licenses ADD COLUMN IF NOT EXISTS valid_from DATE;
+ALTER TABLE licenses ADD COLUMN IF NOT EXISTS valid_till DATE;
+ALTER TABLE licenses ADD COLUMN IF NOT EXISTS time_period TEXT;
+ALTER TABLE licenses ADD COLUMN IF NOT EXISTS renewal_date DATE;
+ALTER TABLE licenses ADD COLUMN IF NOT EXISTS remarks TEXT;
+ALTER TABLE licenses ADD COLUMN IF NOT EXISTS company TEXT;
+ALTER TABLE licenses ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE licenses ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();

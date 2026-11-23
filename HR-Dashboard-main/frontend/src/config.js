@@ -347,35 +347,55 @@ export const MODULES = [
   ]},
 
   // LICENSE
-{
-  key: 'license',
-  label: 'License',
-  icon: FileCheck,
-  showTotals: false,
-  wrapHeaders: true,
-  fields: [
-    {
-      name: 'licenseName',
-      label: 'License Name',
-      type: 'text',
-    },
-    {
-      name: 'description',
-      label: 'Description',
-      type: 'text',
-    },
-    {
-      name: 'renewalDate',
-      label: 'Renewal Date',
-      type: 'date',
-    },
-    {
-      name: 'remarks',
-      label: 'Remarks',
-      type: 'text',
-    },
-  ],
-},
+
+  // LEGAL DOCUMENTS MODULE
+  {
+    key: 'license',
+    label: 'Legal Documents',
+    icon: FileCheck,
+    showTotals: false,
+    showSerialNumber: true,
+    serialNumberLabel: 'Sr.No.',
+    wrapHeaders: true,
+    fields: [
+      {
+        name: 'licenseName',
+        label: 'Legal Documents',
+        type: 'text',
+      },
+      {
+        name: 'validFrom',
+        label: 'Valid From',
+        type: 'date',
+      },
+      {
+        name: 'validTill',
+        label: 'Valid Till',
+        type: 'date',
+      },
+      {
+        name: 'timePeriod',
+        label: 'Time Period',
+        type: 'text',
+      },
+      {
+        name: 'renewalDate',
+        label: 'Next Review Date',
+        type: 'date',
+      },
+      {
+        name: 'description',
+        label: 'Description',
+        type: 'text',
+      },
+      {
+        name: 'remarks',
+        label: 'Remarks',
+        type: 'text',
+      },
+    ],
+  },
+
 
 // COMPLIANCES
 {
