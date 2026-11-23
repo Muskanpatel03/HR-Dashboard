@@ -363,6 +363,8 @@ export const MODULES = [
         label: 'Legal Documents',
         type: 'text',
       },
+        { name: 'documentNo', label: 'Document No.', type: 'text' },
+
       {
         name: 'validFrom',
         label: 'Valid From',

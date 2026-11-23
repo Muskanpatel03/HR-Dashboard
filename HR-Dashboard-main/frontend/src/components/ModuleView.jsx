@@ -953,7 +953,9 @@ export default function ModuleView({
   const submit = async (addAnother = false) => {
     try {
       let savedRecord;
+      
       const recordValues = config.key === 'dailyManpower' && formValues.company === 'Smith'
+      
         ? { ...formValues, nightShift: 0 }
         : formValues;
       if (editingId) {
