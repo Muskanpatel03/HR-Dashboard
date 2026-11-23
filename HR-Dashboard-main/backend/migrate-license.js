@@ -10,7 +10,10 @@ const pool = new Pool({
 async function migrate() {
   try {
     console.log("Updating Legal Documents table...");
-
+await pool.query(`
+  ALTER TABLE public.licenses
+  ADD COLUMN IF NOT EXISTS document_no TEXT
+`);
     await pool.query(`
       ALTER TABLE public.licenses
       ADD COLUMN IF NOT EXISTS valid_from DATE

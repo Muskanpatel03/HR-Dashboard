@@ -705,46 +705,23 @@ const MODULES = {
   // LICENSE MODULE
 
 
-license: {
-  table: "licenses",
-  columns: [
-    {
-      js: "licenseName",
-      db: "license_name",
-      type: "text",
-    },
-    {
-      js: "validFrom",
-      db: "valid_from",
-      type: "date",
-    },
-    {
-      js: "validTill",
-      db: "valid_till",
-      type: "date",
-    },
-    {
-      js: "timePeriod",
-      db: "time_period",
-      type: "text",
-    },
-    {
-      js: "renewalDate",
-      db: "renewal_date",
-      type: "date",
-    },
-    {
-      js: "description",
-      db: "description",
-      type: "text",
-    },
-    {
-      js: "remarks",
-      db: "remarks",
-      type: "text",
-    },
-  ],
-},
+
+  // LICENSE MODULE
+  license: {
+    table: "licenses",
+    columns: [
+      { js: "licenseName", db: "license_name", type: "text" },
+      { js: "documentNo", db: "document_no", type: "text" },
+      { js: "validFrom", db: "valid_from", type: "date" },
+      { js: "validTill", db: "valid_till", type: "date" },
+      { js: "timePeriod", db: "time_period", type: "text" },
+      { js: "renewalDate", db: "renewal_date", type: "date" },
+      { js: "description", db: "description", type: "text" },
+      { js: "remarks", db: "remarks", type: "text" },
+      { js: "company", db: "company", type: "text" },
+    ],
+  },
+
 
 
 // COMPLIANCES MODULE
