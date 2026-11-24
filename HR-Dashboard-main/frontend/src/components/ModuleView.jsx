@@ -360,7 +360,8 @@ function formatCellValue(value, type) {
 
   if (type === "number") {
     return Number(value).toLocaleString(
-      "en-IN"
+      "en-IN",
+      { minimumFractionDigits: 0, maximumFractionDigits: 2 }
     );
   }
 
@@ -715,6 +716,10 @@ export default function ModuleView({
   const [docs, setDocs] = useState({});
   const [docBusyId, setDocBusyId] = useState(null);
 
+  // PDF chosen inside the New-record form, uploaded right after the record
+  // is saved (license / separation modules).
+  const [pendingDoc, setPendingDoc] = useState(null);
+
   const [selectedIds, setSelectedIds] = useState(new Set());
 
   useEffect(() => {
@@ -832,14 +837,15 @@ export default function ModuleView({
   // ==========================================================
 
   const loadDocs = useCallback(async () => {
-    if (config.key !== "separation") return;
+    if (config.key !== "separation" && config.key !== "license") return;
     try {
-      const { data } = await api.get("/separation/documents");
+      const endpoint = config.key === "license" ? "/license/documents" : "/separation/documents";
+      const { data } = await api.get(endpoint);
       const map = {};
       (data.documents || []).forEach((doc) => { map[doc.recordId] = doc; });
       setDocs(map);
     } catch {
-      // the PDF column simply shows no files if this fails
+      // the document column simply shows no files if this fails
     }
   }, [config.key]);
 
@@ -847,55 +853,83 @@ export default function ModuleView({
     loadDocs();
   }, [loadDocs]);
 
-  const uploadDoc = async (record, file) => {
-    if (!file) return;
-    if (file.type !== "application/pdf" && !/\.pdf$/i.test(file.name)) {
-      alert("Please choose a PDF file.");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      alert("The PDF must be 5 MB or smaller.");
-      return;
-    }
-    setDocBusyId(record.id);
-    try {
-      await api.put(`/separation/${record.id}/document`, file, {
-        headers: {
-          "Content-Type": "application/pdf",
-          "X-File-Name": encodeURIComponent(file.name),
-        },
-      });
-      await loadDocs();
-    } catch (err) {
-      alert(err.response?.data?.error || "PDF upload failed");
-    } finally {
-      setDocBusyId(null);
-    }
-  };
+  
+const uploadDoc = async (record, file) => {
+  if (!file) return;
+
+  const isLicense = config.key === "license";
+
+  // Legal Documents: PDF only
+  if (
+    file.type !== "application/pdf" &&
+    !/\.pdf$/i.test(file.name)
+  ) {
+    alert("Please upload a PDF file only.");
+    return;
+  }
+
+  const maxSize = isLicense
+    ? 10 * 1024 * 1024
+    : 5 * 1024 * 1024;
+
+  if (file.size > maxSize) {
+    alert(
+      `PDF size must be ${isLicense ? "10 MB" : "5 MB"} or smaller.`
+    );
+    return;
+  }
+
+  setDocBusyId(record.id);
+
+  try {
+    const endpoint = isLicense
+      ? `/license/${record.id}/document`
+      : `/separation/${record.id}/document`;
+
+    await api.put(endpoint, file, {
+      headers: {
+        "Content-Type": "application/pdf",
+        "X-File-Name": encodeURIComponent(file.name),
+      },
+    });
+
+    await loadDocs();
+  } catch (err) {
+    alert(err.response?.data?.error || "File upload failed");
+  } finally {
+    setDocBusyId(null);
+  }
+};
+
 
   const viewDoc = async (record) => {
-    // open the tab first so the browser does not block the pop-up
     const tab = window.open("", "_blank");
     try {
-      const res = await api.get(`/separation/${record.id}/document`, { responseType: "blob" });
-      const url = URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
+      const endpoint = config.key === "license"
+        ? `/license/${record.id}/document`
+        : `/separation/${record.id}/document`;
+      const res = await api.get(endpoint, { responseType: "blob" });
+      const url = URL.createObjectURL(new Blob([res.data], { type: res.headers["content-type"] || "application/octet-stream" }));
       if (tab) tab.location.href = url;
       else window.open(url, "_blank");
       setTimeout(() => URL.revokeObjectURL(url), 60000);
     } catch {
       if (tab) tab.close();
-      alert("Could not open the PDF.");
+      alert("Could not open the document.");
     }
   };
 
   const removeDoc = async (record) => {
-    if (!window.confirm("Remove the PDF from this record?")) return;
+    if (!window.confirm("Remove the document from this record?")) return;
     setDocBusyId(record.id);
     try {
-      await api.delete(`/separation/${record.id}/document`);
+      const endpoint = config.key === "license"
+        ? `/license/${record.id}/document`
+        : `/separation/${record.id}/document`;
+      await api.delete(endpoint);
       await loadDocs();
     } catch (err) {
-      alert(err.response?.data?.error || "Could not remove the PDF");
+      alert(err.response?.data?.error || "Could not remove the document");
     } finally {
       setDocBusyId(null);
     }
@@ -917,6 +951,7 @@ export default function ModuleView({
   const openNew = () => {
     setFormValues(newRecordValues());
     setEditingId(null);
+    setPendingDoc(null);
     setShowForm(true);
   };
 
@@ -943,6 +978,7 @@ export default function ModuleView({
     setShowForm(false);
     setEditingId(null);
     setFormValues({});
+    setPendingDoc(null);
   };
 
 
@@ -979,8 +1015,30 @@ export default function ModuleView({
       setRecords(nextRecords);
       if (config.key === "dailyManpower") onRecordsChange?.(nextRecords);
 
+      // Upload the PDF chosen inside the form onto the just-saved record
+      if (pendingDoc && savedRecord?.id) {
+        try {
+          const endpoint = config.key === "license"
+            ? `/license/${savedRecord.id}/document`
+            : `/separation/${savedRecord.id}/document`;
+          await api.put(endpoint, pendingDoc.file, {
+            headers: {
+              "Content-Type": "application/pdf",
+              "X-File-Name": encodeURIComponent(pendingDoc.file.name),
+            },
+          });
+          await loadDocs();
+        } catch (uploadError) {
+          alert(
+            uploadError.response?.data?.error ||
+              "Record saved, but the PDF upload failed. Use 'Attach PDF' in the table to try again."
+          );
+        }
+      }
+
       if (addAnother && !editingId) {
         setFormValues(newRecordValues());
+        setPendingDoc(null);
       } else {
         closeForm();
       }
@@ -1273,7 +1331,7 @@ export default function ModuleView({
   // Rolled-up rows aren't single DB records, so edit/delete only in Monthly view
   const canEditRows = editable && (!periodField || period === "Monthly");
   const canBulk = canDelete && (!periodField || period === "Monthly");
-  const showPdfColumn = config.key === "separation" && period === "Monthly";
+  const showPdfColumn = (config.key === "separation" && period === "Monthly") || config.key === "license";
   const canAttach = editable || creatable;
   // ==========================================================
   // COLUMN GROUPS
@@ -1579,7 +1637,7 @@ export default function ModuleView({
             </button>
           )}
 
-          {config.key === "separation" && canAttach && (
+          {(config.key === "separation" || config.key === "license") && canAttach && (
             <button
               type="button"
               onClick={() => setShowPdfImport(true)}
@@ -1587,7 +1645,7 @@ export default function ModuleView({
               style={{ border: `1px solid ${C.line}`, color: C.ink }}
             >
               <FileText size={14} />
-              Import PDF
+              Import {config.key === "license" ? "Document" : "PDF"}
             </button>
           )}
 
@@ -1622,13 +1680,14 @@ export default function ModuleView({
         </Suspense>
       )}
 
-      {showPdfImport && config.key === "separation" && canAttach && (
+      {showPdfImport && (config.key === "separation" || config.key === "license") && canAttach && (
         <Suspense fallback={null}>
           <PdfImport
             records={filtered}
             docs={docs}
             onClose={() => setShowPdfImport(false)}
             onImported={loadDocs}
+            moduleKey={config.key}
           />
         </Suspense>
       )}
@@ -1719,6 +1778,10 @@ export default function ModuleView({
           onSubmit={() => submit(false)}
           onSubmitAndNew={() => submit(true)}
           isEdit={!!editingId}
+          pendingDoc={pendingDoc}
+          onPendingDoc={(file) => setPendingDoc(file ? { file } : null)}
+          docSupport={(config.key === "license" || config.key === "separation") && !editingId}
+          docBusy={!!docBusyId}
         />
       )}
 
@@ -1906,7 +1969,7 @@ export default function ModuleView({
                           className="text-left px-3 py-2 font-medium nowrap-cell align-bottom"
                           style={{ color: C.ink, fontSize: 11.5, minWidth: 110 }}
                         >
-                          PDF
+                          {config.key === "license" ? "View Document" : "PDF"}
                         </th>
                       )}
 
@@ -2065,9 +2128,15 @@ export default function ModuleView({
                               )}
 
 
-                            {/* PDF (Separation) */}
+                            {/* Document / PDF column */}
 
-                            {showPdfColumn && (
+                            {showPdfColumn && (() => {
+                              const isLicense = config.key === "license";
+                              const acceptTypes = "application/pdf,.pdf";
+const attachLabel = "Attach PDF";
+const replaceTitle = "Replace PDF";
+const removeTitle = "Remove PDF";
+                              return (
                               <td className="px-3 py-2 nowrap-cell">
                                 {docs[record.id] ? (
                                   <div className="flex items-center gap-2">
@@ -2084,13 +2153,13 @@ export default function ModuleView({
                                     {canAttach && (
                                       <>
                                         <label
-                                          title="Replace PDF"
+                                          title={replaceTitle}
                                           style={{ color: C.ink2, cursor: docBusyId === record.id ? "wait" : "pointer" }}
                                         >
                                           <Paperclip size={14} />
                                           <input
                                             type="file"
-                                            accept="application/pdf,.pdf"
+                                            accept={acceptTypes}
                                             hidden
                                             disabled={docBusyId === record.id}
                                             onChange={(event) => {
@@ -2103,7 +2172,7 @@ export default function ModuleView({
                                           type="button"
                                           onClick={() => removeDoc(record)}
                                           disabled={docBusyId === record.id}
-                                          title="Remove PDF"
+                                          title={removeTitle}
                                           style={{ color: C.rust }}
                                         >
                                           <Trash2 size={14} />
@@ -2117,10 +2186,10 @@ export default function ModuleView({
                                     style={{ color: C.steel, cursor: docBusyId === record.id ? "wait" : "pointer" }}
                                   >
                                     <Paperclip size={14} />
-                                    {docBusyId === record.id ? "Uploading…" : "Attach PDF"}
+                                    {docBusyId === record.id ? "Uploading…" : attachLabel}
                                     <input
                                       type="file"
-                                      accept="application/pdf,.pdf"
+                                      accept={acceptTypes}
                                       hidden
                                       disabled={docBusyId === record.id}
                                       onChange={(event) => {
@@ -2133,7 +2202,8 @@ export default function ModuleView({
                                   <span style={{ color: C.ink2 }}>—</span>
                                 )}
                               </td>
-                            )}
+                              );
+                            })()}
 
 
                             {/* Actions */}

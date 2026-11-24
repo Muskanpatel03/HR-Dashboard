@@ -60,12 +60,12 @@ const DESIGNATIONS = RAW_DESIGNATIONS.map((d) => d.toUpperCase());
 const BASE_CATEGORY_PERMS = {
   Management: { modules: 'all', edit: [] },
   'Plant Head': {
-    modules: ['dashboard', 'manpower', 'attendance', 'engagement', 'healthcheck', 'retirement', 'training', 'license', 'compliances'],
-    edit: ['manpower', 'attendance', 'engagement', 'healthcheck', 'training', 'license', 'compliances'],
+    modules: ['dashboard', 'manpower', 'attendance', 'engagement', 'healthcheck', 'retirement', 'training', 'license', 'Compliances/Agreements'],
+    edit: ['manpower', 'attendance', 'engagement', 'healthcheck', 'training', 'license', 'Compliances/Agreements'],
   },
   'Plant Operations': {
-    modules: ['dashboard', 'electricity', 'canteen', 'attendance', 'training', 'license', 'compliances'],
-    edit: ['electricity', 'canteen', 'attendance', 'training', 'license', 'compliances'],
+    modules: ['dashboard', 'electricity', 'canteen', 'attendance', 'training', 'license', 'Compliances/Agreements'],
+    edit: ['electricity', 'canteen', 'attendance', 'training', 'license', 'Compliances/Agreements'],
   },
 };
 
@@ -104,8 +104,8 @@ const DEFAULT_ROLES = {
   // of these before the switch to per-designation access. Not offered as a
   // choice for new users any more.
   'HR Manager': {
-    modules: ['dashboard', 'manpower', 'recruitment', 'hiring', 'separation', 'retirement', 'healthcheck', 'engagement', 'training', 'attendance', 'license', 'compliances'],
-    edit: ['manpower', 'recruitment', 'hiring', 'separation', 'retirement', 'healthcheck', 'engagement', 'training', 'attendance', 'license', 'compliances'],
+    modules: ['dashboard', 'manpower', 'recruitment', 'hiring', 'separation', 'retirement', 'healthcheck', 'engagement', 'training', 'attendance', 'license', 'Compliances/Agreements'],
+    edit: ['manpower', 'recruitment', 'hiring', 'separation', 'retirement', 'healthcheck', 'engagement', 'training', 'attendance', 'license', 'Compliances/Agreements'],
   },
   'Plant Head': BASE_CATEGORY_PERMS['Plant Head'],
   Recruiter: { modules: ['dashboard', 'recruitment', 'hiring'], edit: ['recruitment', 'hiring'] },
@@ -117,7 +117,7 @@ const DEFAULT_ROLES = {
   // an account gets this role is through POST /api/auth/register, which
   // hardcodes it server-side regardless of what the client sends.
   Viewer: {
-    modules: ['dashboard', 'manpower', 'recruitment', 'hiring', 'separation', 'retirement', 'electricity', 'canteen', 'healthcheck', 'engagement', 'training', 'attendance', 'license', 'compliances'],
+    modules: ['dashboard', 'manpower', 'recruitment', 'hiring', 'separation', 'retirement', 'electricity', 'canteen', 'healthcheck', 'engagement', 'training', 'attendance', 'license', 'Compliances/Agreements'],
     edit: [],
   },
 
@@ -149,7 +149,7 @@ const ALL_MODULE_KEYS = [
   'training',
   'attendance',
   'license',
-  'compliances',
+  'Compliances/Agreements',
   'operationMatrix',
   'usersmgmt',
   'audit',
@@ -325,6 +325,34 @@ async function setRolePermissions(role, { modules, create, edit, companies }) {
   return STATE[role];
 }
 
+// Ensures a role row exists for a custom (free-typed) designation, seeded
+// from the Plant Operations defaults — used when User Management creates an
+// account with a designation that is not on the master list. The new
+// designation then appears in Access Control as its own editable row.
+async function ensureRoleForDesignation(designation) {
+  const name = String(designation || '').trim().toUpperCase();
+  if (!name || DEFAULT_ROLES[name] || ASSIGNABLE_ROLES.includes(name)) return;
+  const seed = BASE_CATEGORY_PERMS['Plant Operations'];
+  DEFAULT_ROLES[name] = {
+    modules: Array.isArray(seed.modules) ? [...seed.modules] : seed.modules,
+    create: Array.isArray(seed.create) ? [...seed.create] : (seed.create || []),
+    edit: Array.isArray(seed.edit) ? [...seed.edit] : (seed.edit || []),
+    companies: [...ALL_COMPANY_IDS],
+  };
+  ASSIGNABLE_ROLES.push(name);
+  await pool.query(
+    `INSERT INTO role_permissions (role, modules, create_modules, edit, company_access)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (role) DO NOTHING`,
+    [name,
+     JSON.stringify(DEFAULT_ROLES[name].modules),
+     JSON.stringify(DEFAULT_ROLES[name].create),
+     JSON.stringify(DEFAULT_ROLES[name].edit),
+     JSON.stringify(ALL_COMPANY_IDS)]
+  ).catch(() => { /* schema not ready yet — in-memory state still works */ });
+  STATE[name] = JSON.parse(JSON.stringify(DEFAULT_ROLES[name]));
+}
+
 module.exports = {
   ROLES: DEFAULT_ROLES, // kept for anything importing the static shape/fallback
   DESIGNATIONS,
@@ -332,6 +360,7 @@ module.exports = {
   ALL_COMPANY_IDS,
   PROTECTED_ROLES,
   ASSIGNABLE_ROLES,
+  ensureRoleForDesignation,
   canView,
   canCreate,
   canEdit,

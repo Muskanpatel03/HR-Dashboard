@@ -71,7 +71,58 @@ table {
 table th,
 table td {
   overflow-wrap: break-word;
+}
+
+/* ==================================================
+   TABLE CONTENT ALIGNMENT SETTING
+   Left (default) / Centre / Right — chosen from the
+   app header and persisted in localStorage. The body
+   class drives every data table in the app.
+   ================================================== */
+
+table th,
+table td,
+.module-record-table td input,
+.operation-matrix-table td input {
+  text-align: left !important;
+}
+
+body.table-align-center table th,
+body.table-align-center table td {
   text-align: center !important;
+}
+
+body.table-align-right table th,
+body.table-align-right table td {
+  text-align: right !important;
+}
+
+/* Checkbox and icon-only action cells always stay centred,
+   regardless of the alignment mode. */
+table th input[type="checkbox"],
+table td input[type="checkbox"] {
+  text-align: center;
+}
+body.table-align-left table td input[type="checkbox"],
+body.table-align-center table td input[type="checkbox"],
+body.table-align-right table td input[type="checkbox"] {
+  margin: 0 auto;
+}
+
+/* Numeric cells remain right-aligned in Left mode for readability,
+   unless the user explicitly picks Centre or Right for everything. */
+body.table-align-left table td.font-mono {
+  text-align: right !important;
+}
+
+body.table-align-center table td input,
+body.table-align-center .operation-matrix-table td input {
+  text-align: center !important;
+}
+
+body.table-align-right table td input,
+body.table-align-right .operation-matrix-table td input {
+  text-align: right !important;
 }
 .nowrap-cell {
   white-space: nowrap !important;
@@ -880,7 +931,6 @@ button:not(:disabled):active {
 .operation-matrix-table td {
   border: 1px solid #d5d9df;
   padding: 7px;
-  text-align: center;
   vertical-align: middle;
   font-size: 12px;
 }
@@ -933,7 +983,6 @@ button:not(:disabled):active {
   z-index: 5;
   background: var(--app-table-head);
   color: var(--app-table-head-text);
-  text-align: center;
 }
 
 .operation-matrix-table .operation-matrix-serial-head {
@@ -971,7 +1020,6 @@ button:not(:disabled):active {
   background: transparent;
   color: var(--app-text);
   font: inherit;
-  text-align: center;
 }
 
 .operation-matrix-table .operation-matrix-particular-cell input {

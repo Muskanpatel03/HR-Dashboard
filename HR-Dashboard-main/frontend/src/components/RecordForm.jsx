@@ -1,8 +1,8 @@
 import React from 'react';
-import { X } from 'lucide-react';
+import { X, FileText, Paperclip } from 'lucide-react';
 import { C, FONT_HEAD, FONT_MONO, COMPUTED } from '../config';
 
-export default function RecordForm({ config, values, setValues, onCancel, onSubmit, onSubmitAndNew, isEdit }) {
+export default function RecordForm({ config, values, setValues, onCancel, onSubmit, onSubmitAndNew, isEdit, pendingDoc, onPendingDoc, docSupport, docBusy }) {
   const set = (name, val, resetOnChange = []) => setValues((prev) => {
     const next = { ...prev, [name]: val };
     resetOnChange.forEach((fieldName) => { next[fieldName] = ''; });
@@ -11,6 +11,9 @@ export default function RecordForm({ config, values, setValues, onCancel, onSubm
   const computedFields = config.key === 'dailyManpower' && values.company === 'Smith'
     ? []
     : COMPUTED[config.key] || [];
+
+  // The usersmgmt Designation field is a combobox — a text input with a
+  // datalist, so the user can pick a listed designation OR type their own.
 
   return (
     <div style={{ background: C.card, border: `1px solid ${C.line}` }} className="record-entry-form p-4 rounded">
@@ -62,6 +65,23 @@ export default function RecordForm({ config, values, setValues, onCancel, onSubm
                     className="record-entry-control w-full mt-1 px-2.5 py-1.5 text-sm rounded"
                     style={{ border: `1px solid ${C.line}` }}
                   />
+                ) : f.type === 'designation' ? (
+                  <>
+                    <input
+                      type="text"
+                      value={values[f.name] || ''}
+                      onChange={(e) => set(f.name, e.target.value)}
+                      list={`designation-options-${f.name}`}
+                      className="record-entry-control w-full mt-1 px-2.5 py-1.5 text-sm rounded"
+                      style={{ border: `1px solid ${C.line}` }}
+                      placeholder="Select or type your own"
+                    />
+                    <datalist id={`designation-options-${f.name}`}>
+                      {(f.optionsFor ? f.optionsFor(values) : f.options).map((option) => (
+                        <option key={typeof option === 'object' ? option.value : option} value={typeof option === 'object' ? option.value : option} />
+                      ))}
+                    </datalist>
+                  </>
                 ) : (
                   <input
                     type={f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : f.type === 'password' ? 'password' : 'text'}
@@ -91,6 +111,56 @@ export default function RecordForm({ config, values, setValues, onCancel, onSubm
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* ====================================================
+          PDF ATTACHMENT (Legal Documents / Separation, new record)
+          The file is picked here and uploaded to the record
+          automatically the moment the record is saved.
+      ==================================================== */}
+
+      {docSupport && (
+        <div className="mt-4 pt-4 flex items-center gap-2 flex-wrap" style={{ borderTop: `1px dashed ${C.line}` }}>
+          <div style={{ color: C.ink2, fontSize: 11.5 }}>Legal document (PDF):</div>
+          <label
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded"
+            style={{
+              border: `1px solid ${C.steel}`,
+              color: C.steel,
+              cursor: 'pointer',
+            }}
+          >
+            <Paperclip size={13} />
+            {pendingDoc ? 'Choose different file' : 'Attach PDF'}
+            <input
+              type="file"
+              accept="application/pdf,.pdf"
+              hidden
+              disabled={docBusy}
+              onChange={(event) => {
+                onPendingDoc(event.target.files?.[0] || null);
+                event.target.value = '';
+              }}
+            />
+          </label>
+          {pendingDoc && (
+            <span className="flex items-center gap-1.5 text-xs" style={{ color: C.ink }}>
+              <FileText size={13} style={{ color: C.steel }} />
+              {pendingDoc.file.name}
+              <button
+                type="button"
+                title="Remove"
+                onClick={() => onPendingDoc(null)}
+                style={{ color: C.rust, cursor: 'pointer', display: 'inline-flex' }}
+              >
+                <X size={12} />
+              </button>
+            </span>
+          )}
+          <span style={{ color: C.ink2, fontSize: 10.5 }}>
+            Uploaded automatically when you save{config.key === 'license' ? ' — max 10 MB' : ' — max 5 MB'}
+          </span>
         </div>
       )}
 

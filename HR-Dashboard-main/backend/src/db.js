@@ -331,8 +331,8 @@ async function ensureCurrentSchema() {
 )`,
 
 
-// COMPLIANCES MODULE
-`CREATE TABLE IF NOT EXISTS compliances (
+// Compliances/Agreements MODULE
+`CREATE TABLE IF NOT EXISTS compliances_agreements (
   id SERIAL PRIMARY KEY,
   compliance_name TEXT NOT NULL,
   description TEXT,
@@ -343,12 +343,29 @@ async function ensureCurrentSchema() {
   updated_at TIMESTAMPTZ DEFAULT NOW()
 )`,
 
+// Rename legacy table if it was created with the invalid '/' identifier
+`DO $$ BEGIN
+  IF to_regclass('public."Compliances/Agreements"') IS NOT NULL THEN
+    EXECUTE 'ALTER TABLE public."Compliances/Agreements" RENAME TO compliances_agreements';
+  END IF;
+END $$`,
+
 // RENEWAL REMINDER INDEXES
 `CREATE INDEX IF NOT EXISTS idx_licenses_company_renewal
  ON licenses (company, renewal_date)`,
 
-`CREATE INDEX IF NOT EXISTS idx_compliances_company_renewal
- ON compliances (company, renewal_date)`,
+`CREATE INDEX IF NOT EXISTS idx_compliances_agreements_company_renewal
+ ON compliances_agreements (company, renewal_date)`,
+
+    // Document attachments for Legal Documents (license) records
+    `CREATE TABLE IF NOT EXISTS license_documents (
+       license_id INTEGER PRIMARY KEY REFERENCES licenses(id) ON DELETE CASCADE,
+       file_name TEXT NOT NULL,
+       file_size INTEGER NOT NULL,
+       content BYTEA NOT NULL,
+       uploaded_by TEXT,
+       uploaded_at TIMESTAMPTZ NOT NULL DEFAULT now()
+     )`,
   ];
 
   const companyTables = [

@@ -569,3 +569,13 @@ ALTER TABLE licenses ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW
 ALTER TABLE licenses ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 ALTER TABLE public.licenses
 ADD COLUMN IF NOT EXISTS document_no TEXT;
+
+-- Document attachments for Legal Documents (license) records
+CREATE TABLE IF NOT EXISTS license_documents (
+  license_id INTEGER PRIMARY KEY REFERENCES licenses(id) ON DELETE CASCADE,
+  file_name TEXT NOT NULL,
+  file_size INTEGER NOT NULL,
+  content BYTEA NOT NULL,
+  uploaded_by TEXT,
+  uploaded_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useState, useEffect, useMemo } from 'react';
-import { BarChart3, LayoutGrid, History, LogOut, Shield } from 'lucide-react';
+import { BarChart3, LayoutGrid, History, LogOut, Shield, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 
 import Login from './components/Login';
 import api from './api';
@@ -85,6 +85,22 @@ export default function App() {
   );
 
   const [theme] = useState('light');
+
+  // ==================================================
+  // TABLE CONTENT ALIGNMENT (Left / Centre / Right)
+  // Default: Left. Persisted in localStorage.
+  // ==================================================
+
+  const [tableAlign, setTableAlign] = useState(() => {
+    return localStorage.getItem('automat_table_align') || 'left';
+  });
+
+  useEffect(() => {
+    document.body.className = document.body.className
+      .replace(/\btable-align-\w+\b/g, '').trim();
+    document.body.classList.add(`table-align-${tableAlign}`);
+    localStorage.setItem('automat_table_align', tableAlign);
+  }, [tableAlign]);
 
   useEffect(() => {
     api.get('/health').catch(() => {});
@@ -669,6 +685,43 @@ export default function App() {
               </div>
             </div>
 
+            {/* TABLE CONTENT ALIGNMENT SWITCH */}
+
+            <div
+              className="flex items-center gap-1 rounded"
+              style={{
+                border: `1px solid ${palette.border}`,
+                padding: 3,
+                background: palette.panel,
+              }}
+              title="Table content alignment"
+            >
+              {[
+                { key: 'left', Icon: AlignLeft, label: 'Align table content left' },
+                { key: 'center', Icon: AlignCenter, label: 'Align table content centre' },
+                { key: 'right', Icon: AlignRight, label: 'Align table content right' },
+              ].map(({ key, Icon, label }) => (
+                <button
+                  key={key}
+                  type="button"
+                  title={label}
+                  aria-label={label}
+                  aria-pressed={tableAlign === key}
+                  onClick={() => setTableAlign(key)}
+                  className="flex items-center justify-center rounded"
+                  style={{
+                    width: 28,
+                    height: 26,
+                    cursor: 'pointer',
+                    background: tableAlign === key ? palette.sidebarActive : 'transparent',
+                    color: tableAlign === key ? '#FFFFFF' : palette.textMuted,
+                    border: tableAlign === key ? 'none' : 'none',
+                  }}
+                >
+                  <Icon size={16} strokeWidth={1.8} />
+                </button>
+              ))}
+            </div>
           </div>
         </header>
 

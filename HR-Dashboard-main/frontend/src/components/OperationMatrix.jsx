@@ -551,7 +551,7 @@ export default function OperationMatrix({ industry, label = industry, editable, 
                       const value = source ? linkedSectionValue(row.particular, source) : null;
                       return value === null
                         ? <span className="operation-matrix-number" title="No linked data available">—</span>
-                        : <span className="operation-matrix-number" title="Linked from this company’s dashboard data">{isCurrencyParticular(row) ? fmtMoney(value) : value.toLocaleString('en-IN', { maximumFractionDigits: 1 })}</span>;
+                        : <span className="operation-matrix-number" title="Linked from this company’s dashboard data">{isCurrencyParticular(row) ? fmtMoney(value) : value.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>;
                     })() : editable ? (
                       <input
                         type="number"
@@ -568,7 +568,7 @@ export default function OperationMatrix({ industry, label = industry, editable, 
                         {row.values?.[column.key] === undefined || row.values?.[column.key] === ''
                           ? ''
                           : Number.isFinite(Number(row.values[column.key]))
-                            ? isCurrencyParticular(row) ? fmtMoney(row.values[column.key]) : Number(row.values[column.key]).toLocaleString('en-IN')
+                            ? isCurrencyParticular(row) ? fmtMoney(row.values[column.key]) : Number(row.values[column.key]).toLocaleString('en-IN', { maximumFractionDigits: 2 })
                             : row.values[column.key]}
                       </span>
                     )}

@@ -14,6 +14,7 @@ import {
   Shield,
   CalendarDays,
   FileCheck,
+  ScrollText,
 } from 'lucide-react';
 
 import {
@@ -339,7 +340,7 @@ export const MODULES = [
     { name: 'name', label: 'Name', type: 'text' },
     { name: 'email', label: 'Email', type: 'text' },
     { name: 'department', label: 'Department', type: 'select', options: DEPARTMENTS },
-  { name: 'designation', label: 'Designation', type: 'select', options: DESIGNATIONS_DISPLAY },
+  { name: 'designation', label: 'Designation', type: 'designation', options: DESIGNATIONS_DISPLAY },
     { name: 'company', label: 'Company access', type: 'select', options: COMPANY_OPTIONS.map(({ id, label }) => ({ value: id, label })) },
     { name: 'location', label: 'Location', type: 'text' },
     { name: 'status', label: 'Status', type: 'select', options: ['Active', 'Pending', 'Inactive'] },
@@ -370,11 +371,11 @@ export const MODULES = [
   },
 
 
-// COMPLIANCES
+// Compliances/Agreements
 {
-  key: 'compliances',
-  label: 'Compliances',
-  icon: Shield,
+  key: 'Compliances/Agreements',
+  label: 'Compliances/Agreements',
+  icon: ScrollText,
   showTotals: false,
   wrapHeaders: true,
   fields: [
@@ -530,7 +531,7 @@ export const ALL_KEYS = MODULES.map((m) => m.key);
 
 export function fmtMoney(n) {
   const v = Number(n) || 0;
-  return '₹' + v.toLocaleString('en-IN');
+  return '₹' + v.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 }
 
 function num(v) {
@@ -703,12 +704,12 @@ export const COMPUTED = {
       label: 'Absenteeism %',
       compute: (v) => {
         const available = num(v.totalWorkingDays) * num(v.employeeStrength);
-        return available > 0 ? ((num(v.absentDays) / available) * 100).toFixed(1) + '%' : '—';
+        return available > 0 ? ((num(v.absentDays) / available) * 100).toFixed(2) + '%' : '—';
       },
       total: (rows) => {
         const available = rows.reduce((s, v) => s + num(v.totalWorkingDays) * num(v.employeeStrength), 0);
         const absent = rows.reduce((s, v) => s + num(v.absentDays), 0);
-        return available > 0 ? ((absent / available) * 100).toFixed(1) + '%' : '—';
+        return available > 0 ? ((absent / available) * 100).toFixed(2) + '%' : '—';
       },
     },
   ],
@@ -716,11 +717,11 @@ export const COMPUTED = {
     {
       name: 'participationPct',
       label: 'Participation %',
-      compute: (v) => (num(v.eligibleEmployees) > 0 ? ((num(v.participants) / num(v.eligibleEmployees)) * 100).toFixed(1) + '%' : '—'),
+      compute: (v) => (num(v.eligibleEmployees) > 0 ? ((num(v.participants) / num(v.eligibleEmployees)) * 100).toFixed(2) + '%' : '—'),
       total: (rows) => {
         const eligible = rows.reduce((s, v) => s + num(v.eligibleEmployees), 0);
         const participants = rows.reduce((s, v) => s + num(v.participants), 0);
-        return eligible > 0 ? ((participants / eligible) * 100).toFixed(1) + '%' : '—';
+        return eligible > 0 ? ((participants / eligible) * 100).toFixed(2) + '%' : '—';
       },
     },
   ],

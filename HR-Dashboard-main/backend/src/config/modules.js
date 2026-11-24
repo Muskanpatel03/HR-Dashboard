@@ -725,9 +725,9 @@ license: {
 
 
 
-// COMPLIANCES MODULE
+// COMPLIANCES/AGREEMENTS MODULE
 compliances: {
-  table: "compliances",
+  table: "compliances_agreements",
   columns: [
     {
       js: "complianceName",

@@ -410,7 +410,7 @@ router.get('/', async (req, res) => {
           candidatesInPipeline: Number(recruitment.candidates || 0),
           newJoiners: Number(summary.hiring?.joined || 0),
           separations: Number(summary.separation_count || 0),
-          absenteeism: Number(attendance.available) > 0 ? Number(((Number(attendance.absent || 0) / Number(attendance.available)) * 100).toFixed(1)) : 0,
+          absenteeism: Number(attendance.available) > 0 ? Number(((Number(attendance.absent || 0) / Number(attendance.available)) * 100).toFixed(2)) : 0,
           alreadyRetired: Number(retirement.alreadyRetired || 0),
           futureRetirements: Number(retirement.futureRetirements || 0),
           retiringNext12Months: Number(retirement.retiringNext12Months || 0),
@@ -950,7 +950,7 @@ router.get('/', async (req, res) => {
             (
               (totalAbsent / totalAvailable) *
               100
-            ).toFixed(1)
+            ).toFixed(2)
           )
         : 0;
 

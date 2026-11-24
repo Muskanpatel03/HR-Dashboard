@@ -12,6 +12,7 @@ const {
   canAccessCompany,
   getRoleCompanies,
   setUserCompanyAccess,
+  ensureRoleForDesignation,
   ALL_COMPANY_IDS,
   ASSIGNABLE_ROLES,
 } = require('../config/roles');
@@ -22,6 +23,12 @@ router.use(authenticate);
 
 function permissionModuleKey(moduleKey) {
   return moduleKey === 'dailyManpower' ? 'manpower' : moduleKey;
+}
+
+// The frontend module key 'Compliances/Agreements' maps to the backend
+// 'compliances' module config (DB table: compliances).
+function backendModuleKey(moduleKey) {
+  return moduleKey === 'Compliances/Agreements' ? 'compliances' : moduleKey;
 }
 
 
@@ -162,7 +169,7 @@ async function logAudit(client, { user, moduleKey, action, detail, company = nul
 }
 
 router.get('/:module', async (req, res) => {
-  const { module: moduleKey } = req.params;
+  const moduleKey = backendModuleKey(req.params.module);
   const conf = MODULES[moduleKey];
   if (!conf) return res.status(404).json({ error: 'Unknown module' });
   if (!canView(req.user.role, permissionModuleKey(moduleKey))) return res.status(403).json({ error: 'Not permitted to view this module' });
@@ -201,7 +208,7 @@ router.get('/:module', async (req, res) => {
 });
 
 router.post('/:module/import-batch', async (req, res) => {
-  const { module: moduleKey } = req.params;
+  const moduleKey = backendModuleKey(req.params.module);
   const conf = MODULES[moduleKey];
   const records = req.body?.records;
   if (!conf) return res.status(404).json({ error: 'Unknown module' });
@@ -220,6 +227,9 @@ router.post('/:module/import-batch', async (req, res) => {
       if (decimalError) {
         failures.push({ index, message: decimalError });
         continue;
+      }
+      if (moduleKey === 'usersmgmt' && body.designation) {
+        await ensureRoleForDesignation(body.designation);
       }
       if (moduleKey === 'usersmgmt' && !ASSIGNABLE_ROLES.includes(body.role)) {
         failures.push({ index, message: 'Select a valid designation for this user.' });
@@ -268,13 +278,17 @@ router.post('/:module/import-batch', async (req, res) => {
 });
 
 router.post('/:module', async (req, res) => {
-  const { module: moduleKey } = req.params;
+  const moduleKey = backendModuleKey(req.params.module);
   const conf = MODULES[moduleKey];
   if (!conf) return res.status(404).json({ error: 'Unknown module' });
   if (!canCreate(req.user.role, permissionModuleKey(moduleKey))) return res.status(403).json({ error: 'Not permitted to add records here' });
   const body = bodyForModule(moduleKey, req.body);
   const decimalError = decimalFieldError(moduleKey, conf, body);
   if (decimalError) return res.status(400).json({ error: decimalError });
+  // Allow a free-typed designation: register it as its own role first.
+  if (moduleKey === 'usersmgmt' && body.designation) {
+    await ensureRoleForDesignation(body.designation);
+  }
   if (moduleKey === 'usersmgmt' && !ASSIGNABLE_ROLES.includes(body.role)) {
     return res.status(400).json({ error: 'Select a valid designation for this user.' });
   }
@@ -335,7 +349,8 @@ router.post('/:module', async (req, res) => {
 });
 
 router.put('/:module/:id', async (req, res) => {
-  const { module: moduleKey, id } = req.params;
+  const { id } = req.params;
+  const moduleKey = backendModuleKey(req.params.module);
   const conf = MODULES[moduleKey];
   if (!conf) return res.status(404).json({ error: 'Unknown module' });
   if (!canEdit(req.user.role, permissionModuleKey(moduleKey))) return res.status(403).json({ error: 'Not permitted to edit records here' });
@@ -350,6 +365,10 @@ router.put('/:module/:id', async (req, res) => {
 }
   const decimalError = decimalFieldError(moduleKey, conf, body);
   if (decimalError) return res.status(400).json({ error: decimalError });
+  // Allow a free-typed designation when editing a user account.
+  if (moduleKey === 'usersmgmt' && body.designation) {
+    await ensureRoleForDesignation(body.designation);
+  }
   if (moduleKey === 'usersmgmt' && !ASSIGNABLE_ROLES.includes(body.role)) {
     return res.status(400).json({ error: 'Select a valid designation for this user.' });
   }
@@ -426,7 +445,7 @@ router.put('/:module/:id', async (req, res) => {
 });
 // Bulk delete: POST /api/:module/bulk-delete  { ids: [1,2,3] }
 router.post('/:module/bulk-delete', async (req, res) => {
-  const { module: moduleKey } = req.params;
+  const moduleKey = backendModuleKey(req.params.module);
   const conf = MODULES[moduleKey];
   if (!conf) return res.status(404).json({ error: 'Unknown module' });
   if (req.user.role !== 'Administrator') {
@@ -489,7 +508,8 @@ router.post('/:module/bulk-delete', async (req, res) => {
   }
 });
 router.delete('/:module/:id', async (req, res) => {
-  const { module: moduleKey, id } = req.params;
+  const { id } = req.params;
+  const moduleKey = backendModuleKey(req.params.module);
   const conf = MODULES[moduleKey];
   if (!conf) return res.status(404).json({ error: 'Unknown module' });
   if (req.user.role !== 'Administrator') return res.status(403).json({ error: 'Only an Administrator can delete records' });
