@@ -319,6 +319,7 @@ async function ensureCurrentSchema() {
   id SERIAL PRIMARY KEY,
   license_name TEXT NOT NULL,
   description TEXT,
+  document_no TEXT,
   valid_from DATE,
   valid_till DATE,
   time_period TEXT,

@@ -718,7 +718,6 @@ const MODULES = {
       { js: "renewalDate", db: "renewal_date", type: "date" },
       { js: "description", db: "description", type: "text" },
       { js: "remarks", db: "remarks", type: "text" },
-      { js: "company", db: "company", type: "text" },
     ],
   },
 
