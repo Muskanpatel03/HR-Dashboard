@@ -357,45 +357,16 @@ export const MODULES = [
     showSerialNumber: true,
     serialNumberLabel: 'Sr.No.',
     wrapHeaders: true,
-    fields: [
-      {
-        name: 'licenseName',
-        label: 'Legal Documents',
-        type: 'text',
-      },
-        { name: 'documentNo', label: 'Document No.', type: 'text' },
-
-      {
-        name: 'validFrom',
-        label: 'Valid From',
-        type: 'date',
-      },
-      {
-        name: 'validTill',
-        label: 'Valid Till',
-        type: 'date',
-      },
-      {
-        name: 'timePeriod',
-        label: 'Time Period',
-        type: 'text',
-      },
-      {
-        name: 'renewalDate',
-        label: 'Next Review Date',
-        type: 'date',
-      },
-      {
-        name: 'description',
-        label: 'Description',
-        type: 'text',
-      },
-      {
-        name: 'remarks',
-        label: 'Remarks',
-        type: 'text',
-      },
-    ],
+   fields: [
+  { name: 'licenseName', label: 'Legal Document Name', type: 'text', required: true },
+  { name: 'documentNo', label: 'Document No.', type: 'text' },
+  { name: 'validFrom', label: 'Valid From', type: 'date' },
+  { name: 'validTill', label: 'Valid Till', type: 'date' },
+  { name: 'timePeriod', label: 'Time Period', type: 'text' },
+  { name: 'renewalDate', label: 'Next Review Date', type: 'date' },
+  { name: 'description', label: 'Description', type: 'textarea' },
+  { name: 'remarks', label: 'Remarks', type: 'textarea' },
+],
   },
 
 

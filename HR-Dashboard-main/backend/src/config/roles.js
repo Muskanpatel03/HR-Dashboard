@@ -60,12 +60,12 @@ const DESIGNATIONS = RAW_DESIGNATIONS.map((d) => d.toUpperCase());
 const BASE_CATEGORY_PERMS = {
   Management: { modules: 'all', edit: [] },
   'Plant Head': {
-    modules: ['dashboard', 'manpower', 'attendance', 'engagement', 'healthcheck', 'retirement', 'training'],
-    edit: ['manpower', 'attendance', 'engagement', 'healthcheck', 'training'],
+    modules: ['dashboard', 'manpower', 'attendance', 'engagement', 'healthcheck', 'retirement', 'training', 'license', 'compliances'],
+    edit: ['manpower', 'attendance', 'engagement', 'healthcheck', 'training', 'license', 'compliances'],
   },
   'Plant Operations': {
-    modules: ['dashboard', 'electricity', 'canteen', 'attendance', 'training'],
-    edit: ['electricity', 'canteen', 'attendance', 'training'],
+    modules: ['dashboard', 'electricity', 'canteen', 'attendance', 'training', 'license', 'compliances'],
+    edit: ['electricity', 'canteen', 'attendance', 'training', 'license', 'compliances'],
   },
 };
 
@@ -104,8 +104,8 @@ const DEFAULT_ROLES = {
   // of these before the switch to per-designation access. Not offered as a
   // choice for new users any more.
   'HR Manager': {
-    modules: ['dashboard', 'manpower', 'recruitment', 'hiring', 'separation', 'retirement', 'healthcheck', 'engagement', 'training', 'attendance'],
-    edit: ['manpower', 'recruitment', 'hiring', 'separation', 'retirement', 'healthcheck', 'engagement', 'training', 'attendance'],
+    modules: ['dashboard', 'manpower', 'recruitment', 'hiring', 'separation', 'retirement', 'healthcheck', 'engagement', 'training', 'attendance', 'license', 'compliances'],
+    edit: ['manpower', 'recruitment', 'hiring', 'separation', 'retirement', 'healthcheck', 'engagement', 'training', 'attendance', 'license', 'compliances'],
   },
   'Plant Head': BASE_CATEGORY_PERMS['Plant Head'],
   Recruiter: { modules: ['dashboard', 'recruitment', 'hiring'], edit: ['recruitment', 'hiring'] },
@@ -117,7 +117,7 @@ const DEFAULT_ROLES = {
   // an account gets this role is through POST /api/auth/register, which
   // hardcodes it server-side regardless of what the client sends.
   Viewer: {
-    modules: ['dashboard', 'manpower', 'recruitment', 'hiring', 'separation', 'retirement', 'electricity', 'canteen', 'healthcheck', 'engagement', 'training', 'attendance'],
+    modules: ['dashboard', 'manpower', 'recruitment', 'hiring', 'separation', 'retirement', 'electricity', 'canteen', 'healthcheck', 'engagement', 'training', 'attendance', 'license', 'compliances'],
     edit: [],
   },
 

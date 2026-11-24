@@ -24,10 +24,21 @@ function permissionModuleKey(moduleKey) {
   return moduleKey === 'dailyManpower' ? 'manpower' : moduleKey;
 }
 
+
 function columnsFor(moduleKey, conf) {
-  return moduleKey === 'usersmgmt'
-    ? conf.columns
-    : [...conf.columns, { js: 'company', db: 'company', type: 'text' }];
+  if (moduleKey === 'usersmgmt') {
+    return conf.columns;
+  }
+
+  // Prevent duplicate company columns
+  const columns = conf.columns.filter(
+    (column) => column.db !== 'company'
+  );
+
+  return [
+    ...columns,
+    { js: 'company', db: 'company', type: 'text' }
+  ];
 }
 
 function isCompanyScoped(moduleKey) {
@@ -270,6 +281,14 @@ router.post('/:module', async (req, res) => {
   if (moduleKey === 'usersmgmt' && !ALL_COMPANY_IDS.includes(body.company)) {
     return res.status(400).json({ error: 'Assign this user to one company' });
   }
+  if (
+    moduleKey === 'license' &&
+    !String(body.licenseName || '').trim()
+  ) {
+    return res.status(400).json({
+      error: 'Please enter the Legal Document name.'
+    });
+  }
   if (isCompanyScoped(moduleKey)) {
     if (!ALL_COMPANY_IDS.includes(body.company)) {
       return res.status(400).json({ error: 'Select a company for this record' });
@@ -321,6 +340,14 @@ router.put('/:module/:id', async (req, res) => {
   if (!conf) return res.status(404).json({ error: 'Unknown module' });
   if (!canEdit(req.user.role, permissionModuleKey(moduleKey))) return res.status(403).json({ error: 'Not permitted to edit records here' });
   const body = bodyForModule(moduleKey, req.body);
+  if (
+  moduleKey === 'license' &&
+  !String(body.licenseName || '').trim()
+) {
+  return res.status(400).json({
+    error: 'Please enter the Legal Documents name.'
+  });
+}
   const decimalError = decimalFieldError(moduleKey, conf, body);
   if (decimalError) return res.status(400).json({ error: decimalError });
   if (moduleKey === 'usersmgmt' && !ASSIGNABLE_ROLES.includes(body.role)) {
