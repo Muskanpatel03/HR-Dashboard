@@ -57,6 +57,26 @@ export default function RecordForm({ config, values, setValues, onCancel, onSubm
                       return <option key={optionValue} value={optionValue}>{optionLabel}</option>;
                     })}
                   </select>
+                ) : f.type === 'multiselect' ? (
+                  <div className="mt-1 space-y-1 rounded px-2.5 py-2" style={{ border: `1px solid ${C.line}` }}>
+                    {(f.optionsFor ? f.optionsFor(values) : f.options).map((option) => {
+                      const optionValue = typeof option === 'object' ? option.value : option;
+                      const optionLabel = typeof option === 'object' ? option.label : option;
+                      const selected = Array.isArray(values[f.name]) && values[f.name].includes(optionValue);
+                      return (
+                        <label key={optionValue} className="flex items-center gap-2 text-xs">
+                          <input
+                            type="checkbox"
+                            checked={selected}
+                            onChange={() => set(f.name, selected
+                              ? values[f.name].filter((value) => value !== optionValue)
+                              : [...(values[f.name] || []), optionValue])}
+                          />
+                          {optionLabel}
+                        </label>
+                      );
+                    })}
+                  </div>
                 ) : f.type === 'month' ? (
                   <input
                     type="month"
@@ -74,18 +94,22 @@ export default function RecordForm({ config, values, setValues, onCancel, onSubm
                       list={`designation-options-${f.name}`}
                       className="record-entry-control w-full mt-1 px-2.5 py-1.5 text-sm rounded"
                       style={{ border: `1px solid ${C.line}` }}
-                      placeholder="Select or type your own"
+                      placeholder="Choose or type a designation"
                     />
                     <datalist id={`designation-options-${f.name}`}>
                       {(f.optionsFor ? f.optionsFor(values) : f.options).map((option) => (
                         <option key={typeof option === 'object' ? option.value : option} value={typeof option === 'object' ? option.value : option} />
                       ))}
                     </datalist>
+                    <span className="mt-1 block text-xs" style={{ color: C.ink2 }}>
+                      Choose a suggested title or type a custom designation.
+                    </span>
                   </>
                 ) : (
                   <input
                     type={f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : f.type === 'password' ? 'password' : 'text'}
                     step={f.step}
+                    required={f.type === 'password' && !isEdit}
                     value={values[f.name] ?? ''}
                     onChange={(e) => set(f.name, e.target.value)}
                     autoComplete={f.type === 'password' ? 'new-password' : 'off'}

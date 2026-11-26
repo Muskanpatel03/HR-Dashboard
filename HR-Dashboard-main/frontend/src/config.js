@@ -14,7 +14,7 @@ import {
   Shield,
   CalendarDays,
   FileCheck,
-  ScrollText,
+  ShieldCheck,
 } from 'lucide-react';
 
 import {
@@ -49,9 +49,9 @@ export const C = {
   ink2: '#746B7D',
 };
 
-export const FONT_HEAD = "'Barlow Semi Condensed', 'Arial Narrow', sans-serif";
-export const FONT_BODY = "'Inter', system-ui, sans-serif";
-export const FONT_MONO = "'IBM Plex Mono', 'Courier New', monospace";
+export const FONT_HEAD = "'Arial Narrow', 'Roboto Condensed', 'Segoe UI', sans-serif";
+export const FONT_BODY = "'Segoe UI', system-ui, sans-serif";
+export const FONT_MONO = "ui-monospace, 'Cascadia Code', 'Courier New', monospace";
 
 export const COMPANY_OPTIONS = [
   { id: 'Automat Industries (Site 4)', label: 'Automat Industries (Site 4)', shortLabel: 'Site 4', accent: 'hsl(267, 50%, 42%)' },
@@ -59,6 +59,10 @@ export const COMPANY_OPTIONS = [
   { id: 'Smith', label: 'Smith', shortLabel: 'Smith', accent: 'hsl(270, 32%, 56%)' },
   { id: 'HO', label: 'HO', shortLabel: 'Head Office', accent: 'hsl(140, 24%, 44%)' },
 ];
+
+export const apiModuleKey = (moduleKey) => (
+  moduleKey === 'Compliances/Agreements' ? 'compliances' : moduleKey
+);
 
 
 export const RECRUITMENT_STAGES = [
@@ -157,7 +161,7 @@ export const MODULES = [
   { key: 'recruitment', label: 'Recruitment', icon: Briefcase, showTotals: true, wrapHeaders: true, fields: [
     { name: 'openingType', label: 'Opening Type', type: 'select', options: ['New', 'Replacement'] },
     { name: 'openingPosition', label: 'Position Name', type: 'text' },
-    { name: 'designation', label: 'Designation', type: 'select', options: DESIGNATIONS_DISPLAY },
+    { name: 'designation', label: 'Designation', type: 'designation', options: DESIGNATIONS_DISPLAY },
     { name: 'numberOfPositions', label: 'No. of Open Positions', type: 'number' },
     { name: 'remarks', label: 'Remarks', type: 'text' },
     { name: 'month', label: 'Month', type: 'month' },
@@ -170,7 +174,7 @@ export const MODULES = [
   { key: 'hiring', label: 'Joined', icon: UserPlus, showTotals: true, wrapHeaders: true, fields: [
     { name: 'dateOfJoining', label: 'Date of Joining (DOJ)', type: 'date' },
     { name: 'employeeName', label: 'Employee Name', type: 'text' },
-    { name: 'designation', label: 'Designation', type: 'select', options: DESIGNATIONS_DISPLAY },
+    { name: 'designation', label: 'Designation', type: 'designation', options: DESIGNATIONS_DISPLAY },
     { name: 'openingType', label: 'Joining Type', type: 'select', options: ['New', 'Replacement'] },
     { name: 'month', label: 'Month', type: 'month' },
     { name: 'department', label: 'Department', type: 'select', options: DEPARTMENTS },
@@ -213,7 +217,7 @@ export const MODULES = [
     fields: [
       { name: 'employeeName', label: 'Employee', type: 'text' },
       { name: 'employeeId', label: 'Employee ID', type: 'text' },
-      { name: 'designation', label: 'Designation', type: 'select', options: DESIGNATIONS_DISPLAY },
+      { name: 'designation', label: 'Designation', type: 'designation', options: DESIGNATIONS_DISPLAY },
       { name: 'department', label: 'Department', type: 'text' },
       { name: 'location', label: 'Location', type: 'text' },
       { name: 'criticality', label: 'Critical / General', type: 'select', options: ['Critical', 'General'] },
@@ -260,7 +264,7 @@ export const MODULES = [
     {
       name: 'designation',
       label: 'Designation',
-      type: 'select',
+      type: 'designation',
       options: DESIGNATIONS_DISPLAY
     },
     {
@@ -342,9 +346,10 @@ export const MODULES = [
     { name: 'department', label: 'Department', type: 'select', options: DEPARTMENTS },
   { name: 'designation', label: 'Designation', type: 'designation', options: DESIGNATIONS_DISPLAY },
     { name: 'company', label: 'Company access', type: 'select', options: COMPANY_OPTIONS.map(({ id, label }) => ({ value: id, label })) },
+    { name: 'companiesAccess', label: 'Additional company access', type: 'multiselect', options: COMPANY_OPTIONS.map(({ id, label }) => ({ value: id, label })) },
     { name: 'location', label: 'Location', type: 'text' },
     { name: 'status', label: 'Status', type: 'select', options: ['Active', 'Pending', 'Inactive'] },
-        { name: 'password', label: 'Set Password (optional)', type: 'password' },
+        { name: 'password', label: 'Set Password', type: 'password' },
   ]},
 
   // LICENSE
@@ -375,7 +380,7 @@ export const MODULES = [
 {
   key: 'Compliances/Agreements',
   label: 'Compliances/Agreements',
-  icon: ScrollText,
+  icon: ShieldCheck,
   showTotals: false,
   wrapHeaders: true,
   fields: [

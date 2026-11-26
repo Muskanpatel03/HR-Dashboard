@@ -29,8 +29,8 @@ const INITIAL_DATA = {
 };
 const HR_SECTION_PARTICULARS = [
   'Manpower', 'Daily Manpower', 'Open Position Recruitment',
-  'Hiring', 'Separation', 'Attendance', 'Retirement', 'Loan Summary',
-  'Electricity', 'Canteen', 'Health Check', 'Engagement', 'Training',
+  'Hiring', 'Separation', 'Loan Summary', 'Retirement', 'Electricity',
+  'Canteen', 'Health Check', 'Engagement', 'Training', 'Attendance',
 ];
 
 // The separate "Recruitment" row was removed (Open Position Recruitment, Hiring and
@@ -40,11 +40,17 @@ const REMOVED_PARTICULARS = new Set(['recruitment']);
 function includeHrSectionRows(matrixData) {
   const allRows = Array.isArray(matrixData.particulars) ? matrixData.particulars : [];
   const rows = allRows.filter((row) => !REMOVED_PARTICULARS.has(String(row.particular || '').trim().toLocaleLowerCase()));
-  const existing = new Set(rows.map((row) => String(row.particular || '').trim().toLocaleLowerCase()));
-  const missing = HR_SECTION_PARTICULARS
-    .filter((name) => !existing.has(name.toLocaleLowerCase()))
-    .map((name) => ({ id: `hr-section-${name.toLocaleLowerCase().replace(/[^a-z0-9]+/g, '-')}`, particular: name, values: {} }));
-  return { ...matrixData, particulars: [...rows, ...missing] };
+  const usedRows = new Set();
+  const orderedSections = HR_SECTION_PARTICULARS.map((name) => {
+    const row = rows.find((candidate) => String(candidate.particular || '').trim().toLocaleLowerCase() === name.toLocaleLowerCase());
+    if (row) {
+      usedRows.add(row);
+      return row;
+    }
+    return { id: `hr-section-${name.toLocaleLowerCase().replace(/[^a-z0-9]+/g, '-')}`, particular: name, values: {} };
+  });
+  const customRows = rows.filter((row) => !usedRows.has(row));
+  return { ...matrixData, particulars: [...orderedSections, ...customRows] };
 }
 
 function isHrSectionRow(row) {

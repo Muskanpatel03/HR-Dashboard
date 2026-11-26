@@ -49,6 +49,7 @@ import {
   CHARTS,
   COMPANY_OPTIONS,
   DAILY_MANPOWER_CONFIG,
+  apiModuleKey,
   fmtMoney,
 } from "../config";
 
@@ -794,7 +795,7 @@ export default function ModuleView({
   // ==========================================================
 
   const load = useCallback(
-    async () => {
+    async (signal) => {
       const cachedRecords = moduleRecordsCache.get(recordsCacheKey);
       if (cachedRecords) {
         setRecords(cachedRecords);
@@ -808,19 +809,18 @@ export default function ModuleView({
         const params = config.key !== 'usersmgmt' && companyId && companyId !== 'all'
           ? { company: companyId }
           : undefined;
-        const { data } = await api.get(`/${config.key}`, { params });
+        const { data } = await api.get(`/${apiModuleKey(config.key)}`, { params, signal });
 
         const loadedRecords = Array.isArray(data.records) ? data.records : [];
         moduleRecordsCache.set(recordsCacheKey, loadedRecords);
         setRecords(loadedRecords);
         if (config.key === "dailyManpower") onRecordsChange?.(loadedRecords);
       } catch (err) {
-        setError(
-          err.response?.data?.error ||
-            "Failed to load records"
-        );
+        if (!signal?.aborted && err.code !== 'ERR_CANCELED') {
+          setError(err.response?.data?.error || "Failed to load records");
+        }
       } finally {
-        setLoading(false);
+        if (!signal?.aborted) setLoading(false);
       }
     },
     [config.key, onRecordsChange, companyId, recordsCacheKey]
@@ -828,7 +828,9 @@ export default function ModuleView({
 
 
   useEffect(() => {
-    load();
+    const controller = new AbortController();
+    load(controller.signal);
+    return () => controller.abort();
   }, [load]);
 
 
@@ -996,13 +998,13 @@ const uploadDoc = async (record, file) => {
         : formValues;
       if (editingId) {
         const { data } = await api.put(
-          `/${config.key}/${editingId}`,
+          `/${apiModuleKey(config.key)}/${editingId}`,
           recordValues
         );
         savedRecord = data.record;
       } else {
         const { data } = await api.post(
-          `/${config.key}`,
+          `/${apiModuleKey(config.key)}`,
           recordValues
         );
         savedRecord = data.record;
@@ -1067,7 +1069,7 @@ const uploadDoc = async (record, file) => {
 
     try {
       await api.delete(
-        `/${config.key}/${id}`
+        `/${apiModuleKey(config.key)}/${id}`
       );
 
       await load();
@@ -1089,7 +1091,7 @@ const uploadDoc = async (record, file) => {
     if (!confirmed) return;
 
     try {
-      await api.post(`/${config.key}/bulk-delete`, { ids });
+      await api.post(`/${apiModuleKey(config.key)}/bulk-delete`, { ids });
       setSelectedIds(new Set());
       await load();
     } catch (err) {

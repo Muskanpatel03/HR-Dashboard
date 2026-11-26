@@ -178,15 +178,19 @@ let STATE = JSON.parse(JSON.stringify(DEFAULT_ROLES));
 const USER_COMPANY_ACCESS = new Map();
 
 async function loadUserCompanyAccess() {
-  const { rows } = await pool.query('SELECT id, company FROM users');
+  const { rows } = await pool.query('SELECT id, company, company_access FROM users');
   USER_COMPANY_ACCESS.clear();
-  rows.forEach(({ id, company }) => {
-    if (company) USER_COMPANY_ACCESS.set(Number(id), company);
+  rows.forEach(({ id, company, company_access }) => {
+    const companies = Array.isArray(company_access) && company_access.length
+      ? company_access
+      : (company ? [company] : []);
+    if (companies.length) USER_COMPANY_ACCESS.set(Number(id), companies);
   });
 }
 
-function setUserCompanyAccess(userId, company) {
-  if (company) USER_COMPANY_ACCESS.set(Number(userId), company);
+function setUserCompanyAccess(userId, companies) {
+  const companyList = Array.isArray(companies) ? companies : (companies ? [companies] : []);
+  if (companyList.length) USER_COMPANY_ACCESS.set(Number(userId), companyList);
   else USER_COMPANY_ACCESS.delete(Number(userId));
 }
 
@@ -224,7 +228,9 @@ function getRoleCompanies(roleOrUser) {
   const roleCompanies = Array.isArray(companies) ? companies : [...ALL_COMPANY_IDS];
   if (!user || role === 'Administrator') return roleCompanies;
   const assignedCompany = USER_COMPANY_ACCESS.get(Number(user.id));
-  return assignedCompany && roleCompanies.includes(assignedCompany) ? [assignedCompany] : [];
+  return Array.isArray(assignedCompany)
+    ? assignedCompany.filter((company) => roleCompanies.includes(company))
+    : (assignedCompany && roleCompanies.includes(assignedCompany) ? [assignedCompany] : []);
 }
 
 // Returns the full live permission matrix, e.g. for the Access Control page

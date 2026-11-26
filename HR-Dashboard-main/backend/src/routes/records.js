@@ -22,7 +22,9 @@ const router = express.Router();
 router.use(authenticate);
 
 function permissionModuleKey(moduleKey) {
-  return moduleKey === 'dailyManpower' ? 'manpower' : moduleKey;
+  if (moduleKey === 'dailyManpower') return 'manpower';
+  if (moduleKey === 'compliances') return 'Compliances/Agreements';
+  return moduleKey;
 }
 
 // The frontend module key 'Compliances/Agreements' maps to the backend
@@ -63,6 +65,7 @@ function canManageRecordCompany(user, company) {
 
 function normalizeValue(val, type) {
   if (val === undefined || val === null || val === '') return null;
+  if (type === 'jsonb') return JSON.stringify(Array.isArray(val) ? val : []);
   if (type === 'number' || type === 'decimal') {
     const n = Number(val);
     return Number.isFinite(n) ? n : null;
@@ -103,12 +106,23 @@ function bodyForModule(moduleKey, body) {
   return { ...body, role: body.designation || body.role };
 }
 
+function companyAccessForUser(body) {
+  const requested = Array.isArray(body.companiesAccess) ? body.companiesAccess : [];
+  const companies = [...new Set([body.company, ...requested].filter(Boolean))];
+  return companies.filter((company) => ALL_COMPANY_IDS.includes(company));
+}
+
 function toJsRow(dbRow, columns) {
   const out = { id: dbRow.id };
 
   columns.forEach((c) => {
     out[c.js] = dbRow[c.db];
   });
+
+  if (columns.some((column) => column.js === 'companiesAccess')) {
+    const assigned = Array.isArray(out.companiesAccess) ? out.companiesAccess : [];
+    out.companiesAccess = assigned.filter((company) => company !== out.company);
+  }
 
   if (dbRow.date_of_birth) {
     const dob = new Date(dbRow.date_of_birth);
@@ -283,6 +297,9 @@ router.post('/:module', async (req, res) => {
   if (!conf) return res.status(404).json({ error: 'Unknown module' });
   if (!canCreate(req.user.role, permissionModuleKey(moduleKey))) return res.status(403).json({ error: 'Not permitted to add records here' });
   const body = bodyForModule(moduleKey, req.body);
+  if (moduleKey === 'usersmgmt' && !String(body.password || '').trim()) {
+    return res.status(400).json({ error: 'Set a password for the new account.' });
+  }
   const decimalError = decimalFieldError(moduleKey, conf, body);
   if (decimalError) return res.status(400).json({ error: decimalError });
   // Allow a free-typed designation: register it as its own role first.
@@ -295,6 +312,10 @@ router.post('/:module', async (req, res) => {
   if (moduleKey === 'usersmgmt' && !ALL_COMPANY_IDS.includes(body.company)) {
     return res.status(400).json({ error: 'Assign this user to one company' });
   }
+  if (moduleKey === 'usersmgmt' && companyAccessForUser(body).length !== new Set([body.company, ...(body.companiesAccess || [])].filter(Boolean)).size) {
+    return res.status(400).json({ error: 'Select valid company access options' });
+  }
+  if (moduleKey === 'usersmgmt') body.companiesAccess = companyAccessForUser(body);
   if (
     moduleKey === 'license' &&
     !String(body.licenseName || '').trim()
@@ -336,7 +357,7 @@ router.post('/:module', async (req, res) => {
     const row = toJsRow(result.rows[0], columns);
     await logAudit(client, { user: req.user, moduleKey, action: 'Created', detail: summarize(result.rows[0], columns), company: result.rows[0].company || null });
     await client.query('COMMIT');
-    if (moduleKey === 'usersmgmt') setUserCompanyAccess(row.id, row.company);
+    if (moduleKey === 'usersmgmt') setUserCompanyAccess(row.id, companyAccessForUser(row));
     res.status(201).json({ record: row });
   } catch (e) {
     await client.query('ROLLBACK');
@@ -375,6 +396,10 @@ router.put('/:module/:id', async (req, res) => {
   if (moduleKey === 'usersmgmt' && !ALL_COMPANY_IDS.includes(body.company)) {
     return res.status(400).json({ error: 'Assign this user to one company' });
   }
+  if (moduleKey === 'usersmgmt' && companyAccessForUser(body).length !== new Set([body.company, ...(body.companiesAccess || [])].filter(Boolean)).size) {
+    return res.status(400).json({ error: 'Select valid company access options' });
+  }
+  if (moduleKey === 'usersmgmt') body.companiesAccess = companyAccessForUser(body);
   if (isCompanyScoped(moduleKey)) {
     if (!ALL_COMPANY_IDS.includes(body.company)) {
       return res.status(400).json({ error: 'Select a company for this record' });
@@ -433,7 +458,7 @@ router.put('/:module/:id', async (req, res) => {
        const row = toJsRow(result.rows[0], columns);
     await logAudit(client, { user: req.user, moduleKey, action: 'Updated', detail: diffDetail(before.rows[0], result.rows[0], columns), company: result.rows[0].company || null });
     await client.query('COMMIT');
-    if (moduleKey === 'usersmgmt') setUserCompanyAccess(row.id, row.company);
+    if (moduleKey === 'usersmgmt') setUserCompanyAccess(row.id, companyAccessForUser(row));
     res.json({ record: row });
   } catch (e) {
     await client.query('ROLLBACK');

@@ -1,13 +1,17 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { ArrowRight, Download } from 'lucide-react';
+import React, { lazy, useEffect, useState, useCallback } from 'react';
+import { ArrowRight, ClipboardCheck, Download, FileCheck } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip,
   CartesianGrid, PieChart, Pie, Cell, Legend,
 } from 'recharts';
 import api from '../api';
 import KpiCard from './KpiCard';
-import OperationMatrix, { preloadOperationMatrix } from './OperationMatrix';
 import { C, COMPANY_OPTIONS, FONT_HEAD, fmtMoney } from '../config';
+
+const loadOperationMatrix = () => import('./OperationMatrix');
+const OperationMatrix = lazy(loadOperationMatrix);
+const preloadOperationMatrix = (companyId) => loadOperationMatrix()
+  .then((module) => module.preloadOperationMatrix(companyId));
 
 
 const RANGES = [
@@ -25,6 +29,11 @@ const CHART_COLORS = {
   lightGreen: '#70A478',
 };
 const PIE_COLORS = [CHART_COLORS.purple, CHART_COLORS.green, CHART_COLORS.lightPurple, CHART_COLORS.lightGreen];
+const SUMMARY_SECTION_ORDER = [
+  'operationMatrix', 'manpower', 'dailyManpower', 'recruitment', 'openPositions',
+  'hiring', 'separation', 'loanSummary', 'retirement', 'electricity', 'canteen',
+  'healthcheck', 'engagement', 'training', 'attendance', 'license', 'Compliances/Agreements',
+];
 const DASHBOARD_PANEL_STYLE = {
   background: C.card,
   border: `1px solid ${C.line}`,
@@ -651,6 +660,10 @@ export function DashboardSummary({ allowedCompanies, onOpenSection }) {
     const allKpis = {};
     const loanByUnitMap = new Map();
     let matrixParticularCount = 0;
+    let legalDocumentCount = 0;
+    let legalDocumentDueSoon = 0;
+    let complianceCount = 0;
+    let complianceDueSoon = 0;
 
     summaries.forEach(({ summary, matrix }) => {
       Object.entries(summary?.permissions || {}).forEach(([key, value]) => {
@@ -675,6 +688,10 @@ export function DashboardSummary({ allowedCompanies, onOpenSection }) {
       });
 
       matrixParticularCount += Number(summary?.matrix?.particularCount ?? matrix?.particulars?.length) || 0;
+      legalDocumentCount += Number(summary?.legalDocuments?.count) || 0;
+      legalDocumentDueSoon += Number(summary?.legalDocuments?.dueSoon) || 0;
+      complianceCount += Number(summary?.compliances?.count) || 0;
+      complianceDueSoon += Number(summary?.compliances?.dueSoon) || 0;
     });
 
     const latestDailyRecord = summaries
@@ -705,6 +722,8 @@ export function DashboardSummary({ allowedCompanies, onOpenSection }) {
             : 0,
         },
         loanByUnit: Array.from(loanByUnitMap.values()),
+        legalDocuments: { count: legalDocumentCount, dueSoon: legalDocumentDueSoon },
+        compliances: { count: complianceCount, dueSoon: complianceDueSoon },
         dailyManpowerRecords: latestDailyRecord
           ? [{ total: latestDailyTotal, date: latestDailyRecord.date }]
           : [],
@@ -828,7 +847,22 @@ export function DashboardSummary({ allowedCompanies, onOpenSection }) {
       permission: 'training',
       value: (summary) => `${Number(summary.kpis?.trainingsCount || 0).toLocaleString('en-IN')} trainings`,
     },
-  ].filter((section) => section.key !== 'operationMatrix' && summaries.some(({ summary }) => summary.permissions?.[section.permission]));
+    {
+      key: 'license',
+      label: 'Legal Documents',
+      permission: 'license',
+      value: (summary) => `${Number(summary.legalDocuments?.count || 0).toLocaleString('en-IN')} documents · ${Number(summary.legalDocuments?.dueSoon || 0).toLocaleString('en-IN')} due in 30 days`,
+    },
+    {
+      key: 'Compliances/Agreements',
+      label: 'Compliances & Agreements',
+      permission: 'compliances',
+      value: (summary) => `${Number(summary.compliances?.count || 0).toLocaleString('en-IN')} records · ${Number(summary.compliances?.dueSoon || 0).toLocaleString('en-IN')} due in 30 days`,
+    },
+  ].filter((section) => summaries.some(({ summary }) => summary.permissions?.[section.permission]))
+    .sort((a, b) => {
+      return SUMMARY_SECTION_ORDER.indexOf(a.key) - SUMMARY_SECTION_ORDER.indexOf(b.key);
+    });
 
   const exportSummaryCSV = () => {
     const csvEscape = (value) => {
@@ -936,9 +970,31 @@ export function DashboardSummary({ allowedCompanies, onOpenSection }) {
   );
 }
 
-export default function Dashboard({ editable, creatable, canDelete, canViewMatrix, companyId, onCompanyChange, allowedCompanies = COMPANY_OPTIONS }) {
+export default function Dashboard({ editable, creatable, canDelete, canViewMatrix, canViewLegalDocuments = false, canViewCompliances = false, companyId, onCompanyChange, onNavigate, allowedCompanies = COMPANY_OPTIONS }) {
   const selectedCompany = COMPANY_OPTIONS.find((company) => company.id === companyId);
   const canSelectAll = allowedCompanies.length === COMPANY_OPTIONS.length;
+  const [documentSummary, setDocumentSummary] = useState(null);
+
+  useEffect(() => {
+    if (!canViewLegalDocuments && !canViewCompliances) {
+      setDocumentSummary(null);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    api.get('/dashboard', {
+      params: {
+        compact: true,
+        company: companyId && companyId !== 'all' ? companyId : undefined,
+      },
+      signal: controller.signal,
+    })
+      .then(({ data }) => setDocumentSummary(data))
+      .catch((error) => {
+        if (!controller.signal.aborted) console.error('Failed to load dashboard document summary:', error);
+      });
+    return () => controller.abort();
+  }, [companyId, canViewLegalDocuments, canViewCompliances]);
 
   return (
     <div className="dashboard-layout">
@@ -1014,6 +1070,41 @@ export default function Dashboard({ editable, creatable, canDelete, canViewMatri
             canDelete={canDelete}
           /> : <div className="company-selector-detail">Select one company to open HR Matrix.</div>}
         </>
+      )}
+      {(canViewLegalDocuments || canViewCompliances) && (
+        <section className="dashboard-document-section" aria-label="Legal and compliance documents">
+          <div className="dashboard-document-heading">
+            <div>
+              <div className="company-selector-kicker">Document control</div>
+              <h2>Legal &amp; compliance</h2>
+            </div>
+            {selectedCompany && <span>{selectedCompany.label}</span>}
+          </div>
+          <div className="dashboard-document-grid">
+            {canViewLegalDocuments && (
+              <button type="button" className="dashboard-document-card" onClick={() => onNavigate?.('license')}>
+                <span className="dashboard-document-icon"><FileCheck size={19} /></span>
+                <span className="dashboard-document-copy">
+                  <strong>Legal Documents</strong>
+                  <span>{documentSummary ? `${Number(documentSummary.legalDocuments?.count || 0).toLocaleString('en-IN')} documents` : 'Loading document summary…'}</span>
+                  {documentSummary && <span>{Number(documentSummary.legalDocuments?.dueSoon || 0).toLocaleString('en-IN')} renewals due in 30 days</span>}
+                </span>
+                <ArrowRight size={17} />
+              </button>
+            )}
+            {canViewCompliances && (
+              <button type="button" className="dashboard-document-card" onClick={() => onNavigate?.('Compliances/Agreements')}>
+                <span className="dashboard-document-icon"><ClipboardCheck size={19} /></span>
+                <span className="dashboard-document-copy">
+                  <strong>Compliances &amp; Agreements</strong>
+                  <span>{documentSummary ? `${Number(documentSummary.compliances?.count || 0).toLocaleString('en-IN')} records` : 'Loading document summary…'}</span>
+                  {documentSummary && <span>{Number(documentSummary.compliances?.dueSoon || 0).toLocaleString('en-IN')} renewals due in 30 days</span>}
+                </span>
+                <ArrowRight size={17} />
+              </button>
+            )}
+          </div>
+        </section>
       )}
     </div>
   );

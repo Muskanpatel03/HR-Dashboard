@@ -691,6 +691,11 @@ const MODULES = {
         type: "text",
       },
       {
+        js: "companiesAccess",
+        db: "company_access",
+        type: "jsonb",
+      },
+      {
         js: "role",
         db: "role",
         type: "text",

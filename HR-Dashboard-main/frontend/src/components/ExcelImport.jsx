@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { AlertCircle, CheckCircle2, FileSpreadsheet, LoaderCircle, X } from 'lucide-react';
 import api from '../api';
-import { C, COMPANY_OPTIONS } from '../config';
+import { C, COMPANY_OPTIONS, apiModuleKey } from '../config';
 
 const MAX_ROWS = 20000;
 const BATCH_SIZE = 100;
@@ -183,7 +183,7 @@ export default function ExcelImport({ config, companyId, onClose, onImported }) 
         const batch = validRows.slice(start, start + BATCH_SIZE);
         setProgress(`Importing rows ${start + 1}-${start + batch.length} of ${validRows.length}...`);
         try {
-          const response = await api.post(`/${config.key}/import-batch`, { records: batch.map(({ record }) => record) });
+          const response = await api.post(`/${apiModuleKey(config.key)}/import-batch`, { records: batch.map(({ record }) => record) });
           imported += response.data.imported;
           response.data.failures.forEach((failure) => failures.push({ row: batch[failure.index]?.row ?? '?', message: failure.message }));
         } catch (err) {

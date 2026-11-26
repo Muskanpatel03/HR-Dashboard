@@ -112,6 +112,16 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const expireSession = () => {
+      localStorage.removeItem('automat_active');
+      setActive('dashboard');
+      setUser(null);
+    };
+    window.addEventListener('automat:session-expired', expireSession);
+    return () => window.removeEventListener('automat:session-expired', expireSession);
+  }, []);
+
+  useEffect(() => {
     if (!user || !localStorage.getItem('automat_token')) return undefined;
     let cancelled = false;
     api.get('/auth/me')
@@ -234,6 +244,11 @@ export default function App() {
           return false;
         }
 
+        // Keep account administration grouped at the bottom of the sidebar.
+        if (m.key === 'usersmgmt') {
+          return false;
+        }
+
         // Hiring and Separation are inside RecruitmentHub
         if (
           m.key === 'hiring' ||
@@ -249,6 +264,10 @@ export default function App() {
 
         return visibleModuleKeys.includes(m.key);
       }),
+
+      visibleModuleKeys.includes('usersmgmt')
+        ? MODULES.find((module) => module.key === 'usersmgmt')
+        : null,
 
       perms.modules === 'all'
         ? {
@@ -325,11 +344,6 @@ export default function App() {
   // ==================================================
 
   const handleLogin = (loggedInUser) => {
-    console.log(
-      'AUTOMAT LOGIN SUCCESS:',
-      loggedInUser
-    );
-
     // Save user
     localStorage.setItem(
       'automat_user',
@@ -352,8 +366,6 @@ export default function App() {
   // ==================================================
 
   const logout = () => {
-    console.log('AUTOMAT LOGOUT');
-
     localStorage.removeItem('automat_token');
     localStorage.removeItem('automat_user');
     localStorage.removeItem('automat_active');
@@ -577,10 +589,9 @@ export default function App() {
                     : palette.sidebarText,
                 }}
               >
-                <Icon
-                  size={17}
-                  strokeWidth={1.8}
-                />
+                <span className="sidebar-nav-icon" aria-hidden="true">
+                  <Icon size={18} strokeWidth={1.9} />
+                </span>
 
                 <span className="hidden md:inline text-sm">
                   {item.label}
@@ -741,8 +752,11 @@ export default function App() {
               creatable={canCreateModule('operationMatrix')}
               canDelete={user?.role === 'Administrator'}
               canViewMatrix={canViewModule('operationMatrix') || canSeeDashboard}
+              canViewLegalDocuments={canViewModule('license')}
+              canViewCompliances={canViewModule('Compliances/Agreements')}
               companyId={companyId}
               onCompanyChange={handleCompanyChange}
+              onNavigate={handleNavigation}
               allowedCompanies={allowedCompanies}
             />
           )}

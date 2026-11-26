@@ -169,6 +169,8 @@ router.get('/', async (req, res) => {
     engagement: canView(req.user.role, 'engagement'),
     training: canView(req.user.role, 'training'),
     attendance: canView(req.user.role, 'attendance'),
+    license: canView(req.user.role, 'license'),
+    compliances: canView(req.user.role, 'Compliances/Agreements'),
   };
 
   const roleCompanies = getRoleCompanies(req.user);
@@ -376,6 +378,14 @@ router.get('/', async (req, res) => {
         ${dailyManpowerRecordsSql} AS daily_manpower_records,
         (SELECT COALESCE(SUM(COALESCE(day_shift, 0) + COALESCE(night_shift, 0)), 0)
          FROM daily_manpower WHERE ${scoped(perm.manpower, filters.daily)}) AS daily_manpower_period_total,
+        (SELECT json_build_object(
+          'count', COUNT(*),
+          'dueSoon', COUNT(*) FILTER (WHERE renewal_date >= CURRENT_DATE AND renewal_date < CURRENT_DATE + INTERVAL '31 days')
+        ) FROM licenses WHERE ${scoped(perm.license)}) AS legal_documents,
+        (SELECT json_build_object(
+          'count', COUNT(*),
+          'dueSoon', COUNT(*) FILTER (WHERE renewal_date >= CURRENT_DATE AND renewal_date < CURRENT_DATE + INTERVAL '31 days')
+        ) FROM compliances_agreements WHERE ${scoped(perm.compliances)}) AS compliance_documents,
         ${matrixCountSql} AS matrix_particular_count
     `;
 
@@ -429,6 +439,14 @@ router.get('/', async (req, res) => {
         dailyManpowerRecords: summary.daily_manpower_records || [],
         dailyManpowerPeriodTotal: Number(summary.daily_manpower_period_total || 0),
         loanByUnit: summary.loan_by_unit || [],
+        legalDocuments: {
+          count: Number(summary.legal_documents?.count || 0),
+          dueSoon: Number(summary.legal_documents?.dueSoon || 0),
+        },
+        compliances: {
+          count: Number(summary.compliance_documents?.count || 0),
+          dueSoon: Number(summary.compliance_documents?.dueSoon || 0),
+        },
         matrix: { particularCount: Number(summary.matrix_particular_count || 0) },
       });
     } catch (error) {

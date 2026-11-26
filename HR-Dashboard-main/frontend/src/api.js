@@ -26,6 +26,9 @@ client.interceptors.response.use(
     if (err.response && err.response.status === 401) {
       localStorage.removeItem('automat_token');
       localStorage.removeItem('automat_user');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('automat:session-expired'));
+      }
     }
     return Promise.reject(err);
   }
