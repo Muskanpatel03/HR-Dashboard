@@ -88,7 +88,7 @@ export const DESIGNATIONS = [
   'A.G.M', 'AREA MANAGER', 'Area Manager (Lanscape & Automation)', 'ASSISTANT',
   'ASSISTANT MANAGER', 'Assistant Technical Manager Automation',
   'ASST. MANAGER MARKETING', 'AUTOMATION TECHNICIAN', 'BLEDER', 'COORDINATOR',
-  'Deputy General Manager', 'DEPUTY MANAGER', 'DEPUTY MANAGER MARKETING',
+  'Deputy General Manager', 'DEPUTY MANAGER', 'DEPUTY MANAGER MARKETING', 'Recruiter',
   'DESIGN ENGINEER', 'DESIGNER', 'DIRECTOR', 'DRIVER', 'ELECTRICIAN',
   'ENGINEER', 'EXECUTIVE', 'GENERAL MANAGER', 'GUARD', 'HELPER', 'HOD',
   'INSPECTOR', 'Junior Executive', 'JUNIOR TECHNICIAN', 'LAB ASSISTANT',
@@ -105,7 +105,7 @@ export const DESIGNATIONS = [
   'TECHNICIAN', 'Technician cum Driver', 'Territory Manager', 'WORKER',
   'Zonal Head', 'ZONAL MANAGER',
 ];
-export const DESIGNATIONS_DISPLAY = DESIGNATIONS.map((d) => d.toUpperCase());
+export const DESIGNATIONS_DISPLAY = DESIGNATIONS.map((d) => d.toLowerCase() === 'recruiter' ? 'Recruiter' : d.toUpperCase());
 
 // Manpower Plan vs Actual: each record carries both the planned headcount
 // and the actual headcount for that month/location/department, so variance

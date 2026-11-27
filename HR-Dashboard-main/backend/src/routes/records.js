@@ -14,6 +14,7 @@ const {
   getRoleCompanies,
   setUserCompanyAccess,
   ensureRoleForDesignation,
+  canonicalRoleName,
   ALL_COMPANY_IDS,
   ASSIGNABLE_ROLES,
 } = require('../config/roles');
@@ -104,7 +105,17 @@ function decimalFieldError(moduleKey, conf, body) {
 
 function bodyForModule(moduleKey, body) {
   if (moduleKey !== 'usersmgmt') return body;
-  return { ...body, role: body.designation || body.role };
+  const designation = String(body.designation || '').trim();
+  const designationRole = canonicalRoleName(designation || body.role);
+  const isSystemAdministrator = designationRole === 'SYSTEM ADMINISTRATOR';
+  const role = body.role === 'Administrator' || isSystemAdministrator
+    ? 'Administrator'
+    : designationRole;
+  return {
+    ...body,
+    designation: designation ? (isSystemAdministrator ? 'System Administrator' : designationRole) : body.designation,
+    role,
+  };
 }
 
 function companyAccessForUser(body) {

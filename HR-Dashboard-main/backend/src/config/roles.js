@@ -35,7 +35,7 @@ const RAW_DESIGNATIONS = [
   'A.G.M', 'AREA MANAGER', 'Area Manager (Lanscape & Automation)', 'ASSISTANT',
   'ASSISTANT MANAGER', 'Assistant Technical Manager Automation',
   'ASST. MANAGER MARKETING', 'AUTOMATION TECHNICIAN', 'BLEDER', 'COORDINATOR',
-  'Deputy General Manager', 'DEPUTY MANAGER', 'DEPUTY MANAGER MARKETING',
+  'Deputy General Manager', 'DEPUTY MANAGER', 'DEPUTY MANAGER MARKETING', 'Recruiter',
   'DESIGN ENGINEER', 'DESIGNER', 'DIRECTOR', 'DRIVER', 'ELECTRICIAN',
   'ENGINEER', 'EXECUTIVE', 'GENERAL MANAGER', 'GUARD', 'HELPER', 'HOD',
   'INSPECTOR', 'Junior Executive', 'JUNIOR TECHNICIAN', 'LAB ASSISTANT',
@@ -53,6 +53,14 @@ const RAW_DESIGNATIONS = [
   'Zonal Head', 'ZONAL MANAGER',
 ];
 const DESIGNATIONS = RAW_DESIGNATIONS.map((d) => d.toUpperCase());
+
+function canonicalRoleName(value) {
+  const clean = String(value || '').trim();
+  if (!clean) return '';
+  const known = [...new Set([...Object.keys(DEFAULT_ROLES || {}), ...ASSIGNABLE_ROLES])]
+    .find((role) => role.toLowerCase() === clean.toLowerCase());
+  return known || clean.toUpperCase();
+}
 
 // Starting permission templates each designation is seeded from ONCE on
 // first boot — after that, the DB/Access Control UI is authoritative and
@@ -85,6 +93,9 @@ function categoryForDesignation(designation) {
 
 const DESIGNATION_ROLES = {};
 DESIGNATIONS.forEach((d) => {
+  // Recruiter already has a legacy permission row with recruiter-specific
+  // access. Treat the designation as an alias of that exact role.
+  if (d === 'RECRUITER') return;
   const base = BASE_CATEGORY_PERMS[categoryForDesignation(d)];
   DESIGNATION_ROLES[d] = {
     modules: base.modules === 'all' ? 'all' : [...base.modules],
@@ -195,7 +206,7 @@ const PRIVILEGED_ROLE_MANAGERS = ['Administrator'];
 // just Administrator + every Designation — the 6 legacy conceptual roles
 // are excluded here (still valid, still enforced, just not offered for new
 // assignments; see the comment on DEFAULT_ROLES above).
-const ASSIGNABLE_ROLES = ['Administrator', ...DESIGNATIONS];
+const ASSIGNABLE_ROLES = ['Administrator', 'Recruiter', ...DESIGNATIONS];
 
 // Live, mutable permission state — seeded from DEFAULT_ROLES, overwritten by
 // loadRolesFromDb() at boot, and kept in sync by setRolePermissions().
@@ -304,6 +315,20 @@ async function loadRolesFromDb() {
       };
     });
 
+    // Custom designations are created as role_permissions rows at account
+    // creation. Keep those roles available after a server restart too.
+    Object.entries(fromDb).forEach(([role, permissions]) => {
+      if (DEFAULT_ROLES[role]) return;
+      DEFAULT_ROLES[role] = {
+        modules: permissions.modules,
+        create: permissions.create,
+        edit: permissions.edit,
+        delete: permissions.delete,
+        companies: permissions.companies,
+      };
+      if (!ASSIGNABLE_ROLES.includes(role)) ASSIGNABLE_ROLES.push(role);
+    });
+
     const merged = {};
     const missing = [];
     Object.keys(DEFAULT_ROLES).forEach((role) => {
@@ -383,7 +408,7 @@ async function setRolePermissions(role, { modules, create, edit, delete: deleteM
 // account with a designation that is not on the master list. The new
 // designation then appears in Access Control as its own editable row.
 async function ensureRoleForDesignation(designation) {
-  const name = String(designation || '').trim().toUpperCase();
+  const name = canonicalRoleName(designation);
   if (!name || DEFAULT_ROLES[name] || ASSIGNABLE_ROLES.includes(name)) return;
   const seed = BASE_CATEGORY_PERMS['Plant Operations'];
   DEFAULT_ROLES[name] = {
@@ -408,6 +433,25 @@ async function ensureRoleForDesignation(designation) {
   STATE[name] = JSON.parse(JSON.stringify(DEFAULT_ROLES[name]));
 }
 
+// Keep each non-administrator account's authorization role aligned with its
+// designation. This also repairs older users whose role was saved separately.
+async function syncUserRolesToDesignations() {
+  const { rows } = await pool.query(
+    `SELECT id, designation
+     FROM users
+     WHERE role <> 'Administrator'
+       AND designation IS NOT NULL
+       AND TRIM(designation) <> ''`
+  );
+
+  for (const user of rows) {
+    const role = canonicalRoleName(user.designation);
+    if (!role) continue;
+    await ensureRoleForDesignation(role);
+    await pool.query('UPDATE users SET role = $1 WHERE id = $2 AND role <> $1', [role, user.id]);
+  }
+}
+
 module.exports = {
   ROLES: DEFAULT_ROLES, // kept for anything importing the static shape/fallback
   DESIGNATIONS,
@@ -416,6 +460,7 @@ module.exports = {
   PROTECTED_ROLES,
   ASSIGNABLE_ROLES,
   ensureRoleForDesignation,
+  canonicalRoleName,
   canView,
   canCreate,
   canEdit,
@@ -425,6 +470,7 @@ module.exports = {
   getRoleMatrix,
   getRoleAccess,
   loadUserCompanyAccess,
+  syncUserRolesToDesignations,
   setUserCompanyAccess,
   loadRolesFromDb,
   setRolePermissions,
