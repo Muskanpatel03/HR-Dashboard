@@ -653,7 +653,7 @@ router.post('/login', async (req, res) => {
         permissions: user.permissions || {},
         // Live, admin-editable role permissions — see config/roles.js.
         // The frontend prefers this over its static fallback copy.
-        roleAccess: getRoleAccess(user.role)
+        roleAccess: getRoleAccess(user)
       }
     });
 
@@ -706,7 +706,7 @@ router.get('/me', authenticate, async (req, res) => {
     }
 
     return res.json({
-      user: { ...user, roleAccess: getRoleAccess(user.role) }
+      user: { ...user, roleAccess: getRoleAccess(user) }
     });
 
   } catch (e) {

@@ -9,6 +9,7 @@ const {
   canView,
   canCreate,
   canEdit,
+  canDelete,
   canAccessCompany,
   getRoleCompanies,
   setUserCompanyAccess,
@@ -253,7 +254,7 @@ router.post('/:module/import-batch', async (req, res) => {
         failures.push({ index, message: 'Select a company for this record' });
         continue;
       }
-      if (isCompanyScoped(moduleKey) && !canReadCompany(req.user.role, body.company)) {
+      if (isCompanyScoped(moduleKey) && !canReadCompany(req.user, body.company)) {
         failures.push({ index, message: 'Not permitted to access this company' });
         continue;
       }
@@ -473,9 +474,7 @@ router.post('/:module/bulk-delete', async (req, res) => {
   const moduleKey = backendModuleKey(req.params.module);
   const conf = MODULES[moduleKey];
   if (!conf) return res.status(404).json({ error: 'Unknown module' });
-  if (req.user.role !== 'Administrator') {
-    return res.status(403).json({ error: 'Only an Administrator can delete records' });
-  }
+  if (!canDelete(req.user.role, permissionModuleKey(moduleKey))) return res.status(403).json({ error: 'Not permitted to delete records here' });
 
   const rawIds = req.body?.ids;
   if (!Array.isArray(rawIds) || rawIds.length === 0 || rawIds.length > 500) {
@@ -537,7 +536,7 @@ router.delete('/:module/:id', async (req, res) => {
   const moduleKey = backendModuleKey(req.params.module);
   const conf = MODULES[moduleKey];
   if (!conf) return res.status(404).json({ error: 'Unknown module' });
-  if (req.user.role !== 'Administrator') return res.status(403).json({ error: 'Only an Administrator can delete records' });
+  if (!canDelete(req.user.role, permissionModuleKey(moduleKey))) return res.status(403).json({ error: 'Not permitted to delete records here' });
 
   const client = await pool.connect();
   try {
@@ -551,7 +550,7 @@ router.delete('/:module/:id', async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Record not found' });
     }
-    if (isCompanyScoped(moduleKey) && !canManageRecordCompany(req.user.role, existing.rows[0].company)) {
+    if (isCompanyScoped(moduleKey) && !canManageRecordCompany(req.user, existing.rows[0].company)) {
       await client.query('ROLLBACK');
       return res.status(403).json({ error: 'Not permitted to access this company' });
     }

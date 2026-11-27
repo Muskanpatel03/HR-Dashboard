@@ -1,7 +1,7 @@
 const express = require('express');
 const { pool } = require('../db');
 const { authenticate } = require('../middleware/auth');
-const { canView, canCreate, canEdit, canAccessCompany } = require('../config/roles');
+const { canView, canCreate, canEdit, canDelete, canAccessCompany } = require('../config/roles');
 
 const router = express.Router();
 router.use(authenticate);
@@ -58,7 +58,7 @@ router.get('/', async (req, res) => {
   if (!INDUSTRIES.includes(industry)) {
     return res.status(400).json({ error: 'Invalid industry' });
   }
-  if (!canAccessCompany(req.user.role, industry)) {
+  if (!canAccessCompany(req.user, industry)) {
     return res.status(403).json({ error: 'Not permitted to access this company' });
   }
 
@@ -103,7 +103,7 @@ router.put('/', async (req, res) => {
   if (!INDUSTRIES.includes(industry) || !validMatrix(data)) {
     return res.status(400).json({ error: 'Invalid Operation Matrix data' });
   }
-  if (!canAccessCompany(req.user.role, industry)) {
+  if (!canAccessCompany(req.user, industry)) {
     return res.status(403).json({ error: 'Not permitted to access this company' });
   }
 
@@ -126,9 +126,9 @@ router.put('/', async (req, res) => {
     const hasDeletedRows = currentRows.some((row) => !nextRowsById.has(row.id));
     const hasUpdatedSettings = currentData.fiscalYearEnd !== data.fiscalYearEnd || currentData.reportMonth !== data.reportMonth;
 
-    if (hasDeletedRows && req.user.role !== 'Administrator') {
+    if (hasDeletedRows && !canDelete(req.user.role, 'operationMatrix')) {
       await client.query('ROLLBACK');
-      return res.status(403).json({ error: 'Only an Administrator can delete Operation Matrix rows' });
+      return res.status(403).json({ error: 'Not permitted to delete Operation Matrix rows' });
     }
     if (hasAddedRows && !canCreate(req.user.role, 'operationMatrix')) {
       await client.query('ROLLBACK');

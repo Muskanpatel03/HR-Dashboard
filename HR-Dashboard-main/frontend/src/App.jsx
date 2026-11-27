@@ -414,6 +414,12 @@ export default function App() {
     );
   };
 
+  const canDeleteModule = (key) => {
+    if (!perms) return false;
+    if (user?.role === 'Administrator') return true;
+    return perms.delete === 'all' || (Array.isArray(perms.delete) && perms.delete.includes(key));
+  };
+
   const canViewModule = (key) => {
     if (!perms) return false;
 
@@ -750,7 +756,7 @@ export default function App() {
             <Dashboard
               editable={canEditModule('operationMatrix')}
               creatable={canCreateModule('operationMatrix')}
-              canDelete={user?.role === 'Administrator'}
+              canDelete={canDeleteModule('operationMatrix')}
               canViewMatrix={canViewModule('operationMatrix') || canSeeDashboard}
               canViewLegalDocuments={canViewModule('license')}
               canViewCompliances={canViewModule('Compliances/Agreements')}
@@ -805,7 +811,7 @@ export default function App() {
                 canEditModule
               }
               canCreateModule={canCreateModule}
-              canDelete={user?.role === 'Administrator'}
+              canDelete={canDeleteModule('recruitment')}
               companyId={companyId}
               onCompanyChange={handleCompanyChange}
               allowedCompanies={allowedCompanies}
@@ -814,7 +820,7 @@ export default function App() {
           )}
 
           {active === 'training' && (
-            <TrainingHub canEditModule={canEditModule} canCreateModule={canCreateModule} canDelete={user?.role === 'Administrator'} companyId={companyId} onCompanyChange={handleCompanyChange} allowedCompanies={allowedCompanies} />
+            <TrainingHub canEditModule={canEditModule} canCreateModule={canCreateModule} canDelete={canDeleteModule('training')} companyId={companyId} onCompanyChange={handleCompanyChange} allowedCompanies={allowedCompanies} />
           )}
 
           {active === 'manpower' && (
@@ -822,7 +828,7 @@ export default function App() {
               visibleModuleKeys={visibleModuleKeys}
               canEditModule={canEditModule}
               canCreateModule={canCreateModule}
-              canDelete={user?.role === 'Administrator'}
+              canDelete={canDeleteModule('manpower')}
               companyId={companyId}
               onCompanyChange={handleCompanyChange}
               allowedCompanies={allowedCompanies}
@@ -847,7 +853,7 @@ export default function App() {
                   config={MODULE_MAP[active]}
                   editable={canEditModule(active)}
                   creatable={canCreateModule(active)}
-                  canDelete={user?.role === 'Administrator'}
+                  canDelete={canDeleteModule(active)}
                   companyId={companyId}
                 />
               </>

@@ -79,6 +79,8 @@ async function ensureCurrentSchema() {
     'UPDATE role_permissions SET create_modules = edit WHERE create_modules IS NULL',
     "ALTER TABLE IF EXISTS role_permissions ALTER COLUMN create_modules SET DEFAULT '[]'::jsonb",
     'ALTER TABLE IF EXISTS role_permissions ALTER COLUMN create_modules SET NOT NULL',
+    "ALTER TABLE IF EXISTS role_permissions ADD COLUMN IF NOT EXISTS delete_modules JSONB NOT NULL DEFAULT '[]'::jsonb",
+    `UPDATE role_permissions SET delete_modules = '"all"'::jsonb WHERE role = 'Administrator' AND delete_modules = '[]'::jsonb`,
     'ALTER TABLE IF EXISTS audit_log ADD COLUMN IF NOT EXISTS company TEXT',
     `CREATE TABLE IF NOT EXISTS daily_manpower (
       id SERIAL PRIMARY KEY,

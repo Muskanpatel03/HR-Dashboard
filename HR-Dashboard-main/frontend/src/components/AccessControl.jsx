@@ -21,6 +21,7 @@ function labelFor(key) {
 
 // Access to these modules is always Administrator-only for both create and edit.
 const ALWAYS_ADMIN_MANAGE = ['usersmgmt', 'roles'];
+const ALWAYS_ADMIN_DELETE = ['usersmgmt', 'roles', 'audit'];
 
 export default function AccessControl() {
   const [data, setData] = useState(cachedRoleData); // { roles, allModules, protectedRoles, assignableRoles }
@@ -69,6 +70,7 @@ export default function AccessControl() {
   function toggle(role, listKey, moduleKey) {
     if (protectedRoles.includes(role)) return;
     if (['create', 'edit'].includes(listKey) && ALWAYS_ADMIN_MANAGE.includes(moduleKey)) return;
+    if (listKey === 'delete' && ALWAYS_ADMIN_DELETE.includes(moduleKey)) return;
 
     setData((prev) => {
       const current = prev.roles[role];
@@ -87,6 +89,8 @@ export default function AccessControl() {
         nextRole.create = createList.filter((m) => m !== moduleKey);
         const editList = nextRole.edit === 'all' ? [...allModules] : nextRole.edit;
         nextRole.edit = editList.filter((m) => m !== moduleKey);
+        const deleteList = nextRole.delete === 'all' ? [...allModules] : (nextRole.delete || []);
+        nextRole.delete = deleteList.filter((m) => m !== moduleKey);
       }
 
       return { ...prev, roles: { ...prev.roles, [role]: nextRole } };
@@ -122,6 +126,7 @@ export default function AccessControl() {
       modules: perm.modules,
       create: perm.create,
       edit: perm.edit,
+      delete: perm.delete || [],
       companies: perm.companies || data.allCompanies,
     })
       .then(() => {
@@ -140,7 +145,7 @@ export default function AccessControl() {
   return (
     <div className="space-y-6" style={{ maxWidth: 1240, margin: '0 auto', padding: '8px 12px 28px' }}>
       <div style={{ color: C.ink2, fontSize: 13, lineHeight: 1.6 }}>
-        <strong>View</strong> controls who can see each module. <strong>Create</strong> controls who can add records, and <strong>Edit / Change</strong> controls who can update them. Delete is Administrator-only. Turning View off also removes Create and Edit.
+        <strong>View</strong> controls who can see each module. <strong>Create</strong> controls who can add records, <strong>Edit / Change</strong> controls who can update them, and <strong>Delete</strong> controls who can remove records. User management, access control, and audit data remain Administrator-only. Turning View off also removes the other permissions for that module.
         Save a role to apply its access changes across the app.
       </div>
 
@@ -171,6 +176,7 @@ export default function AccessControl() {
         const viewList = perm.modules === 'all' ? allModules : perm.modules;
         const createList = perm.create === 'all' ? allModules : perm.create;
         const editList = perm.edit === 'all' ? allModules : perm.edit;
+        const deleteList = perm.delete === 'all' ? allModules : (perm.delete || []);
         const companyList = perm.companies || data.allCompanies || COMPANY_OPTIONS.map((company) => company.id);
 
         return (
@@ -273,7 +279,9 @@ export default function AccessControl() {
                         const canView = perm.modules === 'all' || viewList.includes(m);
                         const canCreate = perm.create === 'all' || createList.includes(m);
                         const canEdit = perm.edit === 'all' || editList.includes(m);
+                        const canDelete = perm.delete === 'all' || deleteList.includes(m);
                         const manageLocked = ALWAYS_ADMIN_MANAGE.includes(m);
+                        const deleteLocked = ALWAYS_ADMIN_DELETE.includes(m);
                         return (
                           <tr key={m} style={{ borderTop: `1px solid ${C.line}` }}>
                             <td className="py-1.5" style={{ color: C.ink, textAlign: 'center', padding: '10px 12px', verticalAlign: 'middle' }}>{labelFor(m)}</td>
@@ -306,8 +314,19 @@ export default function AccessControl() {
                                 onChange={() => toggle(role, 'edit', m)}
                               />
                             </td>
-                            <td className="px-3 py-1.5" style={{ color: isProtected ? C.moss : C.ink2, textAlign: 'center', padding: '10px 12px', verticalAlign: 'middle', fontSize: 11 }}>
-                              {isProtected ? 'Allowed' : 'Admin only'}
+                            <td className="px-3 py-1.5" style={{ textAlign: 'center', padding: '10px 12px', verticalAlign: 'middle' }}>
+                              {deleteLocked ? (
+                                <span style={{ color: isProtected ? C.moss : C.ink2, fontSize: 11 }}>{isProtected ? 'Allowed' : 'Admin only'}</span>
+                              ) : (
+                                <input
+                                  type="checkbox"
+                                  checked={isProtected || canDelete}
+                                  disabled={isProtected || !canView}
+                                  title={!canView ? 'Grant View first' : ''}
+                                  aria-label={`${canDelete ? 'Allow' : 'Deny'} ${role} to delete ${labelFor(m)}`}
+                                  onChange={() => toggle(role, 'delete', m)}
+                                />
+                              )}
                             </td>
                           </tr>
                         );

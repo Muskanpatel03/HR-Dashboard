@@ -93,12 +93,22 @@ DESIGNATIONS.forEach((d) => {
   };
 });
 
+// Full data-entry access for the specific HR/Director role assignments used
+// by the four company-scoped data-entry accounts. User-level company access
+// still limits each account to its assigned company.
+const COMPANY_DATA_MODULES = [
+  'dashboard', 'manpower', 'recruitment', 'hiring', 'separation',
+  'loanSummary', 'retirement', 'electricity', 'canteen', 'healthcheck',
+  'engagement', 'training', 'attendance', 'license',
+  'Compliances/Agreements', 'operationMatrix',
+];
+
 const DEFAULT_ROLES = {
   // IT / system owner — full access to every module including Audit Trail
   // and Access Control itself. Pre-created only via `npm run create-admin`.
   // Cannot be edited via the Access Control UI — see PROTECTED_ROLES below,
   // to make it impossible to lock every admin out of the system.
-  Administrator: { modules: 'all', edit: 'all' },
+  Administrator: { modules: 'all', edit: 'all', delete: 'all' },
 
   // Legacy conceptual roles — kept ONLY for accounts that were assigned one
   // of these before the switch to per-designation access. Not offered as a
@@ -125,10 +135,24 @@ const DEFAULT_ROLES = {
   ...DESIGNATION_ROLES,
 };
 
+DEFAULT_ROLES.HR = {
+  modules: [...COMPANY_DATA_MODULES],
+  create: [...COMPANY_DATA_MODULES],
+  edit: [...COMPANY_DATA_MODULES],
+  delete: [...COMPANY_DATA_MODULES],
+};
+DEFAULT_ROLES.DIRECTOR = {
+  modules: [...COMPANY_DATA_MODULES],
+  create: [...COMPANY_DATA_MODULES],
+  edit: [...COMPANY_DATA_MODULES],
+  delete: [...COMPANY_DATA_MODULES],
+};
+
 Object.values(DEFAULT_ROLES).forEach((permissions) => {
   if (permissions.create === undefined) {
     permissions.create = Array.isArray(permissions.edit) ? [...permissions.edit] : permissions.edit;
   }
+  if (permissions.delete === undefined) permissions.delete = [];
 });
 
 // Every module key the app knows about — used to build the Access Control
@@ -215,6 +239,15 @@ function canCreate(role, moduleKey) {
   return perm.create === 'all' || (Array.isArray(perm.create) && perm.create.includes(moduleKey));
 }
 
+function canDelete(role, moduleKey) {
+  if (moduleKey === 'usersmgmt' || moduleKey === 'roles' || moduleKey === 'audit') {
+    return PRIVILEGED_ROLE_MANAGERS.includes(role);
+  }
+  const perm = STATE[role];
+  if (!perm) return false;
+  return perm.delete === 'all' || (Array.isArray(perm.delete) && perm.delete.includes(moduleKey));
+}
+
 function canAccessCompany(role, company) {
   const roleName = typeof role === 'object' && role ? role.role : role;
   const perm = STATE[roleName];
@@ -227,7 +260,9 @@ function getRoleCompanies(roleOrUser) {
   const companies = STATE[role]?.companies;
   const roleCompanies = Array.isArray(companies) ? companies : [...ALL_COMPANY_IDS];
   if (!user || role === 'Administrator') return roleCompanies;
-  const assignedCompany = USER_COMPANY_ACCESS.get(Number(user.id));
+  const assignedCompany = Array.isArray(user.company_access) && user.company_access.length
+    ? user.company_access
+    : USER_COMPANY_ACCESS.get(Number(user.id));
   return Array.isArray(assignedCompany)
     ? assignedCompany.filter((company) => roleCompanies.includes(company))
     : (assignedCompany && roleCompanies.includes(assignedCompany) ? [assignedCompany] : []);
@@ -239,9 +274,10 @@ function getRoleMatrix() {
   return JSON.parse(JSON.stringify(STATE));
 }
 
-function getRoleAccess(role) {
-  const permissions = STATE[role] || { modules: [], create: [], edit: [] };
-  return { ...permissions, companies: getRoleCompanies(role) };
+function getRoleAccess(roleOrUser) {
+  const roleName = typeof roleOrUser === 'object' && roleOrUser ? roleOrUser.role : roleOrUser;
+  const permissions = STATE[roleName] || { modules: [], create: [], edit: [], delete: [] };
+  return { ...permissions, companies: getRoleCompanies(roleOrUser) };
 }
 
 // Loads persisted permissions from the DB into STATE at startup. If a role
@@ -249,13 +285,14 @@ function getRoleAccess(role) {
 // it from DEFAULT_ROLES so behaviour is unchanged until an admin edits it.
 async function loadRolesFromDb() {
   try {
-    const { rows } = await pool.query('SELECT role, modules, create_modules, edit, company_access FROM role_permissions');
+    const { rows } = await pool.query('SELECT role, modules, create_modules, edit, delete_modules, company_access FROM role_permissions');
     const fromDb = {};
     rows.forEach((r) => {
       fromDb[r.role] = {
         modules: r.modules,
         create: r.create_modules || r.edit,
         edit: r.edit,
+        delete: r.delete_modules || [],
         companies: Array.isArray(r.company_access) ? r.company_access : [...ALL_COMPANY_IDS],
       };
     });
@@ -276,9 +313,9 @@ async function loadRolesFromDb() {
     // Seed any missing rows so future edits persist correctly.
     for (const role of missing) {
       await pool.query(
-        `INSERT INTO role_permissions (role, modules, create_modules, edit, company_access) VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO role_permissions (role, modules, create_modules, edit, delete_modules, company_access) VALUES ($1, $2, $3, $4, $5, $6)
          ON CONFLICT (role) DO NOTHING`,
-        [role, JSON.stringify(DEFAULT_ROLES[role].modules), JSON.stringify(DEFAULT_ROLES[role].create), JSON.stringify(DEFAULT_ROLES[role].edit), JSON.stringify(ALL_COMPANY_IDS)]
+        [role, JSON.stringify(DEFAULT_ROLES[role].modules), JSON.stringify(DEFAULT_ROLES[role].create), JSON.stringify(DEFAULT_ROLES[role].edit), JSON.stringify(DEFAULT_ROLES[role].delete), JSON.stringify(ALL_COMPANY_IDS)]
       );
     }
   } catch (e) {
@@ -292,13 +329,13 @@ async function loadRolesFromDb() {
 
 // Persists + applies an edit to one role's permissions. Throws on an invalid
 // role/module so the route layer can turn that into a 400.
-async function setRolePermissions(role, { modules, create, edit, companies }) {
+async function setRolePermissions(role, { modules, create, edit, delete: deleteModules, companies }) {
   if (!DEFAULT_ROLES[role]) throw new Error(`Unknown role: ${role}`);
   if (PROTECTED_ROLES.includes(role)) throw new Error(`${role} permissions cannot be changed`);
 
   const cleanList = (val) => {
     if (val === 'all') return 'all';
-    if (!Array.isArray(val)) throw new Error('modules/create/edit must be an array or "all"');
+    if (!Array.isArray(val)) throw new Error('modules/create/edit/delete must be an array or "all"');
     const invalid = val.filter((m) => !ALL_MODULE_KEYS.includes(m));
     if (invalid.length) throw new Error(`Unknown module key(s): ${invalid.join(', ')}`);
     return [...new Set(val)];
@@ -307,13 +344,16 @@ async function setRolePermissions(role, { modules, create, edit, companies }) {
   const cleanModules = cleanList(modules);
   let cleanCreate = cleanList(create === undefined ? edit : create);
   let cleanEdit = cleanList(edit);
+  let cleanDelete = cleanList(deleteModules === undefined ? [] : deleteModules);
   // usersmgmt and roles are always Administrator-only, no matter what an
   // admin sets here for another role — strip them defensively.
   if (Array.isArray(cleanCreate)) cleanCreate = cleanCreate.filter((m) => m !== 'usersmgmt' && m !== 'roles');
   if (Array.isArray(cleanEdit)) cleanEdit = cleanEdit.filter((m) => m !== 'usersmgmt' && m !== 'roles');
+  if (Array.isArray(cleanDelete)) cleanDelete = cleanDelete.filter((m) => !['usersmgmt', 'roles', 'audit'].includes(m));
   if (Array.isArray(cleanModules)) {
     if (Array.isArray(cleanCreate)) cleanCreate = cleanCreate.filter((m) => cleanModules.includes(m));
     if (Array.isArray(cleanEdit)) cleanEdit = cleanEdit.filter((m) => cleanModules.includes(m));
+    if (Array.isArray(cleanDelete)) cleanDelete = cleanDelete.filter((m) => cleanModules.includes(m));
   }
 
   if (!Array.isArray(companies)) throw new Error('companies must be an array');
@@ -322,12 +362,12 @@ async function setRolePermissions(role, { modules, create, edit, companies }) {
   const cleanCompanies = [...new Set(companies)];
 
   await pool.query(
-    `INSERT INTO role_permissions (role, modules, create_modules, edit, company_access, updated_at) VALUES ($1, $2, $3, $4, $5, now())
-     ON CONFLICT (role) DO UPDATE SET modules = $2, create_modules = $3, edit = $4, company_access = $5, updated_at = now()`,
-    [role, JSON.stringify(cleanModules), JSON.stringify(cleanCreate), JSON.stringify(cleanEdit), JSON.stringify(cleanCompanies)]
+    `INSERT INTO role_permissions (role, modules, create_modules, edit, delete_modules, company_access, updated_at) VALUES ($1, $2, $3, $4, $5, $6, now())
+     ON CONFLICT (role) DO UPDATE SET modules = $2, create_modules = $3, edit = $4, delete_modules = $5, company_access = $6, updated_at = now()`,
+    [role, JSON.stringify(cleanModules), JSON.stringify(cleanCreate), JSON.stringify(cleanEdit), JSON.stringify(cleanDelete), JSON.stringify(cleanCompanies)]
   );
 
-  STATE[role] = { modules: cleanModules, create: cleanCreate, edit: cleanEdit, companies: cleanCompanies };
+  STATE[role] = { modules: cleanModules, create: cleanCreate, edit: cleanEdit, delete: cleanDelete, companies: cleanCompanies };
   return STATE[role];
 }
 
@@ -343,17 +383,19 @@ async function ensureRoleForDesignation(designation) {
     modules: Array.isArray(seed.modules) ? [...seed.modules] : seed.modules,
     create: Array.isArray(seed.create) ? [...seed.create] : (seed.create || []),
     edit: Array.isArray(seed.edit) ? [...seed.edit] : (seed.edit || []),
+    delete: [],
     companies: [...ALL_COMPANY_IDS],
   };
   ASSIGNABLE_ROLES.push(name);
   await pool.query(
-    `INSERT INTO role_permissions (role, modules, create_modules, edit, company_access)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO role_permissions (role, modules, create_modules, edit, delete_modules, company_access)
+     VALUES ($1, $2, $3, $4, $5, $6)
      ON CONFLICT (role) DO NOTHING`,
     [name,
      JSON.stringify(DEFAULT_ROLES[name].modules),
      JSON.stringify(DEFAULT_ROLES[name].create),
      JSON.stringify(DEFAULT_ROLES[name].edit),
+     JSON.stringify(DEFAULT_ROLES[name].delete),
      JSON.stringify(ALL_COMPANY_IDS)]
   ).catch(() => { /* schema not ready yet — in-memory state still works */ });
   STATE[name] = JSON.parse(JSON.stringify(DEFAULT_ROLES[name]));
@@ -370,6 +412,7 @@ module.exports = {
   canView,
   canCreate,
   canEdit,
+  canDelete,
   canAccessCompany,
   getRoleCompanies,
   getRoleMatrix,

@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS role_permissions (
   modules JSONB NOT NULL DEFAULT '[]'::jsonb,
   create_modules JSONB NOT NULL DEFAULT '[]'::jsonb,
   edit JSONB NOT NULL DEFAULT '[]'::jsonb,
+  delete_modules JSONB NOT NULL DEFAULT '[]'::jsonb,
   company_access JSONB NOT NULL DEFAULT '["Automat Industries (Site 4)", "Automat Irrigation", "Smith", "HO"]'::jsonb,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -43,6 +44,8 @@ ALTER TABLE role_permissions ADD COLUMN IF NOT EXISTS create_modules JSONB;
 UPDATE role_permissions SET create_modules = edit WHERE create_modules IS NULL;
 ALTER TABLE role_permissions ALTER COLUMN create_modules SET DEFAULT '[]'::jsonb;
 ALTER TABLE role_permissions ALTER COLUMN create_modules SET NOT NULL;
+ALTER TABLE role_permissions ADD COLUMN IF NOT EXISTS delete_modules JSONB NOT NULL DEFAULT '[]'::jsonb;
+UPDATE role_permissions SET delete_modules = '"all"'::jsonb WHERE role = 'Administrator' AND delete_modules = '[]'::jsonb;
 
 CREATE TABLE IF NOT EXISTS operation_matrix (
   id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),

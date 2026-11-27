@@ -2,6 +2,8 @@ import React from 'react';
 import { C, COMPANY_OPTIONS } from '../config';
 
 export default function CompanySelector({ value, onChange, companies = COMPANY_OPTIONS, includeAll = true }) {
+  if (companies.length <= 1) return null;
+
   const options = [
     ...(includeAll && companies.length === COMPANY_OPTIONS.length ? [{ id: 'all', shortLabel: 'All companies' }] : []),
     ...companies,

@@ -655,7 +655,7 @@ export function DashboardSummary({ allowedCompanies, onOpenSection }) {
     return weightedTotal / totalWeight;
   };
 
-  const allCompanyData = !loading && summaries.length === allowedCompanies.length && summaries.length ? (() => {
+  const allCompanyData = allowedCompanies.length === COMPANY_OPTIONS.length && !loading && summaries.length === allowedCompanies.length && summaries.length ? (() => {
     const allPermissions = {};
     const allKpis = {};
     const loanByUnitMap = new Map();
@@ -1000,7 +1000,7 @@ export default function Dashboard({ editable, creatable, canDelete, canViewMatri
     <div className="dashboard-layout">
       {canViewMatrix && (
         <>
-          <section className="company-selector-shell" aria-label="Select company">
+          {allowedCompanies.length > 1 && <section className="company-selector-shell" aria-label="Select company">
             <div className="company-selector-header">
               <div>
                 <div className="company-selector-kicker">Company portfolio</div>
@@ -1049,7 +1049,7 @@ export default function Dashboard({ editable, creatable, canDelete, canViewMatri
                 );
               })}
             </div>
-          </section>
+          </section>}
 
           {selectedCompany && <div className="company-selector-detail" aria-live="polite">
             <div>
