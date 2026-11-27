@@ -56,9 +56,8 @@ export default function Login({ onLogin }) {
       // Head, Electricity/Plant Operations, etc.) can only be created by an
       // Administrator, from inside the app, under User Management.
       await api.post('/auth/register', { name, email, password });
-      setMode('otp');
-      setOtp('');
-      setInfo(`We've sent a 6-digit OTP to ${email}. Enter it below to verify your email.`);
+      const { data } = await api.post('/auth/login', { email, password });
+      afterAuth(data);
     } catch (err) {
       setError(err.response?.data?.error || 'Could not reach the server. Is the API running?');
     } finally {

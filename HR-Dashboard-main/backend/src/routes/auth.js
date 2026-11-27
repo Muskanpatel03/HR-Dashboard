@@ -137,14 +137,14 @@ function escapeHtml(value) {
 |--------------------------------------------------------------------------
 | POST /api/auth/register
 |--------------------------------------------------------------------------
-| Creates an account that's immediately usable — as soon as the OTP is
-| verified, the user can log in. No administrator-approval step exists
+| Creates an account that's immediately usable without email verification.
+| No administrator-approval step exists
 | anywhere in this flow.
 |
 | New users:
 |   role   = Viewer
 |   status = Active
-|   email_verified = false (until OTP is verified; login is blocked till then)
+|   email_verified = true (OTP verification is disabled for now)
 |--------------------------------------------------------------------------
 */
 
@@ -205,8 +205,7 @@ router.post('/register', async (req, res) => {
     const passwordHash = await bcrypt.hash(cleanPassword, 12);
 
     /*
-     * New accounts are ALWAYS Viewer + Active. Email verification (OTP)
-     * is the only gate before login — no administrator approval step.
+     * New accounts are ALWAYS Viewer + Active and immediately usable.
      * No role is accepted from the frontend.
      */
     const result = await pool.query(
@@ -223,7 +222,7 @@ router.post('/register', async (req, res) => {
           updated_at
         )
        VALUES
-        ($1, $2, $3, 'Viewer', 'Active', false, '{}'::jsonb, now(), now())
+        ($1, $2, $3, 'Viewer', 'Active', true, '{}'::jsonb, now(), now())
        RETURNING
         id,
         name,
@@ -239,49 +238,6 @@ router.post('/register', async (req, res) => {
     );
 
     const user = result.rows[0];
-
-    /*
-     * Generate OTP.
-     */
-    const otp = generateOtp();
-    const otpHash = hashOtp(otp);
-
-    /*
-     * OTP expires after 10 minutes.
-     */
-    await pool.query(
-      `INSERT INTO email_otps
-        (user_id, otp_hash, expires_at)
-       VALUES
-        ($1, $2, now() + interval '10 minutes')`,
-      [user.id, otpHash]
-    );
-
-    /*
-     * Send OTP.
-     */
-    try {
-      await sendOtpEmail(
-        user.email,
-        user.name,
-        otp
-      );
-    } catch (mailError) {
-      console.error('OTP email failed:', mailError);
-
-      /*
-       * Remove user if email could not be sent.
-       * This allows the person to try registration again.
-       */
-      await pool.query(
-        'DELETE FROM users WHERE id = $1',
-        [user.id]
-      );
-
-      return res.status(500).json({
-        error: 'Unable to send verification email. Please try again.'
-      });
-    }
 
     /*
      * Audit entry.
@@ -305,8 +261,8 @@ router.post('/register', async (req, res) => {
     }
 
     return res.status(201).json({
-      message: 'Account created. A verification OTP has been sent to your email.',
-      requiresOtp: true,
+      message: 'Account created. You can now sign in.',
+      requiresOtp: false,
       user: {
         id: user.id,
         name: user.name,
@@ -605,15 +561,8 @@ router.post('/login', async (req, res) => {
     }
 
     /*
-     * Email must be verified before login.
+     * Email verification is disabled for now.
      */
-    if (!user.email_verified) {
-      return res.status(403).json({
-        error: 'Please verify your email with the OTP before logging in.',
-        requiresVerification: true
-      });
-    }
-
     /*
      * Account must be active. There is no approval gate for new
      * self-signups — an Administrator can only deactivate an account
