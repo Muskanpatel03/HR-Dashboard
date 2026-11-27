@@ -52,7 +52,7 @@ import {
   ROLES,
 } from './config';
 
-const RECRUITMENT_GROUP = ['recruitment', 'hiring', 'separation'];
+const RECRUITMENT_GROUP = ['recruitment', 'recruitmentAnalysis', 'hiring', 'separation'];
 
 export default function App() {
   // ==================================================
@@ -185,7 +185,7 @@ export default function App() {
     if (!perms) return [];
 
     if (perms.modules === 'all') {
-      return MODULES.map((m) => m.key);
+      return [...MODULES.map((m) => m.key), 'recruitmentAnalysis'];
     }
 
     return perms.modules.filter((k) => k !== 'dashboard');

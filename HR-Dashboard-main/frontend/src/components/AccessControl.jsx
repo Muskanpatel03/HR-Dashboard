@@ -13,6 +13,7 @@ const EXTRA_LABELS = {
   audit: 'Audit Trail',
   roles: 'Access Control',
   operationMatrix: 'HR Matrix',
+  recruitmentAnalysis: 'Recruitment Analysis',
 };
 
 function labelFor(key) {

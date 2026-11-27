@@ -97,7 +97,7 @@ DESIGNATIONS.forEach((d) => {
 // by the four company-scoped data-entry accounts. User-level company access
 // still limits each account to its assigned company.
 const COMPANY_DATA_MODULES = [
-  'dashboard', 'manpower', 'recruitment', 'hiring', 'separation',
+  'dashboard', 'manpower', 'recruitment', 'recruitmentAnalysis', 'hiring', 'separation',
   'loanSummary', 'retirement', 'electricity', 'canteen', 'healthcheck',
   'engagement', 'training', 'attendance', 'license',
   'Compliances/Agreements', 'operationMatrix',
@@ -114,11 +114,11 @@ const DEFAULT_ROLES = {
   // of these before the switch to per-designation access. Not offered as a
   // choice for new users any more.
   'HR Manager': {
-    modules: ['dashboard', 'manpower', 'recruitment', 'hiring', 'separation', 'retirement', 'healthcheck', 'engagement', 'training', 'attendance', 'license', 'Compliances/Agreements'],
-    edit: ['manpower', 'recruitment', 'hiring', 'separation', 'retirement', 'healthcheck', 'engagement', 'training', 'attendance', 'license', 'Compliances/Agreements'],
+    modules: ['dashboard', 'manpower', 'recruitment', 'recruitmentAnalysis', 'hiring', 'separation', 'retirement', 'healthcheck', 'engagement', 'training', 'attendance', 'license', 'Compliances/Agreements'],
+    edit: ['manpower', 'recruitment', 'recruitmentAnalysis', 'hiring', 'separation', 'retirement', 'healthcheck', 'engagement', 'training', 'attendance', 'license', 'Compliances/Agreements'],
   },
   'Plant Head': BASE_CATEGORY_PERMS['Plant Head'],
-  Recruiter: { modules: ['dashboard', 'recruitment', 'hiring'], edit: ['recruitment', 'hiring'] },
+  Recruiter: { modules: ['dashboard', 'recruitment', 'recruitmentAnalysis', 'hiring'], edit: ['recruitment', 'recruitmentAnalysis', 'hiring'] },
   'Finance & Accounts': { modules: ['dashboard', 'loanSummary', 'electricity', 'canteen'], edit: ['loanSummary', 'electricity', 'canteen'] },
   'Plant Operations': BASE_CATEGORY_PERMS['Plant Operations'],
   Management: BASE_CATEGORY_PERMS['Management'],
@@ -127,7 +127,7 @@ const DEFAULT_ROLES = {
   // an account gets this role is through POST /api/auth/register, which
   // hardcodes it server-side regardless of what the client sends.
   Viewer: {
-    modules: ['dashboard', 'manpower', 'recruitment', 'hiring', 'separation', 'retirement', 'electricity', 'canteen', 'healthcheck', 'engagement', 'training', 'attendance', 'license', 'Compliances/Agreements'],
+    modules: ['dashboard', 'manpower', 'recruitment', 'recruitmentAnalysis', 'hiring', 'separation', 'retirement', 'electricity', 'canteen', 'healthcheck', 'engagement', 'training', 'attendance', 'license', 'Compliances/Agreements'],
     edit: [],
   },
 
@@ -162,6 +162,7 @@ const ALL_MODULE_KEYS = [
   'dashboard',
   'manpower',
   'recruitment',
+  'recruitmentAnalysis',
   'hiring',
   'separation',
   'loanSummary',
@@ -288,11 +289,17 @@ async function loadRolesFromDb() {
     const { rows } = await pool.query('SELECT role, modules, create_modules, edit, delete_modules, company_access FROM role_permissions');
     const fromDb = {};
     rows.forEach((r) => {
+      // Recruitment Analysis used to inherit Recruitment access implicitly.
+      // Preserve that behavior for existing DB roles while making it an
+      // independently editable permission going forward.
+      const inheritRecruitment = (list) => Array.isArray(list) && list.includes('recruitment') && !list.includes('recruitmentAnalysis')
+        ? [...list, 'recruitmentAnalysis']
+        : list;
       fromDb[r.role] = {
-        modules: r.modules,
-        create: r.create_modules || r.edit,
-        edit: r.edit,
-        delete: r.delete_modules || [],
+        modules: inheritRecruitment(r.modules),
+        create: inheritRecruitment(r.create_modules || r.edit),
+        edit: inheritRecruitment(r.edit),
+        delete: inheritRecruitment(r.delete_modules || []),
         companies: Array.isArray(r.company_access) ? r.company_access : [...ALL_COMPANY_IDS],
       };
     });

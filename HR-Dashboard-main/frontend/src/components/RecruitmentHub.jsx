@@ -18,7 +18,7 @@ const readStoredTab = () => {
   try { return localStorage.getItem(TAB_STORAGE_KEY); } catch { return null; }
 };
 
-const permKey = (key) => (key === 'recruitmentAnalysis' ? 'recruitment' : key);
+const permKey = (key) => key;
 
 export default function RecruitmentHub({ visibleModuleKeys, canEditModule, canCreateModule, canDelete, companyId, onCompanyChange, allowedCompanies, initialTab }) {
   const availableTabs = TABS.filter((t) => visibleModuleKeys.includes(permKey(t.key)));
